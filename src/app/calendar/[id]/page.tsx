@@ -5,16 +5,17 @@ export default async function CalendarPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const token = (searchParams?.token as string) || "";
+  const qs = (await searchParams) ?? {};
+  const token = (qs.token as string) || "";
 
   return (
     <main>
       <h1>GFC Calendar</h1>
 
-      {/* expose ?token= to the client (optional, used later for sharing) */}
+      {/* expose ?token= to the client (optional, used for sharing) */}
       <script
         dangerouslySetInnerHTML={{
           __html: `window.__shareToken=${JSON.stringify(token)};`,
