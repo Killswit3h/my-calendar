@@ -1,0 +1,198 @@
+/* =========================
+   Global Styles & Theme
+   ========================= */
+
+/* Default = DARK THEME */
+:root {
+  /* Page & text */
+  --page-bg: #000000;
+  --text: #f5f5f5;
+  --muted: #b7b7b7;
+
+  /* Surfaces & accents */
+  --card: #111111;
+  --border: #888888;        /* calendar grid border color in dark */
+  --primary: #2563eb;
+  --danger: #b91c1c;
+
+  /* Calendar cell colors (dark) */
+  --cal-cell-bg: #2e2e2e;   /* day cells */
+  --cal-header-bg: #3a3a3a; /* day-of-week header */
+  --cal-hover-bg: #4a4a4a;  /* hover over day */
+
+  /* FullCalendar vars */
+  --fc-page-bg-color: var(--page-bg);
+  --fc-neutral-bg-color: transparent;
+  --fc-neutral-text-color: var(--muted);
+  --fc-border-color: var(--border);
+  --fc-event-text-color: #ffffff;
+  --fc-today-bg-color: rgba(37, 99, 235, 0.15);
+
+  /* Taller month rows (≈2x) */
+  --fc-daygrid-row-min-height: 6.5em;
+}
+
+/* LIGHT THEME OVERRIDES */
+html[data-theme="light"] {
+  --page-bg: #ffffff;
+  --text: #111111;
+  --muted: #525252;
+
+  --card: #fafafa;
+  --border: #444444;        /* thicker, darker lines for contrast in light mode */
+
+  --cal-cell-bg: #fdfdfd;   /* day cells */
+  --cal-header-bg: #f4f4f4; /* header */
+  --cal-hover-bg: #e6f0ff;  /* soft blue hover */
+
+  --fc-page-bg-color: var(--page-bg);
+  --fc-neutral-bg-color: #fafafa;
+  --fc-neutral-text-color: #6b7280;
+  --fc-border-color: var(--border);
+  --fc-event-text-color: #111111;
+  --fc-today-bg-color: rgba(37, 99, 235, 0.10);
+}
+
+/* Base document */
+html, body {
+  padding: 0;
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+a { color: #61dafb; text-decoration: none; }
+
+main { max-width: 960px; margin: 32px auto; }
+
+/* =========================
+   App Shell: Container & Toolbar
+   ========================= */
+
+.cal-wrapper { max-width: 1100px; margin: 24px auto 60px; padding: 0 16px; }
+
+.cal-topbar {
+  display: flex; align-items: center;
+  gap: 12px; margin: 10px 0 14px;
+}
+.cal-topbar .left { display: flex; gap: 8px; }
+.cal-topbar .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.switch span { margin-left: 8px; color: var(--muted); }
+
+/* Buttons */
+.btn {
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn.primary { background: var(--primary); border-color: #1e40af; color: #fff; }
+.btn.ghost   { background: transparent; }
+.btn.danger  { background: var(--danger); border-color: #7f1d1d; color: #fff; }
+.icon {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; width: 36px; height: 36px; cursor: pointer;
+}
+
+/* =========================
+   Drawer (Side Panel)
+   ========================= */
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 360px;
+  background: var(--card); border-left: 1px solid var(--border);
+  box-shadow: -8px 0 30px rgba(0,0,0,0.35); padding: 16px; z-index: 50;
+  display: flex; flex-direction: column;
+}
+.drawer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.drawer-header h3 { margin: 0; font-size: 1.1rem; }
+.drawer-body { display: grid; gap: 10px; }
+.drawer-body label { display: grid; gap: 6px; }
+.drawer-body input[type="text"],
+.drawer-body input[type="datetime-local"],
+.drawer-body input[type="date"],
+.drawer-body textarea {
+  background: var(--page-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.row { display: flex; gap: 10px; }
+.half { flex: 1; }
+.drawer-actions {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+}
+
+/* =========================
+   FullCalendar Overrides
+   ========================= */
+
+/* Outer calendar frame */
+.fc-theme-standard .fc-scrollgrid {
+  border: 2px solid var(--border) !important;
+  border-radius: 12px;
+  background: transparent;
+}
+
+/* Make grid lines thicker and high-contrast */
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border: 2px solid var(--border) !important;
+}
+
+/* Header cells & day cells backgrounds */
+.fc-theme-standard th {
+  background-color: var(--cal-header-bg) !important;
+  color: var(--text);
+}
+.fc-theme-standard td {
+  background-color: var(--cal-cell-bg) !important;
+  color: var(--text);
+  transition: background-color 0.2s ease;
+}
+
+/* Hover over a day cell */
+.fc-theme-standard td:hover {
+  background-color: var(--cal-hover-bg) !important;
+}
+
+/* Give month cells breathing room (works with taller rows) */
+.fc .fc-daygrid-day-frame { padding: 6px; }
+
+/* Toolbar polish */
+.fc .fc-toolbar-title { font-weight: 600; }
+.fc .fc-button { border-radius: 8px; }
+
+/* Optional: make “today” stand out a bit more */
+.fc .fc-day-today .fc-daygrid-day-frame {
+  box-shadow: inset 0 0 0 2px var(--primary);
+  border-radius: 6px;
+}
+
+/* Optional: nicer event pill shape */
+.fc .fc-daygrid-event {
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+/* Paste status banner */
+.paste-banner {
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.paste-banner .link-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  margin-left: 8px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}

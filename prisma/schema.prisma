@@ -1,0 +1,49 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Calendar {
+  id          String       @id @default(cuid())
+  name        String
+  isPrivate   Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  events      Event[]
+  // back relation for ShareToken
+  shareTokens ShareToken[]
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  calendarId  String
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean  @default(false)
+  location    String?
+  color       String?
+  createdAt   DateTime @default(now())
+
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+}
+
+model ShareToken {
+  id         String    @id @default(cuid())
+  calendarId String
+  role       ShareRole
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+}
+
+enum ShareRole {
+  VIEWER
+  EDITOR
+}
