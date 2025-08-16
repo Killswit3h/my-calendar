@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTokenRole, canWrite } from "@/lib/perm";
 
+// GET /api/calendars/:id/events?from=...&to=...[&token=...]
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params; // ✅ Next 15: await params
+  const { id } = await params;
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const token = searchParams.get("token") || undefined;
 
   const events = await prisma.event.findMany({
     where: {
@@ -17,8 +19,8 @@ export async function GET(
       ...(from && to
         ? {
             OR: [
-              { startsAt: { gte: new Date(from), lt: new Date(to) } },
-              { endsAt: { gte: new Date(from), lt: new Date(to) } },
+              { startsAt: { gte: new Date(from), lte: new Date(to) } },
+              { endsAt: { gte: new Date(from), lte: new Date(to) } },
             ],
           }
         : {}),
@@ -29,31 +31,47 @@ export async function GET(
   return NextResponse.json(events);
 }
 
+// POST /api/calendars/:id/events  (create)
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params; // ✅
-  const url = new URL(req.url);
-  const token = url.searchParams.get("token") || undefined;
+  const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const token = searchParams.get("token") || undefined;
 
-  const role = await getTokenRole(token, id);
+  const role = await getTokenRole({ token, calendarId: id });
   if (!canWrite(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
-  const ev = await prisma.event.create({
+
+  // Optional base64 attachment (small files only)
+  let attachmentData: Buffer | undefined;
+  if (body.attachmentBase64) {
+    try {
+      attachmentData = Buffer.from(body.attachmentBase64, "base64");
+    } catch {
+      return NextResponse.json({ error: "Invalid attachment" }, { status: 400 });
+    }
+  }
+
+  const created = await prisma.event.create({
     data: {
       calendarId: id,
       title: body.title,
-      description: body.description ?? null,
+      description: body.description || null,
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
-      allDay: !!body.allDay,
-      location: body.location ?? null,
-      color: body.color ?? null,
+      allDay: true, // keep all-day
+      location: body.location || null,
+      type: body.type || null, // "GUARDRAIL" | "FENCE" | ...
+      attachmentName: body.attachmentName || null,
+      attachmentType: body.attachmentType || null,
+      attachmentData: attachmentData ?? null,
     },
   });
-  return NextResponse.json(ev, { status: 201 });
+
+  return NextResponse.json(created, { status: 201 });
 }

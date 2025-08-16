@@ -1,228 +1,215 @@
-// src/components/CalendarWithData.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
-type EventRecord = {
+// Event type → label + color (derived, not user-entered)
+const TYPE_OPTIONS = [
+  { key: "GUARDRAIL", label: "Guardrail", color: "#16a34a" },   // green
+  { key: "FENCE", label: "Fence", color: "#f97316" },           // orange
+  { key: "TEMP_FENCE", label: "Temporary Fence", color: "#facc15" }, // yellow
+  { key: "HANDRAIL", label: "Handrail", color: "#2563eb" },     // blue
+  { key: "ATTENUATOR", label: "Attenuator", color: "#ef4444" }, // red
+] as const;
+
+function colorForType(type?: string | null) {
+  const o = TYPE_OPTIONS.find((t) => t.key === type);
+  return o?.color ?? "#3b82f6"; // default blue
+}
+
+type CalEvent = {
   id: string;
   title: string;
   description?: string | null;
-  color?: string | null;
-  startsAt: string; // ISO (start of day)
-  endsAt: string;   // ISO (exclusive end, start of next day)
-  allDay: boolean;  // always true in this scheduler
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  type?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
 };
 
 export default function CalendarWithData({ calendarId }: { calendarId: string }) {
-  const token =
-    (typeof window !== "undefined" && (window as any).__shareToken) || "";
-  const calRef = useRef<FullCalendar | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<CalEvent | null>(null);
 
-  const [mode, setMode] = useState<"dark" | "light">("dark");
+  // draft fields
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftDesc, setDraftDesc] = useState("");
+  const [draftType, setDraftType] = useState<string>("GUARDRAIL");
+  const [draftStarts, setDraftStarts] = useState<string>("");
+  const [draftEnds, setDraftEnds] = useState<string>("");
+  const [file, setFile] = useState<File | null>(null);
 
-  // Side panel state
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [current, setCurrent] = useState<EventRecord | null>(null);
-  const [saving, setSaving] = useState(false);
+  const calendarRef = useRef<FullCalendar>(null);
 
-  // Copy/Paste state
-  const [copied, setCopied] = useState<EventRecord | null>(null);
-  const [pasteArmed, setPasteArmed] = useState(false);
-
+  // theme toggle
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", mode);
-  }, [mode]);
+    const html = document.documentElement;
+    if (theme === "dark") {
+      html.classList.add("dark");
+    } else {
+      html.classList.remove("dark");
+    }
+  }, [theme]);
 
-  // Keyboard shortcuts: Ctrl/Cmd+C (copy current), Ctrl/Cmd+V (arm paste), Esc (cancel)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      const cmd = e.metaKey || e.ctrlKey;
-      if (cmd && key === "c") {
-        if (current) {
-          setCopied(stripId(current));
-          setPasteArmed(true);
-        }
-      } else if (cmd && key === "v") {
-        if (copied) setPasteArmed(true);
-      } else if (key === "escape" && pasteArmed) {
-        setPasteArmed(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [current, copied, pasteArmed]);
-
-  const fetchEvents = async (info: any, success: any) => {
-    const res = await fetch(
-      `/api/calendars/${calendarId}/events?from=${info.startStr}&to=${info.endStr}${
-        token ? `&token=${token}` : ""
-      }`
-    );
-    const data = await res.json();
-    success(
-      data.map((e: any) => ({
-        id: e.id,
-        title: e.title,
-        start: e.startsAt,
-        end: e.endsAt,
-        allDay: true,
-        color: e.color || undefined,
-        extendedProps: { description: e.description ?? "" },
-      }))
-    );
+  // fetch events
+  const fetchEvents = async (info: any, success: any, failure: any) => {
+    try {
+      const res = await fetch(
+        `/api/calendars/${calendarId}/events?from=${info.startStr}&to=${info.endStr}${
+          (window as any).__shareToken ? `&token=${(window as any).__shareToken}` : ""
+        }`
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data: CalEvent[] = await res.json();
+      success(
+        data.map((e) => ({
+          id: e.id,
+          title: e.title,
+          start: e.startsAt,
+          end: e.endsAt,
+          allDay: true,
+          color: colorForType(e.type),
+          extendedProps: e,
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+      failure(err);
+    }
   };
 
-  // Create all-day event on date click, OR paste if armed
-  const handleDateClick = async (arg: any) => {
-    const api = (arg.view.calendar as any);
+  // create from date click
+  const handleDateClick = (arg: any) => {
+    const start = new Date(arg.date);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    setEditing(null);
+    setDraftTitle("");
+    setDraftDesc("");
+    setDraftType("GUARDRAIL");
+    setDraftStarts(toLocalInput(start));
+    setDraftEnds(toLocalInput(end));
+    setFile(null);
+    setDrawerOpen(true);
+  };
 
-    if (pasteArmed && copied) {
-      // paste duplicate onto clicked day; preserve span & fields
-      const start = startOfDay(arg.date);
-      const span = spanDays(copied.startsAt, copied.endsAt); // number of days
-      const end = addDays(start, span); // exclusive end
+  // open existing
+  const handleEventClick = (clickInfo: any) => {
+    const e: CalEvent = clickInfo.event.extendedProps;
+    setEditing(e);
+    setDraftTitle(e.title);
+    setDraftDesc(e.description || "");
+    setDraftType(e.type || "GUARDRAIL");
+    setDraftStarts(toLocalInput(new Date(e.startsAt)));
+    setDraftEnds(toLocalInput(new Date(e.endsAt)));
+    setFile(null);
+    setDrawerOpen(true);
+  };
 
-      await fetch(
-        `/api/calendars/${calendarId}/events${token ? `?token=${token}` : ""}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: copied.title,
-            description: copied.description || undefined,
-            color: copied.color || undefined,
-            startsAt: start.toISOString(),
-            endsAt: end.toISOString(),
-            allDay: true,
-          }),
-        }
-      );
-      api.refetchEvents?.();
-      return; // keep paste armed for multi-paste; press Esc or use Cancel to stop
+  // resize / drag
+  const handleEventResize = async (arg: any) => {
+    await saveEvent(arg.event.id, {
+      startsAt: arg.event.start,
+      endsAt: arg.event.end,
+    });
+    refetch();
+  };
+  const handleEventDrop = handleEventResize;
+
+  // helpers
+  const refetch = () => {
+    calendarRef.current?.getApi().refetchEvents();
+  };
+
+  async function saveNew() {
+    const payload: any = {
+      title: draftTitle || "(Untitled)",
+      description: draftDesc || null,
+      startsAt: new Date(draftStarts),
+      endsAt: new Date(draftEnds),
+      type: draftType,
+    };
+
+    if (file) {
+      const b64 = await fileToBase64(file);
+      payload.attachmentBase64 = b64.replace(/^data:.*;base64,/, "");
+      payload.attachmentName = file.name;
+      payload.attachmentType = file.type;
     }
 
-    // Normal create flow
-    const title = prompt("New project name?");
-    if (!title) return;
-
-    const color =
-      prompt("Color? (e.g. #1e90ff or #22c55e). Leave blank for default") ||
-      undefined;
-
-    const start = startOfDay(arg.date);
-    const end = addDays(start, 1); // one day by default (exclusive)
-
-    await fetch(
-      `/api/calendars/${calendarId}/events${token ? `?token=${token}` : ""}`,
+    const res = await fetch(
+      `/api/calendars/${calendarId}/events${
+        (window as any).__shareToken ? `?token=${(window as any).__shareToken}` : ""
+      }`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          startsAt: start.toISOString(),
-          endsAt: end.toISOString(),
-          allDay: true,
-          color,
-        }),
+        body: JSON.stringify(payload),
       }
     );
-    api.refetchEvents?.();
-  };
-
-  // Drag to another day
-  const handleEventDrop = async (arg: any) => {
-    await fetch(`/api/events/${arg.event.id}${token ? `?token=${token}` : ""}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startsAt: arg.event.start,
-        endsAt: arg.event.end,
-        allDay: true,
-      }),
-    });
-  };
-
-  // Resize across days by dragging edges
-  const handleEventResize = async (arg: any) => {
-    await fetch(`/api/events/${arg.event.id}${token ? `?token=${token}` : ""}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startsAt: arg.event.start,
-        endsAt: arg.event.end,
-        allDay: true,
-      }),
-    });
-  };
-
-  // Open side panel
-  const handleEventClick = (clickInfo: any) => {
-    const ev = clickInfo.event;
-    const rec: EventRecord = {
-      id: ev.id,
-      title: ev.title,
-      description: ev.extendedProps?.description ?? "",
-      color: (ev.backgroundColor || ev.borderColor || "") || null,
-      startsAt: (ev.start ?? new Date()).toISOString(),
-      endsAt: (ev.end ?? addDays(ev.start ?? new Date(), 1)).toISOString(),
-      allDay: true,
-    };
-    setCurrent(rec);
-    setPanelOpen(true);
-  };
-
-  // Save from side panel
-  const saveEvent = async () => {
-    if (!current) return;
-    setSaving(true);
-
-    // Convert date-only fields back to ISO [start, endExclusive)
-    const start = startOfDay(new Date(current.startsAt));
-    const endInclusive = startOfDay(new Date(current.endsAt));
-    const endExclusive = addDays(endInclusive, 1);
-
-    await fetch(`/api/events/${current.id}${token ? `?token=${token}` : ""}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: current.title,
-        description: current.description || undefined,
-        color: current.color || undefined,
-        startsAt: start.toISOString(),
-        endsAt: endExclusive.toISOString(),
-        allDay: true,
-      }),
-    });
-
-    setSaving(false);
-    setPanelOpen(false);
-    (calRef.current as any)?.getApi?.().refetchEvents();
-  };
-
-  const deleteEvent = async () => {
-    if (!current) return;
-    if (!confirm("Delete this project?")) return;
-    setSaving(true);
-    await fetch(`/api/events/${current.id}${token ? `?token=${token}` : ""}`, {
-      method: "DELETE",
-    });
-    setSaving(false);
-    setPanelOpen(false);
-    (calRef.current as any)?.getApi?.().refetchEvents();
-  };
-
-  // Copy helpers
-  function copyCurrent() {
-    if (!current) return;
-    setCopied(stripId(current));
-    setPasteArmed(true);
+    if (!res.ok) {
+      alert("Failed to create event");
+      return;
+    }
+    setDrawerOpen(false);
+    refetch();
   }
-  function cancelPaste() {
-    setPasteArmed(false);
+
+  async function saveExisting() {
+    if (!editing) return;
+    const payload: any = {
+      title: draftTitle || "(Untitled)",
+      description: draftDesc || null,
+      startsAt: new Date(draftStarts),
+      endsAt: new Date(draftEnds),
+      type: draftType,
+    };
+
+    if (file) {
+      const b64 = await fileToBase64(file);
+      payload.attachmentBase64 = b64.replace(/^data:.*;base64,/, "");
+      payload.attachmentName = file.name;
+      payload.attachmentType = file.type;
+    }
+
+    const res = await fetch(
+      `/api/events/${editing.id}${
+        (window as any).__shareToken ? `?token=${(window as any).__shareToken}` : ""
+      }`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!res.ok) {
+      alert("Failed to update event");
+      return;
+    }
+    setDrawerOpen(false);
+    refetch();
+  }
+
+  async function deleteExisting() {
+    if (!editing) return;
+    if (!confirm("Delete this event?")) return;
+    const res = await fetch(
+      `/api/events/${editing.id}${
+        (window as any).__shareToken ? `?token=${(window as any).__shareToken}` : ""
+      }`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) {
+      alert("Failed to delete");
+      return;
+    }
+    setDrawerOpen(false);
+    refetch();
   }
 
   return (
@@ -231,163 +218,153 @@ export default function CalendarWithData({ calendarId }: { calendarId: string })
       <div className="cal-topbar">
         <div className="left">
           <button
-            className="btn"
-            onClick={() => (calRef.current as any)?.getApi?.().prev()}
+            className="icon"
+            onClick={() => calendarRef.current?.getApi().prev()}
+            title="Previous month"
           >
-            ← Prev
+            ←
           </button>
           <button
-            className="btn"
-            onClick={() => (calRef.current as any)?.getApi?.().today()}
+            className="btn ghost"
+            onClick={() => calendarRef.current?.getApi().today()}
           >
             Today
           </button>
           <button
-            className="btn"
-            onClick={() => (calRef.current as any)?.getApi?.().next()}
+            className="icon"
+            onClick={() => calendarRef.current?.getApi().next()}
+            title="Next month"
           >
-            Next →
+            →
           </button>
         </div>
-
-        <div className="right" style={{ gap: 8, display: "flex", alignItems: "center" }}>
-          <button
-            className="btn"
-            disabled={!copied}
-            title={copied ? `Ready: ${copied.title}` : "Copy an event first"}
-            onClick={() => setPasteArmed(true)}
-          >
-            Paste
-          </button>
-          {pasteArmed && (
-            <button className="btn ghost" onClick={cancelPaste}>
-              Cancel Paste
-            </button>
-          )}
-          <label className="switch" style={{ marginLeft: 8 }}>
+        <div className="right">
+          <label className="switch">
             <input
               type="checkbox"
-              checked={mode === "dark"}
-              onChange={(e) => setMode(e.target.checked ? "dark" : "light")}
+              checked={theme === "dark"}
+              onChange={(e) => setTheme(e.target.checked ? "dark" : "light")}
             />
             <span>Dark mode</span>
           </label>
+          <button
+            className="btn primary"
+            onClick={() => handleDateClick({ date: new Date() })}
+          >
+            + New
+          </button>
         </div>
       </div>
 
-      {/* Paste banner */}
-      {pasteArmed && copied && (
-        <div className="paste-banner">
-          Copied <strong>{copied.title}</strong> — {spanDays(copied.startsAt, copied.endsAt)} day(s).
-          Click a day to paste. <button className="link-btn" onClick={cancelPaste}>Cancel</button>
-        </div>
-      )}
-
+      {/* Calendar */}
       <FullCalendar
-        ref={calRef as any}
+        ref={calendarRef as any}
         plugins={[dayGridPlugin, interactionPlugin]}
         initialView="dayGridMonth"
-        headerToolbar={{
-          left: "",
-          center: "title",
-          right: "",
-        }}
         height="auto"
-        dayMaxEventRows={16}
-        selectable
-        editable
-        eventDurationEditable={true}
-        eventResizableFromStart={true}
+        dayMaxEventRows={8}
         events={fetchEvents}
-        dateClick={handleDateClick}
-        eventClick={handleEventClick}
+        editable
+        eventResizableFromStart
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
+        dateClick={handleDateClick}
+        eventClick={handleEventClick}
+        headerToolbar={false}
       />
 
-      {/* Side Drawer */}
-      {panelOpen && current && (
-        <div className="drawer" role="dialog" aria-modal="true">
+      {/* Drawer */}
+      {drawerOpen && (
+        <div className="drawer">
           <div className="drawer-header">
-            <h3>Edit Project</h3>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" onClick={copyCurrent} title="Copy (Ctrl/Cmd+C)">
-                Copy
-              </button>
-              <button className="icon" onClick={() => setPanelOpen(false)}>✕</button>
-            </div>
+            <h3>{editing ? "Edit event" : "New event"}</h3>
+            <button className="icon" onClick={() => setDrawerOpen(false)}>✕</button>
           </div>
 
           <div className="drawer-body">
             <label>
-              <span>Title</span>
+              Title
               <input
                 type="text"
-                value={current.title}
-                onChange={(e) => setCurrent({ ...current, title: e.target.value })}
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                placeholder="Event title"
+              />
+            </label>
+
+            <div className="row">
+              <label className="half">
+                Start
+                <input
+                  type="datetime-local"
+                  value={draftStarts}
+                  onChange={(e) => setDraftStarts(e.target.value)}
+                />
+              </label>
+              <label className="half">
+                End
+                <input
+                  type="datetime-local"
+                  value={draftEnds}
+                  onChange={(e) => setDraftEnds(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <label>
+              Type
+              <select
+                value={draftType}
+                onChange={(e) => setDraftType(e.target.value)}
+              >
+                {TYPE_OPTIONS.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Description
+              <textarea
+                rows={5}
+                value={draftDesc}
+                onChange={(e) => setDraftDesc(e.target.value)}
+                placeholder="Notes..."
               />
             </label>
 
             <label>
-              <span>Description</span>
-              <textarea
-                rows={4}
-                value={current.description ?? ""}
-                onChange={(e) => setCurrent({ ...current, description: e.target.value })}
+              Attachment (photo/PDF)
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
             </label>
 
-            <div className="row">
-              <label className="half">
-                <span>Color</span>
-                <input
-                  type="color"
-                  value={current.color ?? "#1e90ff"}
-                  onChange={(e) => setCurrent({ ...current, color: e.target.value })}
-                />
-              </label>
-              <label className="half">
-                <span>All day</span>
-                <input type="checkbox" checked readOnly />
-              </label>
-            </div>
+            {editing?.attachmentName && (
+              <a
+                className="btn"
+                href={`/api/events/${editing.id}/attachment`}
+                target="_blank"
+              >
+                View current attachment ({editing.attachmentName})
+              </a>
+            )}
 
-            <div className="row">
-              <label className="half">
-                <span>Start day</span>
-                <input
-                  type="date"
-                  value={toDateInput(current.startsAt)}
-                  onChange={(e) =>
-                    setCurrent({ ...current, startsAt: fromDateInput(e.target.value) })
-                  }
-                />
-              </label>
-              <label className="half">
-                <span>End day</span>
-                <input
-                  type="date"
-                  value={toDateInput(addDays(new Date(current.endsAt), -1).toISOString())}
-                  onChange={(e) => {
-                    const picked = fromDateInput(e.target.value);
-                    setCurrent({ ...current, endsAt: new Date(picked).toISOString() });
-                  }}
-                />
-              </label>
+            <div className="drawer-actions">
+              {editing ? (
+                <>
+                  <button className="btn primary" onClick={saveExisting}>Save</button>
+                  <button className="btn danger" onClick={deleteExisting}>Delete</button>
+                </>
+              ) : (
+                <button className="btn primary" onClick={saveNew}>Create</button>
+              )}
+              <button className="btn" onClick={() => setDrawerOpen(false)}>Cancel</button>
             </div>
-          </div>
-
-          <div className="drawer-actions">
-            <button className="btn danger" onClick={deleteEvent} disabled={saving}>
-              Delete
-            </button>
-            <div style={{ flex: 1 }} />
-            <button className="btn ghost" onClick={() => setPanelOpen(false)} disabled={saving}>
-              Cancel
-            </button>
-            <button className="btn primary" onClick={saveEvent} disabled={saving}>
-              Save
-            </button>
           </div>
         </div>
       )}
@@ -395,49 +372,21 @@ export default function CalendarWithData({ calendarId }: { calendarId: string })
   );
 }
 
-/* ===== Helpers ===== */
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfDay(d: Date) {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-function addDays(d: Date, days: number) {
-  const copy = new Date(d);
-  copy.setDate(copy.getDate() + days);
-  return copy;
-}
-// Difference in whole days using [start, endExclusive)
-function spanDays(startISO: string, endISO: string) {
-  const s = startOfDay(new Date(startISO)).getTime();
-  const e = startOfDay(new Date(endISO)).getTime();
-  const diff = Math.max(DAY_MS, e - s);
-  return Math.round(diff / DAY_MS);
-}
-function toDateInput(iso: string) {
-  const d = new Date(iso);
+// utils
+function toLocalInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
-function fromDateInput(v: string) {
-  const [y, m, d] = v.split("-").map((n) => parseInt(n, 10));
-  const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
-  return dt.toISOString();
-}
-function stripId(e: EventRecord): EventRecord {
-  // Copy everything except ID (for duplication)
-  return {
-    ...e,
-    id: "copied", // not used on POST
-  };
-}
-
-// Allow window.__shareToken
-declare global {
-  interface Window {
-    __shareToken?: string;
-  }
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
