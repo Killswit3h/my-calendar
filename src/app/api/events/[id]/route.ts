@@ -1,3 +1,4 @@
+// src/app/api/events/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTokenRole, canWrite } from "@/lib/perm";
@@ -14,7 +15,7 @@ export async function PATCH(
   const ev = await prisma.event.findUnique({ where: { id } });
   if (!ev) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const role = await getTokenRole({ token, calendarId: ev.calendarId });
+  const role = await getTokenRole(token, ev.calendarId);
   if (!canWrite(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -33,7 +34,7 @@ export async function PATCH(
   const updated = await prisma.event.update({
     where: { id },
     data: {
-      ...(body.title ? { title: body.title } : {}),
+      ...(body.title !== undefined ? { title: body.title } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.startsAt ? { startsAt: new Date(body.startsAt) } : {}),
       ...(body.endsAt ? { endsAt: new Date(body.endsAt) } : {}),
@@ -57,14 +58,21 @@ export async function PATCH(
 
 // DELETE /api/events/:id
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const token = searchParams.get("token") || undefined;
+
   const ev = await prisma.event.findUnique({ where: { id } });
   if (!ev) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // token check optional; if you want, mirror PATCH logic
+  const role = await getTokenRole(token, ev.calendarId);
+  if (!canWrite(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   await prisma.event.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

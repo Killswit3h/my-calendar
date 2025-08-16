@@ -1,3 +1,4 @@
+// src/app/api/calendars/[id]/events/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTokenRole, canWrite } from "@/lib/perm";
@@ -11,7 +12,6 @@ export async function GET(
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const token = searchParams.get("token") || undefined;
 
   const events = await prisma.event.findMany({
     where: {
@@ -40,14 +40,14 @@ export async function POST(
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token") || undefined;
 
-  const role = await getTokenRole({ token, calendarId: id });
+  const role = await getTokenRole(token, id);
   if (!canWrite(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
 
-  // Optional base64 attachment (small files only)
+  // Optional base64 attachment
   let attachmentData: Buffer | undefined;
   if (body.attachmentBase64) {
     try {
@@ -64,9 +64,9 @@ export async function POST(
       description: body.description || null,
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
-      allDay: true, // keep all-day
+      allDay: true,
       location: body.location || null,
-      type: body.type || null, // "GUARDRAIL" | "FENCE" | ...
+      type: body.type || null,
       attachmentName: body.attachmentName || null,
       attachmentType: body.attachmentType || null,
       attachmentData: attachmentData ?? null,
