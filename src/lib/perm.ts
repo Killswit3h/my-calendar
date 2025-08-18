@@ -2,13 +2,26 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Return the role granted by a share token for a specific calendar,
- * or null if the token is missing/invalid/expired/for another calendar.
+ * Accepts EITHER:
+ *   getTokenRole(token: string | undefined, calendarId: string)
+ * OR:
+ *   getTokenRole({ token?: string, calendarId: string })
  */
 export async function getTokenRole(
-  token: string | undefined,
-  calendarId: string
+  tokenOrObj: string | undefined | { token?: string; calendarId: string },
+  calendarIdArg?: string
 ): Promise<"EDITOR" | "VIEWER" | null> {
+  let token: string | undefined;
+  let calendarId: string;
+
+  if (typeof tokenOrObj === "string" || typeof tokenOrObj === "undefined") {
+    token = tokenOrObj;
+    calendarId = String(calendarIdArg ?? "");
+  } else {
+    token = tokenOrObj.token;
+    calendarId = tokenOrObj.calendarId;
+  }
+
   if (!token) return null;
 
   const t = await prisma.shareToken.findUnique({
@@ -20,7 +33,8 @@ export async function getTokenRole(
   if (t.calendarId !== calendarId) return null;
   if (t.expiresAt && t.expiresAt < new Date()) return null;
 
-  return t.role as "EDITOR" | "VIEWER";
+  // Types from Prisma are string enums; narrow to our union
+  return (t.role === "EDITOR" || t.role === "VIEWER") ? t.role : null;
 }
 
 /** Can this role write? */

@@ -13,7 +13,7 @@ export default async function CalendarPage({
 
   return (
     <main>
-      <h1>GFC Calendar</h1>
+    
 
       {/* expose ?token= to the client (optional, used for sharing) */}
       <script

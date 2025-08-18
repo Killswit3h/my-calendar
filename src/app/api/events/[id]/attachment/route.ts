@@ -1,25 +1,35 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+// src/app/api/events/[id]/attachment/route.ts
+export const runtime = "nodejs";
 
-// GET /api/events/:id/attachment
+import { prisma } from "@/lib/prisma";
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
   const ev = await prisma.event.findUnique({
     where: { id },
     select: { attachmentData: true, attachmentName: true, attachmentType: true },
   });
+
   if (!ev || !ev.attachmentData) {
-    return NextResponse.json({ error: "No attachment" }, { status: 404 });
+    return new Response(JSON.stringify({ error: "No attachment" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    });
   }
 
-  return new NextResponse(ev.attachmentData, {
+  // Prisma Bytes on Node = Buffer. Response expects BodyInit (ArrayBufferView works).
+  const body = new Uint8Array(ev.attachmentData as unknown as Buffer);
+
+  const filename = (ev.attachmentName ?? "file").replace(/\//g, "");
+  return new Response(body, {
     status: 200,
     headers: {
-      "Content-Type": ev.attachmentType || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${ev.attachmentName || "file"}"`,
+      "Content-Type": ev.attachmentType ?? "application/octet-stream",
+      "Content-Disposition": `inline; filename="${filename}"`,
       "Cache-Control": "private, max-age=0, must-revalidate",
     },
   });
