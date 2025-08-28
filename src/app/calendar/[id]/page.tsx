@@ -2,27 +2,20 @@ import CalendarWithData from "@/components/CalendarWithData";
 
 export default async function CalendarPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const qs = (await searchParams) ?? {};
-  const token = (qs.token as string) || "";
 
   return (
-    <main>
-    
+    <main className="container mx-auto p-4">
+      <header className="mb-4">
+        <h1 className="text-2xl font-semibold">GFC Calendar</h1>
+      </header>
 
-      {/* expose ?token= to the client (optional, used for sharing) */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.__shareToken=${JSON.stringify(token)};`,
-        }}
-      />
-
-      <CalendarWithData calendarId={id} />
+      <div className="p-2">
+        <CalendarWithData calendarId={id} />
+      </div>
     </main>
   );
 }

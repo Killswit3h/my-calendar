@@ -1,479 +1,410 @@
-"use client";
+'use client';
 
-import React, { useRef, useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import type {
+  EventInput,
+  DateSelectArg,
+  EventClickArg,
+} from '@fullcalendar/core';
+import '@/styles/calendar.css';
 
-/** Helper types inferred from the wrapper (keeps TS happy) */
-type DateSelectArg = Parameters<
-  NonNullable<React.ComponentProps<typeof FullCalendar>["select"]>
->[0];
-type EventClickArg = Parameters<
-  NonNullable<React.ComponentProps<typeof FullCalendar>["eventClick"]>
->[0];
-type EventDropArg = Parameters<
-  NonNullable<React.ComponentProps<typeof FullCalendar>["eventDrop"]>
->[0];
-type EventResizeDoneArg = Parameters<
-  NonNullable<React.ComponentProps<typeof FullCalendar>["eventResize"]>
->[0];
+/* ==== types ==== */
+type Props = {
+  calendarId: string;
+  initialYear?: number | null;
+  initialMonth0?: number | null;
+};
 
-/** Event shape used by our UI */
-type CalEvent = {
-  id: string;
+type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
+
+type NewEvent = {
   title: string;
-  description?: string | null;
-  startsAt: string | Date;
-  endsAt: string | Date;
-  allDay?: boolean;
-  location?: string | null;
-  type?: "GUARDRAIL" | "FENCE" | "TEMP_FENCE" | "HANDRAIL" | "ATTENUATOR" | null;
+  start: string;
+  end?: string;
+  allDay: boolean;
+  location?: string;
+  description?: string;
+  type?: JobType;
 };
 
-const TYPE_COLORS: Record<NonNullable<CalEvent["type"]>, string> = {
-  GUARDRAIL: "#10B981",
-  FENCE: "#FB923C",
-  TEMP_FENCE: "#FACC15",
-  HANDRAIL: "#3B82F6",
-  ATTENUATOR: "#EF4444",
-};
-const typeToColor = (t?: CalEvent["type"] | null) => (t ? TYPE_COLORS[t] : undefined);
+type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 
-const toLocalInput = (d: Date) => {
-  const pad = (n: number) => `${n}`.padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
+const TYPE_LABEL: Record<JobType, string> = {
+  FENCE: 'Fence',
+  GUARDRAIL: 'Guardrail',
+  ATTENUATOR: 'Attenuator',
+  HANDRAIL: 'Handrail',
+  TEMP_FENCE: 'Temporary Fence',
 };
 
-/** ─────────────── Clipboard (copy/paste) ─────────────── */
-type ClipData = {
-  title: string;
-  type: CalEvent["type"] | null;
-  description: string;
-  /** milliseconds */
-  durationMs: number;
-};
-const CLIP_KEY = "calendar_clipboard_v1";
+/* ==== component ==== */
+export default function CalendarWithData({ initialYear, initialMonth0 }: Props) {
+  // safe initial date
+  const initialDate = useMemo(() => {
+    const now = new Date();
+    const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
+    const m0 = Number.isFinite(initialMonth0 as any)
+      ? Math.min(11, Math.max(0, Number(initialMonth0)))
+      : now.getUTCMonth();
+    return new Date(Date.UTC(y, m0, 1));
+  }, [initialYear, initialMonth0]);
 
-function saveClipboard(c: ClipData) {
-  try {
-    localStorage.setItem(CLIP_KEY, JSON.stringify(c));
-  } catch {}
+  /* ===== calendar state ===== */
+  const [events, setEvents] = useState<EventInput[]>([]);
+  const [holidayOn, setHolidayOn] = useState(true);
+  const [country, setCountry] = useState('US');
+  const [holidays, setHolidays] = useState<EventInput[]>([]);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<NewEvent | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const fetchHolidays = useCallback(async (year: number, cc: string) => {
+    const res = await fetch(`/api/holidays?year=${year}&country=${cc}`);
+    const json = await res.json();
+    const bg: EventInput[] = (json.holidays as { date: string; title: string }[]).map(h => ({
+      start: h.date,
+      end: h.date,
+      allDay: true,
+      title: h.title,
+      display: 'background',
+      className: 'holiday-bg',
+      editable: false,
+    }));
+    setHolidays(bg);
+  }, []);
+
+  const handleDatesSet = useCallback((arg: { start: Date; end: Date }) => {
+    const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2);
+    const y = mid.getUTCFullYear();
+    fetchHolidays(y, country);
+  }, [country, fetchHolidays]);
+
+  // create
+  const handleSelect = useCallback((sel: DateSelectArg) => {
+    setEditId(null);
+    setDraft({ title: '', start: sel.startStr, end: sel.endStr, allDay: sel.allDay, type: 'FENCE' });
+    setOpen(true);
+  }, []);
+
+  // click -> edit
+  const handleEventClick = useCallback((arg: EventClickArg) => {
+    const e = arg.event;
+    if (!e.id) return;
+    setEditId(e.id);
+    setDraft({
+      title: e.title,
+      start: e.start ? e.start.toISOString() : new Date().toISOString(),
+      end: e.end ? e.end.toISOString() : undefined,
+      allDay: e.allDay,
+      location: e.extendedProps['location'] as string | undefined,
+      description: e.extendedProps['description'] as string | undefined,
+      type: e.extendedProps['type'] as JobType | undefined,
+    });
+    setOpen(true);
+  }, []);
+
+  // drag/resize -> persist
+  const updateEventById = useCallback((id: string, patch: Partial<NewEvent>) => {
+    setEvents(prev =>
+      prev.map(ev =>
+        ev.id === id
+          ? {
+              ...ev,
+              start: patch.start ?? (ev.start as string),
+              end: patch.end ?? (ev.end as string | undefined),
+              allDay: patch.allDay ?? (ev.allDay as boolean),
+            }
+          : ev
+      )
+    );
+  }, []);
+
+  const handleEventDrop = useCallback((arg: any) => {
+    const e = arg.event;
+    if (!e.id) return;
+    updateEventById(e.id, {
+      start: e.start?.toISOString(),
+      end: e.end?.toISOString(),
+      allDay: e.allDay,
+    });
+  }, [updateEventById]);
+
+  const handleEventResize = useCallback((arg: any) => {
+    const e = arg.event;
+    if (!e.id) return;
+    updateEventById(e.id, {
+      start: e.start?.toISOString(),
+      end: e.end?.toISOString(),
+      allDay: e.allDay,
+    });
+  }, [updateEventById]);
+
+  // save / update
+  const saveDraft = useCallback(() => {
+    if (!draft?.title) return;
+
+    if (editId) {
+      setEvents(prev =>
+        prev.map(ev =>
+          ev.id === editId
+            ? {
+                ...ev,
+                title: draft.title,
+                start: draft.start,
+                end: draft.end,
+                allDay: draft.allDay,
+                extendedProps: {
+                  ...ev.extendedProps,
+                  location: draft.location,
+                  description: draft.description,
+                  type: draft.type,
+                },
+                className: typeToClass(draft.type),
+              }
+            : ev
+        )
+      );
+    } else {
+      const id = uid();
+      setEvents(prev => [
+        ...prev,
+        {
+          id,
+          title: draft.title,
+          start: draft.start,
+          end: draft.end,
+          allDay: draft.allDay,
+          extendedProps: {
+            location: draft.location,
+            description: draft.description,
+            type: draft.type,
+          },
+          className: typeToClass(draft.type),
+        },
+      ]);
+    }
+    setOpen(false);
+    setDraft(null);
+    setEditId(null);
+  }, [draft, editId]);
+
+  const deleteCurrent = useCallback(() => {
+    if (!editId) return;
+    setEvents(prev => prev.filter(e => e.id !== editId));
+    setOpen(false);
+    setDraft(null);
+    setEditId(null);
+  }, [editId]);
+
+  const duplicateCurrent = useCallback(() => {
+    if (!draft) return;
+    const id = uid();
+    setEvents(prev => [
+      ...prev,
+      {
+        id,
+        title: `${draft.title}`,
+        start: draft.start,
+        end: draft.end,
+        allDay: draft.allDay,
+        extendedProps: {
+          location: draft.location,
+          description: draft.description,
+          type: draft.type,
+        },
+        className: typeToClass(draft.type),
+      },
+    ]);
+  }, [draft]);
+
+  const allEvents = useMemo(
+    () => (holidayOn ? [...events, ...holidays] : events),
+    [events, holidays, holidayOn]
+  );
+
+  /* ===== todos (unchanged from your last state) ===== */
+  const [todos, setTodos] = useState<Todo[]>([]);
+  useEffect(() => { try { const raw = localStorage.getItem('gfc_todos'); if (raw) setTodos(JSON.parse(raw)); } catch {} }, []);
+  useEffect(() => { try { localStorage.setItem('gfc_todos', JSON.stringify(todos)); } catch {} }, [todos]);
+
+  const addTodo = (type: JobType, title: string) => { const t = title.trim(); if (!t) return; setTodos(p => [{ id: uid(), title: t, done: false, type }, ...p]); };
+  const deleteTodo = (id: string) => setTodos(p => p.filter(t => t.id !== id));
+  const completeTodo = (id: string) => setTodos(p => p.filter(t => t.id !== id));
+  const moveTodo = (id: string, type: JobType) => setTodos(p => p.map(t => (t.id === id ? { ...t, type } : t)));
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { e.dataTransfer.setData('text/plain', id); };
+  const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
+  const byType = (typ: JobType) => todos.filter(t => t.type === typ);
+
+  return (
+    <div className="cal-shell">
+      {/* controls */}
+      <div className="surface p-4 mb-4 flex items-center gap-3 flex-wrap">
+        <label className="inline-flex items-center gap-2">
+          <input type="checkbox" checked={holidayOn} onChange={e => setHolidayOn(e.target.checked)} />
+          <span>Show public holidays</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="muted-sm">Country</span>
+          <input
+            value={country}
+            onChange={e => setCountry(e.target.value.toUpperCase())}
+            onBlur={() => { const y = new Date().getUTCFullYear(); fetchHolidays(y, country); }}
+            className="country-input"
+          />
+        </div>
+      </div>
+
+      {/* calendar full-bleed */}
+      <div className="surface p-2 calendar-bleed">
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          initialDate={initialDate}
+          height="auto"
+          expandRows
+          handleWindowResize
+          windowResizeDelay={100}
+          dayMaxEventRows
+          fixedWeekCount={false}
+          selectable
+          selectMirror
+          editable={true}
+          eventStartEditable={true}
+          eventDurationEditable={true}
+          select={handleSelect}
+          datesSet={handleDatesSet}
+          events={allEvents}
+          eventClick={handleEventClick}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
+          headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+          buttonText={{ today: 'Today' }}
+          eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
+        />
+      </div>
+
+      {/* modal */}
+      {open && draft ? (
+        <div className="modal-root">
+          <div className="modal-card">
+            <h3 className="modal-title">{editId ? 'Edit event' : 'Add event'}</h3>
+            <div className="form-grid form-compact">
+              <label className="span-2">
+                <div className="label">Title</div>
+                <input type="text" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+              </label>
+              <label>
+                <div className="label">Start</div>
+                <input type="datetime-local" value={toLocalInput(draft.start)} onChange={e => setDraft({ ...draft, start: fromLocalInput(e.target.value) })} />
+              </label>
+              <label>
+                <div className="label">End</div>
+                <input type="datetime-local" value={toLocalInput(draft.end ?? draft.start)} onChange={e => setDraft({ ...draft, end: fromLocalInput(e.target.value) })} />
+              </label>
+              <label className="inline span-2">
+                <input type="checkbox" checked={draft.allDay} onChange={e => setDraft({ ...draft, allDay: e.target.checked })} />
+                <span>All day</span>
+              </label>
+              <label>
+                <div className="label">Type</div>
+                <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}>
+                  <option value="FENCE">Fence</option>
+                  <option value="TEMP_FENCE">Temp Fence</option>
+                  <option value="GUARDRAIL">Guardrail</option>
+                  <option value="HANDRAIL">Handrail</option>
+                  <option value="ATTENUATOR">Attenuator</option>
+                </select>
+              </label>
+              <label>
+                <div className="label">Location</div>
+                <input type="text" value={draft.location ?? ''} onChange={e => setDraft({ ...draft, location: e.target.value })} />
+              </label>
+              <label className="span-2">
+                <div className="label">Description</div>
+                <textarea value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} />
+              </label>
+              <div className="modal-actions span-2">
+                {editId ? (
+                  <>
+                    <button className="btn" onClick={duplicateCurrent}>Duplicate</button>
+                    <button className="btn ghost" onClick={deleteCurrent}>Delete</button>
+                  </>
+                ) : null}
+                <button className="btn ghost" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</button>
+                <button className="btn primary" onClick={saveDraft}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* todos full-bleed (unchanged layout) */}
+      <section className="todo-section todo-bleed">
+        <div className="surface p-3">
+          <h3 className="todo-title">Job To-Dos</h3>
+          <div className="todo-grid">
+            {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(typ => (
+              <div key={typ} className="todo-col" onDragOver={e => e.preventDefault()} onDrop={e => onDropToColumn(e, typ)}>
+                <header className="todo-col-header">
+                  <span>{TYPE_LABEL[typ]}</span>
+                  <span className="todo-count">{byType(typ).length}</span>
+                </header>
+                <TodoAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
+                <div className="todo-list">
+                  {byType(typ).map(t => (
+                    <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t.id)}>
+                      <label className="todo-row">
+                        <input type="checkbox" checked={false} onChange={() => completeTodo(t.id)} />
+                        <span className="todo-text">{t.title}</span>
+                      </label>
+                      <div className="todo-actions">
+                        <select className="todo-move" value={t.type} onChange={e => moveTodo(t.id, e.target.value as JobType)} title="Move to…">
+                          {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(v => (<option key={v} value={v}>{TYPE_LABEL[v]}</option>))}
+                        </select>
+                        <button className="todo-del" onClick={() => deleteTodo(t.id)} title="Delete">×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
-function loadClipboard(): ClipData | null {
-  try {
-    const raw = localStorage.getItem(CLIP_KEY);
-    return raw ? (JSON.parse(raw) as ClipData) : null;
-  } catch {
-    return null;
+
+/* ===== helpers ===== */
+function toLocalInput(isoLike: string) {
+  const d = new Date(isoLike);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInput(local: string) { return new Date(local).toISOString(); }
+function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+function typeToClass(t?: NewEvent['type']) {
+  switch (t) {
+    case 'FENCE': return 'evt-fence';
+    case 'TEMP_FENCE': return 'evt-temp-fence';
+    case 'GUARDRAIL': return 'evt-guardrail';
+    case 'HANDRAIL': return 'evt-handrail';
+    case 'ATTENUATOR': return 'evt-attenuator';
+    default: return '';
   }
 }
 
-/** ─────────────── Component ─────────────── */
-export default function CalendarWithData({ calendarId }: { calendarId: string }) {
-  const calendarRef = useRef<FullCalendar | null>(null);
-
-  // modal state
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftType, setDraftType] = useState<CalEvent["type"] | null>(null);
-  const [draftDesc, setDraftDesc] = useState("");
-  const [draftStart, setDraftStart] = useState<string>("");
-  const [draftEnd, setDraftEnd] = useState<string>("");
-
-  // clipboard state (for showing/hiding Paste)
-  const [clip, setClip] = useState<ClipData | null>(null);
-  useEffect(() => setClip(loadClipboard()), [open]);
-
-  const token = (typeof window !== "undefined" && (window as any).__shareToken) || "";
-
-  const refetch = () => calendarRef.current?.getApi().refetchEvents();
-
-  const loadEvents = async (info: any, success: any) => {
-    const url = `/api/calendars/${calendarId}/events?from=${info.startStr}&to=${
-      info.endStr
-    }${token ? `&token=${token}` : ""}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    success(
-      data.map((e: any) => ({
-        id: e.id,
-        title: e.title,
-        start: e.startsAt,
-        end: e.endsAt,
-        allDay: true,
-        color: typeToColor(e.type),
-        extendedProps: e as CalEvent,
-      }))
-    );
-  };
-
-  const handleSelect = (arg: DateSelectArg) => {
-    setEditingId(null);
-    setDraftTitle("");
-    setDraftType(null);
-    setDraftDesc("");
-    setDraftStart(toLocalInput(arg.start));
-    setDraftEnd(toLocalInput(arg.end));
-    setOpen(true);
-  };
-
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    const e = clickInfo.event;
-    const x = e.extendedProps as CalEvent;
-    setEditingId(e.id);
-    setDraftTitle(e.title);
-    setDraftType(x.type ?? null);
-    setDraftDesc(x.description ?? "");
-    setDraftStart(toLocalInput(e.start!));
-    setDraftEnd(toLocalInput(e.end || e.start!));
-    setOpen(true);
-  };
-
-  const handleDrop = async (arg: EventDropArg) => {
-    await fetch(`/api/events/${arg.event.id}${token ? `?token=${token}` : ""}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startsAt: arg.event.start, endsAt: arg.event.end }),
-    });
-    refetch();
-  };
-  const handleResize = async (arg: EventResizeDoneArg) => {
-    await fetch(`/api/events/${arg.event.id}${token ? `?token=${token}` : ""}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startsAt: arg.event.start, endsAt: arg.event.end }),
-    });
-    refetch();
-  };
-
-  /** Save (create/update) */
-  const save = async () => {
-    const payload = {
-      title: draftTitle,
-      startsAt: new Date(draftStart),
-      endsAt: new Date(draftEnd),
-      type: draftType,
-      description: draftDesc || null,
-      allDay: true,
-    };
-
-    if (editingId) {
-      await fetch(`/api/events/${editingId}${token ? `?token=${token}` : ""}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await fetch(`/api/calendars/${calendarId}/events${token ? `?token=${token}` : ""}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    }
-    setOpen(false);
-    refetch();
-  };
-
-  /** Delete */
-  const remove = async () => {
-    if (!editingId) return;
-    await fetch(`/api/events/${editingId}${token ? `?token=${token}` : ""}`, {
-      method: "DELETE",
-    });
-    setOpen(false);
-    refetch();
-  };
-
-  /** ───── Copy/Paste helpers ───── */
-  const doCopy = () => {
-    // Only from an existing event
-    const start = new Date(draftStart);
-    const end = new Date(draftEnd);
-    const c: ClipData = {
-      title: draftTitle,
-      type: draftType ?? null,
-      description: draftDesc,
-      durationMs: Math.max(0, end.getTime() - start.getTime()),
-    };
-    saveClipboard(c);
-    setClip(c);
-  };
-
-  const doPasteIntoDraft = () => {
-    if (!clip) return;
-    setDraftTitle(clip.title);
-    setDraftType(clip.type);
-    setDraftDesc(clip.description);
-
-    // Recalculate end from current draftStart + duration
-    const start = new Date(draftStart || Date.now());
-    const end = new Date(start.getTime() + (clip.durationMs || 0));
-    setDraftEnd(toLocalInput(end));
-  };
-
-  const duplicateNow = async () => {
-    // Create a new event with the current draft fields (even if editing existing)
-    const payload = {
-      title: draftTitle,
-      startsAt: new Date(draftStart),
-      endsAt: new Date(draftEnd),
-      type: draftType,
-      description: draftDesc || null,
-      allDay: true,
-    };
-    await fetch(`/api/calendars/${calendarId}/events${token ? `?token=${token}` : ""}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setOpen(false);
-    refetch();
-  };
-
+/* inline */
+function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
+  const [val, setVal] = useState('');
+  const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (
-    <>
-      <FullCalendar
-        ref={calendarRef as any}
-        plugins={[dayGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        height="auto"
-        dayMaxEventRows={8}
-        selectable
-        editable
-        eventResizableFromStart
-        events={loadEvents}
-        select={handleSelect}
-        eventClick={handleEventClick}
-        eventDrop={handleDrop}
-        eventResize={handleResize}
-        headerToolbar={{ left: "today prev,next", center: "title", right: "" }}
-        footerToolbar={false as any}
-        buttonText={{ today: "Today" }}
-        displayEventTime={false}
-      />
-
-      {/* Modal via PORTAL */}
-      {open &&
-        createPortal(
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.45)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10000,
-            }}
-          >
-            <div
-              style={{
-                width: "min(700px,92vw)",
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                borderRadius: 16,
-                boxShadow: "0 20px 60px rgba(0,0,0,.55)",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  padding: 16,
-                  borderBottom: "1px solid var(--border)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  fontWeight: 600,
-                  fontSize: 20,
-                }}
-              >
-                <span>{editingId ? "Edit event" : "Add event"}</span>
-
-                {/* Copy / Paste / Duplicate controls */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  {editingId && (
-                    <>
-                      <button
-                        onClick={doCopy}
-                        className="btn"
-                        title="Copy event"
-                        style={{ padding: "8px 12px" }}
-                      >
-                        Copy
-                      </button>
-                      <button
-                        onClick={duplicateNow}
-                        className="btn"
-                        title="Duplicate as new event"
-                        style={{ padding: "8px 12px" }}
-                      >
-                        Duplicate
-                      </button>
-                    </>
-                  )}
-                  {!editingId && clip && (
-                    <button
-                      onClick={doPasteIntoDraft}
-                      className="btn"
-                      title="Paste details"
-                      style={{ padding: "8px 12px" }}
-                    >
-                      Paste
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ padding: 18, display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Title</span>
-                  <input
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    placeholder="Project name"
-                    style={{
-                      background: "var(--bg)",
-                      color: "var(--fg)",
-                      border: "1px solid var(--border)",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                    }}
-                  />
-                </label>
-
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
-                  <label style={{ display: "grid", gap: 6 }}>
-                    <span>Start</span>
-                    <input
-                      type="datetime-local"
-                      value={draftStart}
-                      onChange={(e) => setDraftStart(e.target.value)}
-                      style={{
-                        background: "var(--bg)",
-                        color: "var(--fg)",
-                        border: "1px solid var(--border)",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                      }}
-                    />
-                  </label>
-                  <label style={{ display: "grid", gap: 6 }}>
-                    <span>End</span>
-                    <input
-                      type="datetime-local"
-                      value={draftEnd}
-                      onChange={(e) => setDraftEnd(e.target.value)}
-                      style={{
-                        background: "var(--bg)",
-                        color: "var(--fg)",
-                        border: "1px solid var(--border)",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                      }}
-                    />
-                  </label>
-                </div>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Type</span>
-                  <select
-                    value={draftType ?? ""}
-                    onChange={(e) =>
-                      setDraftType((e.target.value || null) as CalEvent["type"] | null)
-                    }
-                    style={{
-                      background: "var(--bg)",
-                      color: "var(--fg)",
-                      border: "1px solid var(--border)",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                    }}
-                  >
-                    <option value="">— Select —</option>
-                    <option value="GUARDRAIL">Guardrail</option>
-                    <option value="FENCE">Fence</option>
-                    <option value="TEMP_FENCE">Temporary fence</option>
-                    <option value="HANDRAIL">Handrail</option>
-                    <option value="ATTENUATOR">Attenuator</option>
-                  </select>
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Description</span>
-                  <textarea
-                    rows={4}
-                    value={draftDesc}
-                    onChange={(e) => setDraftDesc(e.target.value)}
-                    placeholder="Notes, scope, address, crew, etc."
-                    style={{
-                      background: "var(--bg)",
-                      color: "var(--fg)",
-                      border: "1px solid var(--border)",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div
-                style={{
-                  padding: 16,
-                  borderTop: "1px solid var(--border)",
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                }}
-              >
-                {editingId && (
-                  <button
-                    onClick={remove}
-                    style={{
-                      background: "var(--danger)",
-                      border: "1px solid #7f1d1d",
-                      color: "#fff",
-                      borderRadius: 10,
-                      padding: "10px 14px",
-                    }}
-                  >
-                    Delete
-                  </button>
-                )}
-                <button
-                  onClick={() => setOpen(false)}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid var(--border)",
-                    color: "var(--fg)",
-                    borderRadius: 10,
-                    padding: "10px 14px",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={save}
-                  style={{
-                    background: "var(--primary)",
-                    border: "1px solid #1e40af",
-                    color: "#fff",
-                    borderRadius: 10,
-                    padding: "10px 14px",
-                  }}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-    </>
+    <div className="todo-adder">
+      <input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} />
+      <button className="btn primary todo-add-btn" onClick={submit}>Add</button>
+    </div>
   );
 }

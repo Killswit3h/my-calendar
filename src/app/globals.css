@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ---- System / theme ---- */
 :root {
   --bg: #0b0b0b;
@@ -222,3 +226,18 @@ input:focus, select:focus, textarea:focus {
   font-size: 28px;
   letter-spacing: .3px;
 }
+/* Holidays as non-blocking background */
+.fc .holiday-bg {
+  background-color: rgba(79,140,255,.12) !important;
+}
+
+/* Event color coding by type */
+.fc-event.evt-fence { background: #22c55e !important; border-color: #16a34a !important; }
+.fc-event.evt-temp-fence { background: #84cc16 !important; border-color: #65a30d !important; }
+.fc-event.evt-guardrail { background: #f59e0b !important; border-color: #d97706 !important; }
+.fc-event.evt-handrail { background: #0ea5e9 !important; border-color: #0284c7 !important; }
+.fc-event.evt-attenuator { background: #ef4444 !important; border-color: #dc2626 !important; }
+
+/* Center and scale modal */
+.modal-root { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55); z-index: 50; }
+.modal-card { width: 640px; max-width: 92vw; }
