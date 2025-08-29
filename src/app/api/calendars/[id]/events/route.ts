@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // POST /api/calendars/:id/events
-// body: { title, startsAt, endsAt, description?, allDay?, location?, type? }
+// body: { title, description?, startsAt, endsAt, allDay?, location?, type? }
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const calendarId = params.id
   const b = await req.json().catch(() => null)
@@ -24,9 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const {
     title,
+    description = "",
     startsAt,
     endsAt,
-    description = "",
     allDay = false,
     location = "",
     type = null,
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "title, startsAt, endsAt required" }, { status: 400 })
   }
 
-  // ensure calendar exists
   await prisma.calendar.upsert({
     where: { id: calendarId },
     update: {},
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       endsAt: new Date(endsAt),
       allDay,
       location,
-      // @ts-ignore enum can be null
+      // @ts-ignore enum may be null
       type,
     },
   })
