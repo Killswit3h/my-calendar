@@ -1,70 +1,61 @@
-// src/app/api/calendars/[id]/events/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getTokenRole, canWrite } from "@/lib/perm";
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
-// GET /api/calendars/:id/events
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
+// GET /api/calendars/:id/events -> events[]
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const calendarId = params.id
   const events = await prisma.event.findMany({
-    where: { calendarId: id },
+    where: { calendarId },
     orderBy: { startsAt: "asc" },
-    select: {
-      id: true,
-      calendarId: true,
-      title: true,
-      description: true,
-      startsAt: true,
-      endsAt: true,
-      allDay: true,
-      location: true,
-      type: true,
-      createdAt: true,
-      attachmentName: true,
-      attachmentType: true,
-    },
-  });
-
-  return NextResponse.json(events);
+  })
+  return NextResponse.json(events, { status: 200 })
 }
 
 // POST /api/calendars/:id/events
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { searchParams } = new URL(req.url);
-  const token = searchParams.get("token") || undefined;
+// body: { title, startsAt, endsAt, description?, allDay?, location?, type? }
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const calendarId = params.id
+  const b = await req.json().catch(() => null)
+  if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 
-  const role = await getTokenRole({ token, calendarId: id });
-  if (!canWrite(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const {
+    title,
+    startsAt,
+    endsAt,
+    description = "",
+    allDay = false,
+    location = "",
+    type = null,
+  } = b
+
+  if (!title || !startsAt || !endsAt) {
+    return NextResponse.json({ error: "title, startsAt, endsAt required" }, { status: 400 })
   }
 
-  const body = await req.json();
+  // ensure calendar exists
+  await prisma.calendar.upsert({
+    where: { id: calendarId },
+    update: {},
+    create: { id: calendarId, name: "Default" },
+  })
 
-  const created = await prisma.event.create({
+  const event = await prisma.event.create({
     data: {
-      calendarId: id,
-      title: body.title ?? "Untitled",
-      description: body.description ?? null,
-      startsAt: new Date(body.startsAt),
-      endsAt: new Date(body.endsAt),
-      allDay: true,
-      location: body.location ?? null,
-      type: body.type ?? "GUARDRAIL",
-      attachmentName: body.attachmentName ?? null,
-      attachmentType: body.attachmentType ?? null,
-      attachmentData: body.attachmentData
-        ? Buffer.from(body.attachmentData, "base64")
-        : null,
+      calendarId,
+      title,
+      description,
+      startsAt: new Date(startsAt),
+      endsAt: new Date(endsAt),
+      allDay,
+      location,
+      // @ts-ignore enum can be null
+      type,
     },
-  });
+  })
 
-  return NextResponse.json(created, { status: 201 });
+  return NextResponse.json(event, { status: 201 })
 }
