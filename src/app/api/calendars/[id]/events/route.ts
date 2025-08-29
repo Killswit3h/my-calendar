@@ -6,19 +6,18 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 // GET /api/calendars/:id/events -> events[]
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const calendarId = params.id
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params
   const events = await prisma.event.findMany({
-    where: { calendarId },
+    where: { calendarId: id },
     orderBy: { startsAt: "asc" },
   })
   return NextResponse.json(events, { status: 200 })
 }
 
 // POST /api/calendars/:id/events
-// body: { title, description?, startsAt, endsAt, allDay?, location?, type? }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const calendarId = params.id
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id: calendarId } = await ctx.params
   const b = await req.json().catch(() => null)
   if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       description,
       startsAt: new Date(startsAt),
       endsAt: new Date(endsAt),
-      allDay,
+      allDay: !!allDay,
       location,
       // @ts-ignore enum may be null
       type,

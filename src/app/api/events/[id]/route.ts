@@ -5,42 +5,28 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const calendarId = searchParams.get("calendarId")
-  if (!calendarId) return NextResponse.json({ error: "calendarId required" }, { status: 400 })
-  const events = await prisma.event.findMany({
-    where: { calendarId },
-    orderBy: { startsAt: "asc" },
-  })
-  return NextResponse.json(events, { status: 200 })
-}
-
-export async function POST(req: NextRequest) {
+// PATCH /api/events/:eventId
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = await ctx.params
   const b = await req.json().catch(() => null)
   if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  const { calendarId, title, startsAt, endsAt, description = "", allDay = false, location = "", type = null } = b
-  if (!calendarId || !title || !startsAt || !endsAt)
-    return NextResponse.json({ error: "calendarId, title, startsAt, endsAt required" }, { status: 400 })
 
-  await prisma.calendar.upsert({
-    where: { id: calendarId },
-    update: {},
-    create: { id: calendarId, name: "Default" },
-  })
+  const data: any = {}
+  if (typeof b.title === "string") data.title = b.title
+  if (typeof b.startsAt === "string") data.startsAt = new Date(b.startsAt)
+  if (b.endsAt !== undefined && b.endsAt !== null) data.endsAt = new Date(b.endsAt)
+  if (typeof b.allDay === "boolean") data.allDay = b.allDay
+  if ("description" in b) data.description = b.description ?? null
+  if ("location" in b) data.location = b.location ?? null
+  if ("type" in b) data.type = b.type ?? null
 
-  const event = await prisma.event.create({
-    data: {
-      calendarId,
-      title,
-      description,
-      startsAt: new Date(startsAt),
-      endsAt: new Date(endsAt),
-      allDay,
-      location,
-      // @ts-ignore nullable enum OK
-      type,
-    },
-  })
-  return NextResponse.json(event, { status: 201 })
+  const updated = await prisma.event.update({ where: { id: eventId }, data })
+  return NextResponse.json(updated, { status: 200 })
+}
+
+// DELETE /api/events/:eventId
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = await ctx.params
+  await prisma.event.delete({ where: { id: eventId } })
+  return NextResponse.json({ ok: true }, { status: 200 })
 }
