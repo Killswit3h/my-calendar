@@ -21,39 +21,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const b = await req.json().catch(() => null)
   if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 
-  const {
-    title,
-    description = "",
-    startsAt,
-    endsAt,
-    allDay = false,
-    location = "",
-    type = null,
-  } = b
+  const { title, description = "", startsAt, endsAt, allDay = false, location = "", type = null } = b
+  if (!title || !startsAt || !endsAt) return NextResponse.json({ error: "title, startsAt, endsAt required" }, { status: 400 })
 
-  if (!title || !startsAt || !endsAt) {
-    return NextResponse.json({ error: "title, startsAt, endsAt required" }, { status: 400 })
-  }
-
-  await prisma.calendar.upsert({
-    where: { id: calendarId },
-    update: {},
-    create: { id: calendarId, name: "Default" },
-  })
+  await prisma.calendar.upsert({ where: { id: calendarId }, update: {}, create: { id: calendarId, name: "Default" } })
 
   const event = await prisma.event.create({
     data: {
-      calendarId,
-      title,
-      description,
-      startsAt: new Date(startsAt),
-      endsAt: new Date(endsAt),
-      allDay: !!allDay,
-      location,
-      // @ts-ignore enum may be null
+      calendarId, title, description,
+      startsAt: new Date(startsAt), endsAt: new Date(endsAt),
+      allDay: !!allDay, location, // @ts-ignore enum nullable
       type,
     },
   })
-
   return NextResponse.json(event, { status: 201 })
 }
