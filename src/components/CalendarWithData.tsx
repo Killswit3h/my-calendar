@@ -56,8 +56,22 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2); const y = mid.getUTCFullYear(); fetchHolidays(y, country);
   }, [country, fetchHolidays]);
 
+  // FIXED: build local times from Date objects, not startStr/endStr
   const handleSelect = useCallback((sel: DateSelectArg) => {
-    setEditId(null); setDraft({ title: '', start: sel.startStr, end: sel.endStr, allDay: sel.allDay, type: 'FENCE' }); setOpen(true);
+    setEditId(null);
+
+    const startLocal = dateToLocalInput(sel.start);                     // local YYYY-MM-DDTHH:mm
+    const endLocal = dateToLocalInput(sel.end ?? sel.start);            // default to same day
+
+    setDraft({
+      title: '',
+      start: fromLocalInput(startLocal),                                 // to ISO string
+      end: fromLocalInput(endLocal),
+      allDay: sel.allDay,
+      type: 'FENCE',
+    });
+
+    setOpen(true);
   }, []);
 
   const handleEventClick = useCallback((arg: EventClickArg) => {
@@ -252,6 +266,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
 function toLocalInput(isoLike: string) { const d = new Date(isoLike); const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function fromLocalInput(local: string) { return new Date(local).toISOString(); }
+function dateToLocalInput(d: Date) { const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
