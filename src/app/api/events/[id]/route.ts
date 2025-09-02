@@ -1,13 +1,12 @@
+// src/app/api/events/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-// PATCH /api/events/:id
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params // <- matches folder [id]
+  const { id } = await ctx.params
   const b = await req.json().catch(() => null)
   if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 
@@ -24,7 +23,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return NextResponse.json(updated, { status: 200 })
 }
 
-// DELETE /api/events/:id
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   await prisma.event.delete({ where: { id } })

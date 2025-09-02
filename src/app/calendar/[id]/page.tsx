@@ -1,8 +1,7 @@
-import CalendarWithData from "@/components/CalendarWithData";
+// src/app/calendar/[id]/page.tsx
+import CalendarWithData from "@/components/CalendarWithData"
 
-export default async function Page(
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  return <CalendarWithData calendarId={id} />;
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <CalendarWithData calendarId={id} />
 }
