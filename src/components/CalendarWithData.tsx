@@ -141,14 +141,55 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
 
-  // todos kept as-is (local only)
+  // todos persisted in DB
   const [todos, setTodos] = useState<Todo[]>([]);
-  useEffect(() => { try { const raw = localStorage.getItem('gfc_todos'); if (raw) setTodos(JSON.parse(raw)); } catch {} }, []);
-  useEffect(() => { try { localStorage.setItem('gfc_todos', JSON.stringify(todos)); } catch {} }, [todos]);
-  const addTodo = (type: JobType, title: string) => { const t = title.trim(); if (!t) return; setTodos(p => [{ id: uid(), title: t, done: false, type }, ...p]); };
-  const deleteTodoLocal = (id: string) => setTodos(p => p.filter(t => t.id !== id));
-  const completeTodo = (id: string) => setTodos(p => p.filter(t => t.id !== id));
-  const moveTodo = (id: string, type: JobType) => setTodos(p => p.map(t => (t.id === id ? { ...t, type } : t)));
+  const reloadTodos = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const rows: any[] = await r.json();
+      setTodos(rows.map(r => ({ id: r.id, title: r.title, notes: r.notes ?? undefined, done: !!r.done, type: r.type })));
+    } catch {}
+  }, [calendarId]);
+  useEffect(() => { reloadTodos(); }, [reloadTodos]);
+  useEffect(() => {
+    const onFocus = () => reloadTodos();
+    window.addEventListener('focus', onFocus);
+    const id = window.setInterval(onFocus, 30000);
+    return () => { window.removeEventListener('focus', onFocus); window.clearInterval(id); };
+  }, [reloadTodos]);
+
+  const addTodo = async (type: JobType, title: string) => {
+    const t = title.trim(); if (!t) return;
+    const temp: Todo = { id: `tmp-${uid()}`, title: t, done: false, type };
+    setTodos(p => [temp, ...p]);
+    try {
+      const r = await fetch(`/api/calendars/${calendarId}/todos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: t, type }) });
+      if (!r.ok) throw new Error('create failed');
+      const row = await r.json();
+      setTodos(p => p.map(x => (x.id === temp.id ? { id: row.id, title: row.title, notes: row.notes ?? undefined, done: !!row.done, type: row.type } : x)));
+    } catch {
+      setTodos(p => p.filter(x => x.id !== temp.id));
+    }
+  };
+
+  const deleteTodoLocal = async (id: string) => {
+    const old = todos;
+    setTodos(p => p.filter(t => t.id !== id));
+    try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch { setTodos(old); }
+  };
+
+  const completeTodo = async (id: string) => {
+    const old = todos;
+    setTodos(p => p.filter(t => t.id !== id));
+    try { await fetch(`/api/todos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) }); } catch { setTodos(old); }
+  };
+
+  const moveTodo = async (id: string, type: JobType) => {
+    const old = todos;
+    setTodos(p => p.map(t => (t.id === id ? { ...t, type } : t)));
+    try { await fetch(`/api/todos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) }); } catch { setTodos(old); }
+  };
   const onDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { e.dataTransfer.setData('text/plain', id); };
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);

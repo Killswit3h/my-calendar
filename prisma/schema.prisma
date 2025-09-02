@@ -16,6 +16,7 @@ model Calendar {
   createdAt   DateTime     @default(now())
   events      Event[]
   shareTokens ShareToken[]
+  todos       Todo[]
 }
 
 model Event {
@@ -35,6 +36,19 @@ model Event {
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   @@index([calendarId, startsAt])
+}
+
+model Todo {
+  id         String    @id @default(cuid())
+  calendarId String
+  title      String
+  notes      String?
+  done       Boolean   @default(false)
+  type       EventType
+  createdAt  DateTime  @default(now())
+  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId, createdAt])
 }
 
 model ShareToken {
