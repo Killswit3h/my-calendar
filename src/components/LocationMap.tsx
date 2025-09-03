@@ -6,7 +6,6 @@ import L from 'leaflet';
 // Fix default icon paths for Next.js on the client only
 if (typeof window !== 'undefined') {
   try {
-    // @ts-expect-error private API used by Leaflet docs workaround
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
