@@ -4,9 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  // Use a placeholder connection string so builds do not require environment variables.
+  url      = "postgresql://user:password@localhost:5432/db"
 }
 
 model Calendar {
