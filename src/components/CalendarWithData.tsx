@@ -9,7 +9,9 @@ import '@/styles/calendar.css';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; };
+type SubTask = { id: string; title: string; done: boolean };
+type Checklist = { needsLocate: boolean; locateTicket: string; tasks: SubTask[] };
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; checklist?: Checklist };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 
@@ -31,7 +33,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         start: new Date(row.startsAt).toISOString(),
         end: new Date(row.endsAt).toISOString(),
         allDay: !!row.allDay,
-        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null },
+        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null, checklist: row.checklist ?? null },
         className: typeToClass(row.type),
       })));
     }
@@ -69,6 +71,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       end: fromLocalInput(endLocal),
       allDay: sel.allDay,
       type: 'FENCE',
+      checklist: { needsLocate: false, locateTicket: '', tasks: [] },
     });
 
     setOpen(true);
@@ -84,6 +87,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       location: e.extendedProps['location'] as string | undefined,
       description: e.extendedProps['description'] as string | undefined,
       type: e.extendedProps['type'] as JobType | undefined,
+      checklist: (e.extendedProps['checklist'] as any) ?? { needsLocate: false, locateTicket: '', tasks: [] },
     }); setOpen(true);
   }, []);
 
@@ -109,18 +113,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const u = await r.json();
       setEvents(prev => prev.map(ev => ev.id === editId ? {
         id: u.id, title: u.title, start: new Date(u.startsAt).toISOString(), end: new Date(u.endsAt).toISOString(), allDay: !!u.allDay,
-        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null }, className: typeToClass(u.type),
+        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null, checklist: u.checklist ?? null }, className: typeToClass(u.type),
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const c = await r.json();
       setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null }, className: typeToClass(c.type) }]);
+        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
     }
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
@@ -133,10 +137,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) return; const c = await r.json();
     setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null }, className: typeToClass(c.type) }]);
+      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
 
   const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
@@ -193,6 +197,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const onDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { e.dataTransfer.setData('text/plain', id); };
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);
+
+  const addSubtask = () => setDraft(d => d ? { ...d, checklist: { ...(d.checklist ?? { needsLocate: false, locateTicket: '', tasks: [] }), tasks: [...(d.checklist?.tasks ?? []), { id: uid(), title: '', done: false }] } } : d);
+  const updateSubtask = (id: string, patch: Partial<SubTask>) => setDraft(d => d ? { ...d, checklist: { ...(d.checklist ?? { needsLocate: false, locateTicket: '', tasks: [] }), tasks: (d.checklist?.tasks ?? []).map(t => t.id === id ? { ...t, ...patch } : t) } } : d);
+  const removeSubtask = (id: string) => setDraft(d => d ? { ...d, checklist: { ...(d.checklist ?? { needsLocate: false, locateTicket: '', tasks: [] }), tasks: (d.checklist?.tasks ?? []).filter(t => t.id !== id) } } : d);
 
   return (
     <div className="cal-shell">
@@ -264,6 +272,24 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <label className="span-2"><div className="label">Description</div>
                 <textarea value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} />
               </label>
+              <div className="span-2">
+                <div className="label">Checklist</div>
+                <div className="flex flex-col gap-2">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" checked={draft.checklist?.needsLocate ?? false} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? { needsLocate: false, locateTicket: '', tasks: [] }), needsLocate: e.target.checked } })} />
+                    <span>Locate ticket</span>
+                    <input type="text" className="ml-2 flex-1" value={draft.checklist?.locateTicket ?? ''} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? { needsLocate: false, locateTicket: '', tasks: [] }), locateTicket: e.target.value } })} placeholder="Ticket #" />
+                  </label>
+                  {(draft.checklist?.tasks ?? []).map(t => (
+                    <div key={t.id} className="flex items-center gap-2">
+                      <input type="checkbox" checked={t.done} onChange={e => updateSubtask(t.id, { done: e.target.checked })} />
+                      <input type="text" className="flex-1" value={t.title} onChange={e => updateSubtask(t.id, { title: e.target.value })} />
+                      <button type="button" className="todo-del" onClick={() => removeSubtask(t.id)} title="Delete">×</button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn" onClick={addSubtask}>Add subtask</button>
+                </div>
+              </div>
               <div className="modal-actions span-2">
                 {editId ? (<><button className="btn" onClick={duplicateCurrent}>Duplicate</button><button className="btn ghost" onClick={deleteCurrent}>Delete</button></>) : null}
                 <button className="btn ghost" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</button>

@@ -18,6 +18,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ("description" in b) data.description = b.description ?? null
   if ("location" in b) data.location = b.location ?? null
   if ("type" in b) data.type = b.type ?? null
+  if ("checklist" in b) data.checklist = b.checklist ?? null
 
   const updated = await prisma.event.update({ where: { id }, data })
   return NextResponse.json(updated, { status: 200 })

@@ -25,3 +25,4 @@ coverage/
 turbo/
 .cache/
 .vscode/
+*.tsbuildinfo
