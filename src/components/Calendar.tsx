@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import LocationMap from './LocationMap';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -30,6 +31,7 @@ export default function Calendar({ initialDate }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [mapOn, setMapOn] = useState(false);
 
   // holidays
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
@@ -66,6 +68,7 @@ export default function Calendar({ initialDate }: Props) {
       allDay: sel.allDay,
       type: 'FENCE',
     });
+    setMapOn(false);
     setOpen(true);
   }, []);
 
@@ -83,6 +86,7 @@ export default function Calendar({ initialDate }: Props) {
       description: e.extendedProps['description'] as string | undefined,
       type: e.extendedProps['type'] as NewEvent['type'],
     });
+    setMapOn(false);
     setOpen(true);
   }, []);
 
@@ -315,14 +319,30 @@ export default function Calendar({ initialDate }: Props) {
                 </select>
               </label>
 
-              <label>
-                <div>Location</div>
+              <label className="span-2">
+                <div className="flex items-center justify-between">
+                  <span>Location</span>
+                  {draft.location ? (
+                    <button
+                      type="button"
+                      className="btn small"
+                      onClick={() => setMapOn(m => !m)}
+                    >
+                      {mapOn ? 'Hide map' : 'Show map'}
+                    </button>
+                  ) : null}
+                </div>
                 <input
                   type="text"
                   value={draft.location ?? ''}
                   onChange={e => setDraft({ ...draft, location: e.target.value })}
                 />
               </label>
+              {mapOn && draft.location ? (
+                <div className="span-2">
+                  <LocationMap location={draft.location} />
+                </div>
+              ) : null}
 
               <label className="span-2">
                 <div>Description</div>

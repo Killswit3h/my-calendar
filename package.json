@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "echo \"No tests\""
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.19",
@@ -17,6 +18,7 @@
     "@prisma/client": "^6.15.0",
     "leaflet": "^1.9.4",
     "ical-generator": "^7.0.0",
+    "leaflet": "^1.9.4",
     "next": "^15.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
