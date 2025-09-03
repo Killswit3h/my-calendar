@@ -4,12 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 import '@/styles/calendar.css';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; };
+type Checklist = {
+  locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
+  subtasks?: { id: string; text: string; done: boolean }[];
+};
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 
@@ -31,7 +35,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         start: new Date(row.startsAt).toISOString(),
         end: new Date(row.endsAt).toISOString(),
         allDay: !!row.allDay,
-        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null },
+        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null, checklist: row.checklist ?? null },
         className: typeToClass(row.type),
       })));
     }
@@ -84,7 +88,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       location: e.extendedProps['location'] as string | undefined,
       description: e.extendedProps['description'] as string | undefined,
       type: e.extendedProps['type'] as JobType | undefined,
-    }); setOpen(true);
+      checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
+    });
+    setOpen(true);
   }, []);
 
   const updateEventById = useCallback((id: string, patch: Partial<NewEvent>) => {
@@ -109,18 +115,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const u = await r.json();
       setEvents(prev => prev.map(ev => ev.id === editId ? {
         id: u.id, title: u.title, start: new Date(u.startsAt).toISOString(), end: new Date(u.endsAt).toISOString(), allDay: !!u.allDay,
-        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null }, className: typeToClass(u.type),
+        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null, checklist: u.checklist ?? null }, className: typeToClass(u.type),
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const c = await r.json();
       setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null }, className: typeToClass(c.type) }]);
+        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
     }
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
@@ -133,13 +139,36 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
+      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) return; const c = await r.json();
     setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null }, className: typeToClass(c.type) }]);
+      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
 
   const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
+
+  // Compact Google Maps link inside each event (if location exists)
+  const eventContent = useCallback((arg: EventContentArg) => {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.alignItems = 'center';
+    frag.style.gap = '0.25rem';
+    const span = document.createElement('span');
+    span.textContent = arg.event.title;
+    frag.appendChild(span);
+    const loc = (arg.event.extendedProps as any)?.location as string | undefined;
+    if (loc && loc.trim()) {
+      const a = document.createElement('a');
+      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'View in Google Maps';
+      a.textContent = '📍';
+      a.className = 'event-gmap-link';
+      frag.appendChild(a);
+    }
+    return { domNodes: [frag] };
+  }, []);
 
   // todos persisted in DB
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -215,6 +244,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           initialView="dayGridMonth"
           initialDate={initialDate}
           height="auto"
+          eventContent={eventContent}
           expandRows
           handleWindowResize
           windowResizeDelay={100}
@@ -260,10 +290,45 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </label>
               <label><div className="label">Location</div>
                 <input type="text" value={draft.location ?? ''} onChange={e => setDraft({ ...draft, location: e.target.value })} />
+                <div className="mt-1">
+                  <a
+                    href={draft.location && draft.location.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(draft.location)}` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="event-gmap-link"
+                    aria-disabled={!draft.location || !draft.location.trim()}
+                    onClick={e => { if (!draft.location || !draft.location.trim()) e.preventDefault(); }}
+                    title={draft.location && draft.location.trim() ? 'Open in Google Maps' : 'Enter a location to open in Maps'}
+                  >
+                    Open in Google Maps
+                  </a>
+                </div>
               </label>
               <label className="span-2"><div className="label">Description</div>
                 <textarea value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} />
               </label>
+              {/* Checklist controls */}
+              <div className="span-2">
+                <div className="label">Locate Ticket</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label><div className="label">Ticket #</div>
+                    <input type="text" value={draft.checklist?.locate?.ticket ?? ''} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })} />
+                  </label>
+                  <label><div className="label">Requested</div>
+                    <input type="date" value={(draft.checklist?.locate?.requested ?? '').slice(0,10)} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })} />
+                  </label>
+                  <label><div className="label">Expires</div>
+                    <input type="date" value={(draft.checklist?.locate?.expires ?? '').slice(0,10)} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })} />
+                  </label>
+                </div>
+              </div>
+              <div className="span-2">
+                <div className="label">Subtasks</div>
+                <SubtasksEditor
+                  value={draft.checklist?.subtasks ?? []}
+                  onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
+                />
+              </div>
               <div className="modal-actions span-2">
                 {editId ? (<><button className="btn" onClick={duplicateCurrent}>Duplicate</button><button className="btn ghost" onClick={deleteCurrent}>Delete</button></>) : null}
                 <button className="btn ghost" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</button>
@@ -313,4 +378,30 @@ function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return '
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
+}
+
+function defaultChecklist(): Checklist { return { locate: { ticket: '', requested: '', expires: '', contacted: false }, subtasks: [] }; }
+
+function SubtasksEditor({ value, onChange }: { value: { id: string; text: string; done: boolean }[]; onChange: (v: { id: string; text: string; done: boolean }[]) => void }) {
+  const [text, setText] = useState('');
+  const add = () => { const t = text.trim(); if (!t) return; onChange([...(value ?? []), { id: uid(), text: t, done: false }]); setText(''); };
+  const toggle = (id: string) => onChange((value ?? []).map(s => s.id === id ? { ...s, done: !s.done } : s));
+  const del = (id: string) => onChange((value ?? []).filter(s => s.id !== id));
+  return (
+    <div className="subtasks">
+      <div className="input-row">
+        <input className="subtask-input" placeholder="Add subtask" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} />
+        <button className="btn" onClick={add}>Add</button>
+      </div>
+      <div className="subtask-list">
+        {(value ?? []).map(s => (
+          <div key={s.id} className="subtask-item">
+            <input type="checkbox" checked={!!s.done} onChange={() => toggle(s.id)} />
+            <span className={s.done ? 'subtask-text muted' : 'subtask-text'}>{s.text}</span>
+            <button className="subtask-remove" onClick={() => del(s.id)}>Remove</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

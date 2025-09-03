@@ -192,3 +192,23 @@
 .fc .fc-event.evt-attenuator .fc-event-main,
 .fc .fc-event.evt-temp-fence .fc-event-main,
 .fc .fc-event.evt-handrail .fc-event-main { color: inherit !important; }
+
+/* Compact Google Maps link inside events */
+.fc .event-gmap-link {
+  margin-left: 0.35rem;
+  font-size: 0.85em;
+  color: currentColor;
+  opacity: 0.85;
+  text-decoration: none;
+}
+.fc .event-gmap-link:hover { text-decoration: underline; opacity: 1; }
+
+/* ===== Subtasks (modal) ===== */
+.subtasks { margin-top: 0.25rem; }
+.subtasks .input-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; }
+.subtasks .input-row .subtask-input { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; background: var(--card-2); color: var(--text); }
+.subtasks .subtask-list { display: grid; gap: 0.5rem; margin-top: 0.5rem; }
+.subtasks .subtask-item { display: grid; grid-template-columns: 1.1rem 1fr auto; align-items: center; gap: 0.5rem; }
+.subtasks .subtask-text { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subtasks .subtask-text.muted { color: var(--muted); text-decoration: line-through; }
+.subtasks .subtask-remove { border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem 0.55rem; background: var(--card); color: var(--danger); }

@@ -27,9 +27,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       endsAt: new Date(b.endsAt),
       allDay: !!b.allDay,
       location: b.location ?? "",
+      checklist: sanitizeChecklist(b.checklist),
       // @ts-ignore enum nullable
       type: b.type ?? null,
     },
   })
   return NextResponse.json(event, { status: 201 })
+}
+
+function sanitizeChecklist(v: any): any {
+  if (v === undefined || v === null) return null
+  if (Array.isArray(v)) return v.map(sanitizeChecklist).filter((x) => x !== undefined)
+  if (typeof v === "object") {
+    const out: any = {}
+    for (const k of Object.keys(v)) {
+      const cv = sanitizeChecklist(v[k])
+      if (cv !== undefined) out[k] = cv
+    }
+    return out
+  }
+  return v
 }

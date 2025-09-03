@@ -1,15 +1,10 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import LocationMap from './LocationMap';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type {
-  EventInput,
-  DateSelectArg,
-  EventClickArg,
-} from '@fullcalendar/core';
+import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 
 type NewEvent = {
   title: string;
@@ -31,7 +26,7 @@ export default function Calendar({ initialDate }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [mapOn, setMapOn] = useState(false);
+  
 
   // holidays
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
@@ -68,7 +63,6 @@ export default function Calendar({ initialDate }: Props) {
       allDay: sel.allDay,
       type: 'FENCE',
     });
-    setMapOn(false);
     setOpen(true);
   }, []);
 
@@ -86,7 +80,6 @@ export default function Calendar({ initialDate }: Props) {
       description: e.extendedProps['description'] as string | undefined,
       type: e.extendedProps['type'] as NewEvent['type'],
     });
-    setMapOn(false);
     setOpen(true);
   }, []);
 
@@ -214,6 +207,28 @@ export default function Calendar({ initialDate }: Props) {
     [events, holidays, holidayOn]
   );
 
+  const eventContent = useCallback((arg: EventContentArg) => {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.alignItems = 'center';
+    frag.style.gap = '0.25rem';
+    const span = document.createElement('span');
+    span.textContent = arg.event.title;
+    frag.appendChild(span);
+    const loc = (arg.event.extendedProps as any)?.location as string | undefined;
+    if (loc && loc.trim()) {
+      const a = document.createElement('a');
+      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'View in Google Maps';
+      a.textContent = '📍';
+      a.className = 'event-gmap-link';
+      frag.appendChild(a);
+    }
+    return { domNodes: [frag] };
+  }, []);
+
   return (
     <div className="cal-shell">
       <div className="surface p-4 mb-4 flex items-center gap-3 flex-wrap">
@@ -246,6 +261,7 @@ export default function Calendar({ initialDate }: Props) {
           initialView="dayGridMonth"
           initialDate={initialDate}
           height="auto"
+          eventContent={eventContent}
           selectable
           selectMirror
           editable={true}
@@ -320,29 +336,26 @@ export default function Calendar({ initialDate }: Props) {
               </label>
 
               <label className="span-2">
-                <div className="flex items-center justify-between">
-                  <span>Location</span>
-                  {draft.location ? (
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => setMapOn(m => !m)}
-                    >
-                      {mapOn ? 'Hide map' : 'Show map'}
-                    </button>
-                  ) : null}
-                </div>
+                <div>Location</div>
                 <input
                   type="text"
                   value={draft.location ?? ''}
                   onChange={e => setDraft({ ...draft, location: e.target.value })}
                 />
-              </label>
-              {mapOn && draft.location ? (
-                <div className="span-2">
-                  <LocationMap location={draft.location} />
+                <div className="mt-2">
+                  <a
+                    href={draft.location && draft.location.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(draft.location)}` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="event-gmap-link"
+                    aria-disabled={!draft.location || !draft.location.trim()}
+                    onClick={e => { if (!draft.location || !draft.location.trim()) e.preventDefault(); }}
+                    title={draft.location && draft.location.trim() ? 'Open in Google Maps' : 'Enter a location to open in Maps'}
+                  >
+                    Open in Google Maps
+                  </a>
                 </div>
-              ) : null}
+              </label>
 
               <label className="span-2">
                 <div>Description</div>
