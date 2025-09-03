@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "DIRECT_URL=${DIRECT_URL:-postgresql://user:password@localhost:5432/db} DATABASE_URL=${DATABASE_URL:-postgresql://user:password@localhost:5432/db} npm run build:core",
+    "build:core": "prisma generate && next build",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "echo \"No tests\""
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.19",
@@ -16,13 +18,16 @@
     "@fullcalendar/timegrid": "^6.1.19",
     "@prisma/client": "^6.15.0",
     "ical-generator": "^7.0.0",
+    "leaflet": "^1.9.4",
     "next": "^15.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
     "studio": "^0.13.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.12",
+    "@types/leaflet": "^1.9.20",
     "@types/node": "24.2.1",
     "@types/react": "19.1.10",
     "@types/react-dom": "^19.1.7",
