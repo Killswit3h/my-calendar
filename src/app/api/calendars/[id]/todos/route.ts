@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id: calendarId } = await ctx.params
   await ensureTodoTable()
   const todos = await prisma.$queryRaw<any[]>`
-    SELECT "id","calendarId","title","notes","done","type","createdAt"
+    SELECT "id","calendarId","title","notes","done", ("type"::text) as "type","createdAt"
     FROM "Todo"
     WHERE "calendarId" = ${calendarId}
     ORDER BY "createdAt" DESC
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const rows = await prisma.$queryRaw<any[]>`
     INSERT INTO "Todo" ("id","calendarId","title","notes","done","type")
     VALUES (${id}, ${calendarId}, ${String(b.title)}, ${b.notes ?? null}, ${!!b.done}, ${b.type}::"EventType")
-    RETURNING "id","calendarId","title","notes","done","type","createdAt"
+    RETURNING "id","calendarId","title","notes","done", ("type"::text) as "type","createdAt"
   `
   const todo = rows[0]
   return NextResponse.json(todo, { status: 201 })
