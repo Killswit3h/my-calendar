@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -26,6 +26,15 @@ export default function Calendar({ initialDate }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const m = window.matchMedia('(max-width: 640px)');
+    const handler = () => setIsMobile(m.matches);
+    handler();
+    m.addEventListener('change', handler);
+    return () => m.removeEventListener('change', handler);
+  }, []);
   
 
   // holidays
@@ -294,23 +303,82 @@ export default function Calendar({ initialDate }: Props) {
                 />
               </label>
 
-              <label>
-                <div>Start</div>
-                <input
-                  type="datetime-local"
-                  value={toLocalInput(draft.start)}
-                  onChange={e => setDraft({ ...draft, start: fromLocalInput(e.target.value) })}
-                />
-              </label>
+              {isMobile ? (
+                <>
+                  <label>
+                    <div>Start date</div>
+                    <input
+                      type="date"
+                      value={toLocalDate(draft.start)}
+                      onChange={e => {
+                        const date = e.target.value;
+                        const time = toLocalTime(draft.start);
+                        setDraft({ ...draft, start: fromLocalDateTime(date, time) });
+                      }}
+                    />
+                  </label>
+                  {!draft.allDay && (
+                    <label>
+                      <div>Start time</div>
+                      <input
+                        type="time"
+                        value={toLocalTime(draft.start)}
+                        onChange={e => {
+                          const time = e.target.value;
+                          const date = toLocalDate(draft.start);
+                          setDraft({ ...draft, start: fromLocalDateTime(date, time) });
+                        }}
+                      />
+                    </label>
+                  )}
+                  <label>
+                    <div>End date</div>
+                    <input
+                      type="date"
+                      value={toLocalDate(draft.end ?? draft.start)}
+                      onChange={e => {
+                        const date = e.target.value;
+                        const time = toLocalTime(draft.end ?? draft.start);
+                        setDraft({ ...draft, end: fromLocalDateTime(date, time) });
+                      }}
+                    />
+                  </label>
+                  {!draft.allDay && (
+                    <label>
+                      <div>End time</div>
+                      <input
+                        type="time"
+                        value={toLocalTime(draft.end ?? draft.start)}
+                        onChange={e => {
+                          const time = e.target.value;
+                          const date = toLocalDate(draft.end ?? draft.start);
+                          setDraft({ ...draft, end: fromLocalDateTime(date, time) });
+                        }}
+                      />
+                    </label>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label>
+                    <div>Start</div>
+                    <input
+                      type="datetime-local"
+                      value={toLocalInput(draft.start)}
+                      onChange={e => setDraft({ ...draft, start: fromLocalInput(e.target.value) })}
+                    />
+                  </label>
 
-              <label>
-                <div>End</div>
-                <input
-                  type="datetime-local"
-                  value={toLocalInput(draft.end ?? draft.start)}
-                  onChange={e => setDraft({ ...draft, end: fromLocalInput(e.target.value) })}
-                />
-              </label>
+                  <label>
+                    <div>End</div>
+                    <input
+                      type="datetime-local"
+                      value={toLocalInput(draft.end ?? draft.start)}
+                      onChange={e => setDraft({ ...draft, end: fromLocalInput(e.target.value) })}
+                    />
+                  </label>
+                </>
+              )}
 
               <label className="inline span-2">
                 <input
@@ -393,6 +461,9 @@ function toLocalInput(isoLike: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function fromLocalInput(local: string) { return new Date(local).toISOString(); }
+function toLocalDate(isoLike: string) { return toLocalInput(isoLike).slice(0, 10); }
+function toLocalTime(isoLike: string) { return toLocalInput(isoLike).slice(11, 16); }
+function fromLocalDateTime(date: string, time: string) { return fromLocalInput(`${date}T${time}`); }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) {
   switch (t) {
