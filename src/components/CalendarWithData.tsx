@@ -59,6 +59,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [holidayDialog, setHolidayDialog] = useState(false);
   const [weatherDialog, setWeatherDialog] = useState(false);
   const [weatherQuery, setWeatherQuery] = useState('');
+  const [todoEdit, setTodoEdit] = useState<Todo | null>(null);
+  const [todoForm, setTodoForm] = useState<{ title: string; description: string; locate: { ticket: string; requested: string; expires: string; contacted: boolean } } | null>(null);
 
   useEffect(() => {
     const m = window.matchMedia('(max-width: 640px)');
@@ -175,9 +177,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const id = de.dataTransfer?.getData('text/plain');
       const raw = de.dataTransfer?.getData('application/x-todo');
       if (!id) return;
-      let payload: { id: string; title: string; type: JobType } | null = null;
+      let payload: { id: string; title: string; type: JobType; notes?: string } | null = null;
       try { if (raw) payload = JSON.parse(raw); } catch { payload = null; }
       if (!payload || payload.id !== id) return;
+      const meta = parseTodoNotes(payload.notes);
       try {
         const startIso = fromLocalDateTime(dateStr, '00:00');
         const endIso = startIso;
@@ -186,14 +189,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: payload.title,
-            description: '',
+            description: meta.description ?? '',
             startsAt: startIso,
             endsAt: endIso,
             allDay: true,
             location: '',
             type: payload.type,
             shift: 'DAY',
-            checklist: null,
+            checklist: meta.locate ? { locate: { ...meta.locate }, subtasks: [] } : null,
           }),
         });
         if (!r.ok) return;
@@ -403,7 +406,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   };
   const onDragStart = (e: React.DragEvent<HTMLDivElement>, todo: Todo) => {
     e.dataTransfer.setData('text/plain', todo.id);
-    try { e.dataTransfer.setData('application/x-todo', JSON.stringify({ id: todo.id, title: todo.title, type: todo.type })); } catch {}
+    try { e.dataTransfer.setData('application/x-todo', JSON.stringify({ id: todo.id, title: todo.title, type: todo.type, notes: todo.notes ?? '' })); } catch {}
   };
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);
@@ -631,6 +634,52 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       )}
 
+      {/* Todo edit prompt */}
+      {todoEdit && todoForm && (
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) { setTodoEdit(null); setTodoForm(null); } }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
+            <h3 className="modal-title">Edit To-Do</h3>
+            <div className="form-grid form-compact">
+              <label className="span-2"><div className="label">Title</div>
+                <input type="text" value={todoForm.title} onChange={e => setTodoForm({ ...todoForm!, title: e.target.value })} />
+              </label>
+              <label className="span-2"><div className="label">Description of Work</div>
+                <textarea value={todoForm.description} onChange={e => setTodoForm({ ...todoForm!, description: e.target.value })} />
+              </label>
+              <div className="span-2">
+                <div className="label">Locate Ticket</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label><div className="label">Ticket #</div>
+                    <input type="text" value={todoForm.locate.ticket} onChange={e => setTodoForm({ ...todoForm!, locate: { ...todoForm!.locate, ticket: e.target.value } })} />
+                  </label>
+                  <label><div className="label">Requested</div>
+                    <input type="date" value={todoForm.locate.requested} onChange={e => setTodoForm({ ...todoForm!, locate: { ...todoForm!.locate, requested: e.target.value } })} />
+                  </label>
+                  <label><div className="label">Expires</div>
+                    <input type="date" value={todoForm.locate.expires} onChange={e => setTodoForm({ ...todoForm!, locate: { ...todoForm!.locate, expires: e.target.value } })} />
+                  </label>
+                  <label className="inline"><input type="checkbox" checked={todoForm.locate.contacted} onChange={e => setTodoForm({ ...todoForm!, locate: { ...todoForm!.locate, contacted: e.target.checked } })} /><span>Contacted</span></label>
+                </div>
+              </div>
+              <div className="modal-actions span-2">
+                <button className="btn ghost" onClick={() => { setTodoEdit(null); setTodoForm(null); }}>Cancel</button>
+                <button className="btn primary" onClick={async () => {
+                  if (!todoEdit) return;
+                  const payload = { description: todoForm!.description, locate: todoForm!.locate };
+                  const notes = JSON.stringify(payload);
+                  const r = await fetch(`/api/todos/${todoEdit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: todoForm!.title, notes }) });
+                  if (r.ok) {
+                    const row = await r.json();
+                    setTodos(p => p.map(x => (x.id === row.id ? { id: row.id, title: row.title, notes: row.notes ?? undefined, done: !!row.done, type: row.type } : x)));
+                  }
+                  setTodoEdit(null); setTodoForm(null);
+                }}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* todos (local only) */}
       <section className="todo-section todo-bleed">
         <div className="surface p-3">
@@ -643,7 +692,29 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <div className="todo-list">
                   {byType(typ).map(t => (
                     <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t)}>
-                      <label className="todo-row"><input type="checkbox" checked={false} onChange={() => completeTodo(t.id)} /><span className="todo-text">{t.title}</span></label>
+                      <label className="todo-row">
+                        <input type="checkbox" checked={false} onChange={() => completeTodo(t.id)} />
+                        <span
+                          className="todo-text"
+                          role="button"
+                          tabIndex={0}
+                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onClick={(e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            setTodoEdit(t);
+                            const parsed = parseTodoNotes(t.notes);
+                            setTodoForm({ title: t.title, description: parsed.description ?? '', locate: { ticket: parsed.locate?.ticket ?? '', requested: parsed.locate?.requested ?? '', expires: parsed.locate?.expires ?? '', contacted: !!parsed.locate?.contacted } });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault(); e.stopPropagation();
+                              setTodoEdit(t);
+                              const parsed = parseTodoNotes(t.notes);
+                              setTodoForm({ title: t.title, description: parsed.description ?? '', locate: { ticket: parsed.locate?.ticket ?? '', requested: parsed.locate?.requested ?? '', expires: parsed.locate?.expires ?? '', contacted: !!parsed.locate?.contacted } });
+                            }
+                          }}
+                        >{t.title}</span>
+                      </label>
                       <div className="todo-actions">
                         <select className="todo-move" value={t.type} onChange={e => moveTodo(t.id, e.target.value as JobType)} title="Move to…">
                           {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(v => (<option key={v} value={v}>{TYPE_LABEL[v]}</option>))}
@@ -688,6 +759,15 @@ function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; pla
 }
 
 function defaultChecklist(): Checklist { return { locate: { ticket: '', requested: '', expires: '', contacted: false }, subtasks: [] }; }
+
+function parseTodoNotes(notes?: string | null): { description?: string; locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean } } {
+  if (!notes) return {};
+  try {
+    const j = JSON.parse(notes);
+    if (j && typeof j === 'object') return j;
+  } catch {}
+  return { description: notes };
+}
 
 function SubtasksEditor({ value, onChange }: { value: { id: string; text: string; done: boolean }[]; onChange: (v: { id: string; text: string; done: boolean }[]) => void }) {
   const [text, setText] = useState('');
