@@ -34,6 +34,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ("description" in b) data.description = b.description ?? null
   if ("location" in b) data.location = b.location ?? null
   if ("type" in b) data.type = b.type ?? null
+  if ("shift" in b) data.shift = b.shift ?? null
   if ("checklist" in b) {
     const cleaned = cleanJson(b.checklist)
     data.checklist = cleaned === undefined ? null : cleaned

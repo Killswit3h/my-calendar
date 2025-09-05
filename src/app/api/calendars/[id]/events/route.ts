@@ -30,6 +30,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       checklist: sanitizeChecklist(b.checklist),
       // @ts-ignore enum nullable
       type: b.type ?? null,
+      // @ts-ignore enum nullable
+      shift: b.shift ?? null,
     },
   })
   return NextResponse.json(event, { status: 201 })

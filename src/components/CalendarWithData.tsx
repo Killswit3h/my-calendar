@@ -13,7 +13,8 @@ type Checklist = {
   locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
   subtasks?: { id: string; text: string; done: boolean }[];
 };
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; checklist?: Checklist | null };
+type WorkShift = 'DAY' | 'NIGHT';
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; type?: JobType; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 
@@ -35,7 +36,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         start: new Date(row.startsAt).toISOString(),
         end: new Date(row.endsAt).toISOString(),
         allDay: !!row.allDay,
-        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null, checklist: row.checklist ?? null },
+        extendedProps: { location: row.location ?? '', description: row.description ?? '', type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
         className: typeToClass(row.type),
       })));
     }
@@ -162,7 +163,58 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const dayCellDidMount = useCallback((arg: { date: Date; el: HTMLElement }) => {
     injectBadgeIntoCell(arg.el);
-  }, [weather, coords]);
+
+    // Enable dropping a Todo onto a day cell to create an event
+    const el = arg.el;
+    const dateStr = dateToLocalInput(arg.date).slice(0, 10); // YYYY-MM-DD local
+    el.setAttribute('data-date', dateStr);
+    const onDragOver = (e: Event) => { (e as DragEvent).preventDefault(); };
+    const onDrop = async (e: Event) => {
+      const de = e as DragEvent;
+      de.preventDefault();
+      const id = de.dataTransfer?.getData('text/plain');
+      const raw = de.dataTransfer?.getData('application/x-todo');
+      if (!id) return;
+      let payload: { id: string; title: string; type: JobType } | null = null;
+      try { if (raw) payload = JSON.parse(raw); } catch { payload = null; }
+      if (!payload || payload.id !== id) return;
+      try {
+        const startIso = fromLocalDateTime(dateStr, '00:00');
+        const endIso = startIso;
+        const r = await fetch(`/api/calendars/${calendarId}/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: payload.title,
+            description: '',
+            startsAt: startIso,
+            endsAt: endIso,
+            allDay: true,
+            location: '',
+            type: payload.type,
+            shift: 'DAY',
+            checklist: null,
+          }),
+        });
+        if (!r.ok) return;
+        const c = await r.json();
+        setEvents(p => [...p, {
+          id: c.id,
+          title: c.title,
+          start: new Date(c.startsAt).toISOString(),
+          end: new Date(c.endsAt).toISOString(),
+          allDay: !!c.allDay,
+          extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null },
+          className: typeToClass(c.type),
+        }]);
+        // Remove todo on success
+        try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch {}
+        setTodos(p => p.filter(t => t.id !== id));
+      } catch {}
+    };
+    el.addEventListener('dragover', onDragOver as any);
+    el.addEventListener('drop', onDrop as any);
+  }, [weather, coords, calendarId]);
 
   useEffect(() => {
     // When weather map updates, (re)inject badges into currently rendered cells
@@ -200,6 +252,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       end: fromLocalInput(endLocal),
       allDay: sel.allDay,
       type: 'FENCE',
+      shift: 'DAY',
     });
 
     setOpen(true);
@@ -215,6 +268,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       location: e.extendedProps['location'] as string | undefined,
       description: e.extendedProps['description'] as string | undefined,
       type: e.extendedProps['type'] as JobType | undefined,
+      shift: e.extendedProps['shift'] as WorkShift | undefined,
       checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
     });
     setOpen(true);
@@ -242,18 +296,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const u = await r.json();
       setEvents(prev => prev.map(ev => ev.id === editId ? {
         id: u.id, title: u.title, start: new Date(u.startsAt).toISOString(), end: new Date(u.endsAt).toISOString(), allDay: !!u.allDay,
-        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null, checklist: u.checklist ?? null }, className: typeToClass(u.type),
+        extendedProps: { location: u.location ?? '', description: u.description ?? '', type: u.type ?? null, shift: u.shift ?? null, checklist: u.checklist ?? null }, className: typeToClass(u.type),
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const c = await r.json();
       setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+        extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
     }
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
@@ -266,10 +320,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, checklist: draft.checklist ?? null }) });
+      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) return; const c = await r.json();
     setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.startsAt).toISOString(), end: new Date(c.endsAt).toISOString(), allDay: !!c.allDay,
-      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
 
   const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
@@ -347,7 +401,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setTodos(p => p.map(t => (t.id === id ? { ...t, type } : t)));
     try { await fetch(`/api/todos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) }); } catch { setTodos(old); }
   };
-  const onDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { e.dataTransfer.setData('text/plain', id); };
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>, todo: Todo) => {
+    e.dataTransfer.setData('text/plain', todo.id);
+    try { e.dataTransfer.setData('application/x-todo', JSON.stringify({ id: todo.id, title: todo.title, type: todo.type })); } catch {}
+  };
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);
 
@@ -449,6 +506,31 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}>
                   <option value="FENCE">Fence</option><option value="TEMP_FENCE">Temp Fence</option><option value="GUARDRAIL">Guardrail</option><option value="HANDRAIL">Handrail</option><option value="ATTENUATOR">Attenuator</option>
                 </select>
+              </label>
+              <label>
+                <div className="label">Work Time</div>
+                <div className="inline">
+                  <label style={{ marginRight: '1rem' }}>
+                    <input
+                      type="radio"
+                      name="shift"
+                      value="DAY"
+                      checked={(draft.shift ?? 'DAY') === 'DAY'}
+                      onChange={() => setDraft({ ...draft, shift: 'DAY' })}
+                    />
+                    <span> Day</span>
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="shift"
+                      value="NIGHT"
+                      checked={draft.shift === 'NIGHT'}
+                      onChange={() => setDraft({ ...draft, shift: 'NIGHT' })}
+                    />
+                    <span> Night</span>
+                  </label>
+                </div>
               </label>
               <label><div className="label">Location</div>
                 <input type="text" value={draft.location ?? ''} onChange={e => setDraft({ ...draft, location: e.target.value })} />
@@ -560,7 +642,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <TodoAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
                 <div className="todo-list">
                   {byType(typ).map(t => (
-                    <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t.id)}>
+                    <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t)}>
                       <label className="todo-row"><input type="checkbox" checked={false} onChange={() => completeTodo(t.id)} /><span className="todo-text">{t.title}</span></label>
                       <div className="todo-actions">
                         <select className="todo-move" value={t.type} onChange={e => moveTodo(t.id, e.target.value as JobType)} title="Move to…">

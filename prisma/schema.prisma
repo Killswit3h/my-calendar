@@ -34,6 +34,7 @@ model Event {
   attachmentName String?
   attachmentType String?
   type           EventType?
+  shift          WorkShift?
   checklist      Json?
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
@@ -98,4 +99,9 @@ enum EventType {
   TEMP_FENCE
   HANDRAIL
   ATTENUATOR
+}
+
+enum WorkShift {
+  DAY
+  NIGHT
 }
