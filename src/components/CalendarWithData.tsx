@@ -49,6 +49,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(() => {
+    try { const s = localStorage.getItem('weather.coords'); if (s) return JSON.parse(s); } catch {}
+    return null;
+  });
+  const [weather, setWeather] = useState<Record<string, { tmax: number; tmin: number; pop: number; code: number }>>({});
+  const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [holidayDialog, setHolidayDialog] = useState(false);
+  const [weatherDialog, setWeatherDialog] = useState(false);
+  const [weatherQuery, setWeatherQuery] = useState('');
 
   useEffect(() => {
     const m = window.matchMedia('(max-width: 640px)');
@@ -65,9 +74,118 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     })); setHolidays(bg);
   }, []);
 
+  // manual location only (set via Weather dialog). If none, no weather badges.
+
+  // fetch daily forecast for visible range
+  const fetchWeather = useCallback(async (start: Date, end: Date, c: { lat: number; lon: number }) => {
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const startDate = fmt(start);
+    // subtract 1 day from end to avoid off-by-one on FullCalendar's exclusive end
+    const endAdj = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    const endDate = fmt(endAdj);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return;
+      const j = await res.json();
+      const map: Record<string, { tmax: number; tmin: number; pop: number; code: number }> = {};
+      const t: string[] = j.daily?.time ?? [];
+      const tmax: number[] = j.daily?.temperature_2m_max ?? [];
+      const tmin: number[] = j.daily?.temperature_2m_min ?? [];
+      const pop: number[] = j.daily?.precipitation_probability_max ?? [];
+      const code: number[] = j.daily?.weathercode ?? [];
+      for (let i = 0; i < t.length; i++) map[t[i]] = { tmax: tmax[i], tmin: tmin[i], pop: pop[i], code: code[i] };
+      setWeather(map);
+    } catch {}
+  }, []);
+
+  // initial weather for the starting month once coords are known
+  useEffect(() => {
+    if (!coords) return;
+    const y = initialDate.getUTCFullYear();
+    const m = initialDate.getUTCMonth();
+    const start = new Date(Date.UTC(y, m, 1));
+    const end = new Date(Date.UTC(y, m + 1, 1));
+    fetchWeather(start, end, coords);
+  }, [coords, initialDate, fetchWeather]);
+
   const handleDatesSet = useCallback((arg: { start: Date; end: Date }) => {
-    const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2); const y = mid.getUTCFullYear(); fetchHolidays(y, country);
-  }, [country, fetchHolidays]);
+    setVisibleRange({ start: arg.start, end: arg.end });
+    const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2);
+    const y = mid.getUTCFullYear();
+    fetchHolidays(y, country);
+    if (coords) fetchWeather(arg.start, arg.end, coords);
+  }, [country, fetchHolidays, coords, fetchWeather]);
+
+  const weatherIcon = (code: number, pop: number) => {
+    // Map Open-Meteo WMO weather codes to a small emoji icon
+    // Ref: https://open-meteo.com/en/docs#api_form
+    if (pop >= 70) return '🌧️';
+    if (code === 0) return '☀️';
+    if ([1, 2].includes(code)) return '⛅️';
+    if (code === 3) return '☁️';
+    if ([45, 48].includes(code)) return '🌫️';
+    if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return '🌦️';
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return '❄️';
+    if ([95, 96, 99].includes(code)) return '⛈️';
+    return '🌤️';
+  };
+
+  const injectBadgeIntoCell = (cell: Element) => {
+    const ymd = (cell as HTMLElement).getAttribute('data-date');
+    if (!ymd) return;
+    const top = cell.querySelector('.fc-daygrid-day-top');
+    if (!top) return;
+    const existing = top.querySelector('.day-weather');
+    if (existing) existing.remove();
+    const data = weather[ymd];
+    if (!data || !coords) return;
+    const a = document.createElement('a');
+    a.className = 'day-weather';
+    const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
+    const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
+    a.appendChild(ico); a.appendChild(txt);
+    a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
+    a.target = '_blank'; a.rel = 'noopener noreferrer';
+    // prevent calendar selection when clicking the link
+    ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
+      a.addEventListener(evt as any, (e) => { e.stopPropagation(); });
+    });
+    const dayNum = top.querySelector('.fc-daygrid-day-number');
+    // insert to the left of the date number
+    if (dayNum && dayNum.parentNode) {
+      dayNum.parentNode.insertBefore(a, dayNum);
+    } else {
+      top.insertBefore(a, top.firstChild);
+    }
+  };
+
+  const dayCellDidMount = useCallback((arg: { date: Date; el: HTMLElement }) => {
+    injectBadgeIntoCell(arg.el);
+  }, [weather, coords]);
+
+  useEffect(() => {
+    // When weather map updates, (re)inject badges into currently rendered cells
+    const cells = document.querySelectorAll('.fc-daygrid-day');
+    cells.forEach(injectBadgeIntoCell);
+  }, [weather, coords]);
+
+  // simple geo helper for Weather dialog
+  async function geocode(q: string): Promise<{ lat: number; lon: number } | null> {
+    // Accept "lat,lon"
+    const m = q.split(',').map(x => x.trim());
+    if (m.length === 2 && !isNaN(Number(m[0])) && !isNaN(Number(m[1]))) {
+      return { lat: parseFloat(m[0]), lon: parseFloat(m[1]) };
+    }
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=${encodeURIComponent(q)}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      const j = await r.json();
+      const f = j.results?.[0];
+      if (f) return { lat: f.latitude, lon: f.longitude };
+    } catch {}
+    return null;
+  }
 
   // FIXED: build local times from Date objects, not startStr/endStr
   const handleSelect = useCallback((sel: DateSelectArg) => {
@@ -163,6 +281,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     frag.style.alignItems = 'center';
     frag.style.gap = '0.25rem';
     const span = document.createElement('span');
+    span.className = 'evt-title';
     span.textContent = arg.event.title;
     frag.appendChild(span);
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
@@ -235,15 +354,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   return (
     <div className="cal-shell">
       {/* controls */}
-      <div className="surface p-4 mb-4 flex items-center gap-3 flex-wrap">
-        <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={holidayOn} onChange={e => setHolidayOn(e.target.checked)} />
-          <span>Show public holidays</span>
-        </label>
-        <div className="flex items-center gap-2">
-          <span className="muted-sm">Country</span>
-          <input value={country} onChange={e => setCountry(e.target.value.toUpperCase())} onBlur={() => { const y = new Date().getUTCFullYear(); fetchHolidays(y, country); }} className="country-input" />
-        </div>
+      <div className="cal-controls calendar-bleed">
+        <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
+        <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
       </div>
 
       {/* calendar */}
@@ -252,7 +365,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           initialDate={initialDate}
-          height="auto"
+            height="auto"
+          dayCellDidMount={dayCellDidMount}
           eventContent={eventContent}
           expandRows
           handleWindowResize
@@ -387,6 +501,54 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       ) : null}
 
+      {/* Holidays country prompt */}
+      {holidayDialog && (
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setHolidayDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
+            <h3 className="modal-title">Holidays</h3>
+            <div className="form-grid">
+              <label className="inline span-2"><input type="checkbox" checked={holidayOn} onChange={e => setHolidayOn(e.target.checked)} /><span>Show public holidays</span></label>
+              <label>
+                <div className="label">Country</div>
+                <select value={country} onChange={e => setCountry(e.target.value as string)}>
+                  {COUNTRIES.map(c => (<option key={c[0]} value={c[0]}>{c[1]} ({c[0]})</option>))}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <button className="btn ghost" onClick={() => setHolidayDialog(false)}>Cancel</button>
+                <button className="btn primary" onClick={() => { setHolidayDialog(false); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Weather location prompt */}
+      {weatherDialog && (
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setWeatherDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
+            <h3 className="modal-title">Weather</h3>
+            <div className="form-grid">
+              <label className="span-2">
+                <div className="label">City, State or Lat,Lng</div>
+                <input type="text" value={weatherQuery} onChange={e => setWeatherQuery(e.target.value)} placeholder="e.g. Orlando, FL or 28.54,-81.38" />
+              </label>
+              <div className="modal-actions span-2">
+                <button className="btn ghost" onClick={() => setWeatherDialog(false)}>Cancel</button>
+                <button className="btn primary" onClick={async () => {
+                  const g = await geocode(weatherQuery.trim());
+                  if (!g) { alert('Location not found. Try City, State or lat,lng'); return; }
+                  setCoords(g);
+                  localStorage.setItem('weather.coords', JSON.stringify(g));
+                  setWeatherDialog(false);
+                  if (visibleRange) fetchWeather(visibleRange.start, visibleRange.end, g);
+                }}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* todos (local only) */}
       <section className="todo-section todo-bleed">
         <div className="surface p-3">
@@ -417,6 +579,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     </div>
   );
 }
+
+const COUNTRIES: [string, string][] = [
+  ['US', 'United States'],
+  ['CA', 'Canada'],
+  ['GB', 'United Kingdom'],
+  ['AU', 'Australia'],
+  ['DE', 'Germany'],
+  ['MX', 'Mexico'],
+  ['FR', 'France'],
+  ['ES', 'Spain'],
+  ['IT', 'Italy'],
+];
 
 function toLocalInput(isoLike: string) { const d = new Date(isoLike); const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function fromLocalInput(local: string) { return new Date(local).toISOString(); }
