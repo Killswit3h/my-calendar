@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -17,6 +17,26 @@ type WorkShift = 'DAY' | 'NIGHT';
 type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; type?: JobType; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
+const TYPE_COLOR: Record<JobType, string> = {
+  FENCE: 'var(--evt-fence)',
+  GUARDRAIL: 'var(--evt-guardrail)',
+  ATTENUATOR: 'var(--evt-attenuator)',
+  HANDRAIL: 'var(--evt-handrail)',
+  TEMP_FENCE: 'var(--evt-temp-fence)',
+};
+
+const IconType = (props: any) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M3 6l3-3h8l3 3v12l-3 3H6l-3-3V6z"/></svg>
+);
+const IconClock = (props: any) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zm1 11h5v2h-7V6h2z"/></svg>
+);
+const IconLocation = (props: any) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5S13.4 11.5 12 11.5z"/></svg>
+);
+const IconTicket = (props: any) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M21 5H3v4h1a2 2 0 1 1 0 4H3v4h18v-4h-1a2 2 0 1 1 0-4h1V5z"/></svg>
+);
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
   const initialDate = useMemo(() => {
@@ -68,6 +88,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [weatherQuery, setWeatherQuery] = useState('');
   const [todoEdit, setTodoEdit] = useState<Todo | null>(null);
   const [todoForm, setTodoForm] = useState<{ title: string; description: string; locate: { ticket: string; requested: string; expires: string; contacted: boolean } } | null>(null);
+  const [userChangedStart, setUserChangedStart] = useState(false);
+  const [userChangedEnd, setUserChangedEnd] = useState(false);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const locationRef = useRef<HTMLInputElement>(null);
+  const autoRef = useRef<any>(null);
+  const [locInput, setLocInput] = useState('');
 
   useEffect(() => {
     const m = window.matchMedia('(max-width: 640px)');
@@ -76,6 +102,47 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     m.addEventListener('change', handler);
     return () => m.removeEventListener('change', handler);
   }, []);
+
+  useEffect(() => {
+    if (descRef.current) {
+      descRef.current.style.height = 'auto';
+      descRef.current.style.height = Math.min(descRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [draft?.description]);
+
+  useEffect(() => { if (open) setLocInput(draft?.location ?? ''); }, [open, draft?.location]);
+
+  useEffect(() => {
+    if (!draft) return;
+    const t = setTimeout(() => setDraft(d => d ? { ...d, location: locInput } : d), 300);
+    return () => clearTimeout(t);
+  }, [locInput]);
+
+  useEffect(() => {
+    if (!open) return;
+    const init = () => {
+      if (!locationRef.current || !(window as any).google) return;
+      autoRef.current = new (window as any).google.maps.places.Autocomplete(locationRef.current, { componentRestrictions: { country: 'us' } });
+      autoRef.current.addListener('place_changed', () => {
+        const place = autoRef.current.getPlace();
+        const addr = place.formatted_address || place.name || '';
+        setLocInput(addr);
+        setDraft(d => d ? { ...d, location: addr } : d);
+      });
+    };
+    if ((window as any).google && (window as any).google.maps && (window as any).google.maps.places) {
+      init();
+    } else {
+      const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!key) return;
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+      script.async = true;
+      script.onload = init;
+      document.head.appendChild(script);
+      return () => { document.head.removeChild(script); };
+    }
+  }, [open]);
 
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
     const res = await fetch(`/api/holidays?year=${year}&country=${cc}`); const json = await res.json();
@@ -330,6 +397,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); setDraft(null); setEditId(null); }
+      if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); saveDraft(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, saveDraft]);
+
   const deleteCurrent = useCallback(async () => {
     if (!editId) return; await fetch(`/api/events/${editId}`, { method: 'DELETE' });
     setEvents(prev => prev.filter(e => e.id !== editId)); setOpen(false); setDraft(null); setEditId(null);
@@ -346,6 +423,67 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay,
       extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
+
+  const updateStart = (iso: string) => {
+    if (!draft) return;
+    const prevStart = new Date(draft.start);
+    const newStartDate = new Date(iso);
+    let endIso = draft.end;
+    if (!userChangedEnd && draft.end) {
+      const duration = new Date(draft.end).getTime() - prevStart.getTime();
+      endIso = new Date(newStartDate.getTime() + duration).toISOString();
+    }
+    setDraft({ ...draft, start: iso, end: endIso });
+    setUserChangedStart(true);
+  };
+
+  const updateEnd = (iso: string) => {
+    if (!draft) return;
+    const endDate = new Date(iso);
+    if (endDate < new Date(draft.start)) endDate.setTime(new Date(draft.start).getTime());
+    setDraft({ ...draft, end: endDate.toISOString() });
+    setUserChangedEnd(true);
+  };
+
+  const toggleShift = () => {
+    if (!draft) return;
+    const newShift = (draft.shift ?? 'DAY') === 'DAY' ? 'NIGHT' : 'DAY';
+    let startIso = draft.start;
+    let endIso = draft.end ?? draft.start;
+    if (newShift === 'NIGHT' && !userChangedStart && !userChangedEnd) {
+      const s = new Date(draft.start);
+      s.setHours(19, 0, 0, 0);
+      const e = new Date(s);
+      e.setDate(e.getDate() + 1);
+      e.setHours(5, 0, 0, 0);
+      startIso = s.toISOString();
+      endIso = e.toISOString();
+    }
+    setDraft({ ...draft, shift: newShift, start: startIso, end: endIso });
+  };
+
+  const currentTypeColor = draft ? TYPE_COLOR[(draft.type ?? 'FENCE') as JobType] : 'transparent';
+
+  const handleDescKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const start = e.currentTarget.selectionStart;
+      const value = e.currentTarget.value;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const line = value.slice(lineStart, start);
+      if (line.startsWith('- ')) {
+        e.preventDefault();
+        const insert = '\n- ';
+        const newVal = value.slice(0, start) + insert + value.slice(e.currentTarget.selectionEnd);
+        setDraft(d => d ? { ...d, description: newVal } : d);
+        requestAnimationFrame(() => {
+          if (descRef.current) {
+            const pos = start + insert.length;
+            descRef.current.selectionStart = descRef.current.selectionEnd = pos;
+          }
+        });
+      }
+    }
+  };
 
   const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
 
@@ -472,115 +610,69 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       {open && draft ? (
         <div className="modal-root">
           <div className="modal-card">
-            <h3 className="modal-title">{editId ? 'Edit event' : 'Add event'}</h3>
+            <h3 className="modal-title" style={{ borderLeft: `4px solid ${currentTypeColor}`, paddingLeft: '0.5rem' }}>{editId ? 'Edit event' : 'Add event'}</h3>
             <div className="form-grid form-compact">
+              <div className="form-section span-2">Event Info</div>
               <label className="span-2"><div className="label">Title</div>
                 <input type="text" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
               </label>
               {isMobile ? (
                 <>
                   <label><div className="label">Start date</div>
-                    <input type="date" value={toLocalDate(draft.start)} onChange={e => {
-                      const date = e.target.value;
-                      const time = toLocalTime(draft.start);
-                      setDraft({ ...draft, start: fromLocalDateTime(date, time) });
-                    }} />
+                    <input type="date" value={toLocalDate(draft.start)} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
                   </label>
                   {!draft.allDay && (
                     <label><div className="label">Start time</div>
-                      <input type="time" value={toLocalTime(draft.start)} onChange={e => {
-                        const time = e.target.value;
-                        const date = toLocalDate(draft.start);
-                        setDraft({ ...draft, start: fromLocalDateTime(date, time) });
-                      }} />
+                      <input type="time" value={toLocalTime(draft.start)} onChange={e => { const time = e.target.value; const date = toLocalDate(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
                     </label>
                   )}
                   <label><div className="label">End date</div>
-                    <input type="date" value={toLocalDate(draft.end ?? draft.start)} onChange={e => {
-                      const date = e.target.value;
-                      const time = toLocalTime(draft.end ?? draft.start);
-                      setDraft({ ...draft, end: fromLocalDateTime(date, time) });
-                    }} />
+                    <input type="date" min={toLocalDate(draft.start)} value={toLocalDate(draft.end ?? draft.start)} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
                   </label>
                   {!draft.allDay && (
                     <label><div className="label">End time</div>
-                      <input type="time" value={toLocalTime(draft.end ?? draft.start)} onChange={e => {
-                        const time = e.target.value;
-                        const date = toLocalDate(draft.end ?? draft.start);
-                        setDraft({ ...draft, end: fromLocalDateTime(date, time) });
-                      }} />
+                      <input type="time" value={toLocalTime(draft.end ?? draft.start)} onChange={e => { const time = e.target.value; const date = toLocalDate(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
                     </label>
                   )}
                 </>
               ) : (
                 <>
                   <label><div className="label">Start</div>
-                    <input type="datetime-local" value={toLocalInput(draft.start)} onChange={e => setDraft({ ...draft, start: fromLocalInput(e.target.value) })} />
+                    <input type="datetime-local" value={toLocalInput(draft.start)} onChange={e => updateStart(fromLocalInput(e.target.value))} />
                   </label>
                   <label><div className="label">End</div>
-                    <input type="datetime-local" value={toLocalInput(draft.end ?? draft.start)} onChange={e => setDraft({ ...draft, end: fromLocalInput(e.target.value) })} />
+                    <input type="datetime-local" min={toLocalInput(draft.start)} value={toLocalInput(draft.end ?? draft.start)} onChange={e => updateEnd(fromLocalInput(e.target.value))} />
                   </label>
                 </>
               )}
-              
-              <label><div className="label">Type</div>
-                <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}>
-                  <option value="FENCE">Fence</option><option value="TEMP_FENCE">Temp Fence</option><option value="GUARDRAIL">Guardrail</option><option value="HANDRAIL">Handrail</option><option value="ATTENUATOR">Attenuator</option>
-                </select>
+              <label><div className="label"><IconClock className="ico" />Work Time</div>
+                <button type="button" className={`shift-toggle ${draft.shift === 'NIGHT' ? 'night' : 'day'}`} onClick={toggleShift} aria-label="Toggle work time">{(draft.shift ?? 'DAY') === 'DAY' ? 'Day' : 'Night'}</button>
+              </label>
+              <label><div className="label"><IconType className="ico" />Type</div>
+                <div className="inline"><span className="type-chip" style={{ background: currentTypeColor }}></span>
+                  <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}>
+                    <option value="FENCE">Fence</option><option value="TEMP_FENCE">Temp Fence</option><option value="GUARDRAIL">Guardrail</option><option value="HANDRAIL">Handrail</option><option value="ATTENUATOR">Attenuator</option>
+                  </select>
+                </div>
+              </label>
+              <div className="form-section span-2">Work Details</div>
+              <label><div className="label"><IconLocation className="ico" />Location</div>
+                <input ref={locationRef} type="text" value={locInput} onChange={e => { setLocInput(e.target.value); if (!e.target.value) { autoRef.current?.set && autoRef.current.set('place', null); } }} />
+                <div className="mt-1">
+                  <a href={locInput && locInput.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locInput)}` : '#'} target="_blank" rel="noopener noreferrer" className="event-gmap-link" aria-disabled={!locInput || !locInput.trim()} onClick={e => { if (!locInput || !locInput.trim()) e.preventDefault(); }} title={locInput && locInput.trim() ? 'Open in Google Maps' : 'Enter a location to open in Maps'}>Open in Google Maps</a>
+                </div>
               </label>
               <label><div className="label">Invoice #</div>
-                <input type="text" value={draft.invoice ?? ''} onChange={e => setDraft({ ...draft, invoice: e.target.value })} />
-              </label>
-              <label>
-                <div className="label">Work Time</div>
-                <div className="inline">
-                  <label style={{ marginRight: '1rem' }}>
-                    <input
-                      type="radio"
-                      name="shift"
-                      value="DAY"
-                      checked={(draft.shift ?? 'DAY') === 'DAY'}
-                      onChange={() => setDraft({ ...draft, shift: 'DAY' })}
-                    />
-                    <span> Day</span>
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="shift"
-                      value="NIGHT"
-                      checked={draft.shift === 'NIGHT'}
-                      onChange={() => setDraft({ ...draft, shift: 'NIGHT' })}
-                    />
-                    <span> Night</span>
-                  </label>
-                </div>
-              </label>
-              <label><div className="label">Location</div>
-                <input type="text" value={draft.location ?? ''} onChange={e => setDraft({ ...draft, location: e.target.value })} />
-                <div className="mt-1">
-                  <a
-                    href={draft.location && draft.location.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(draft.location)}` : '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="event-gmap-link"
-                    aria-disabled={!draft.location || !draft.location.trim()}
-                    onClick={e => { if (!draft.location || !draft.location.trim()) e.preventDefault(); }}
-                    title={draft.location && draft.location.trim() ? 'Open in Google Maps' : 'Enter a location to open in Maps'}
-                  >
-                    Open in Google Maps
-                  </a>
-                </div>
+                <input type="text" inputMode="numeric" value={draft.invoice ?? ''} onChange={e => setDraft({ ...draft, invoice: e.target.value })} />
               </label>
               <label className="span-2"><div className="label">Description</div>
-                <textarea value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} />
+                <textarea ref={descRef} value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} onKeyDown={handleDescKeyDown} />
               </label>
-              {/* Checklist controls */}
+              <div className="form-section span-2">Tickets</div>
               <div className="span-2">
-                <div className="label">Locate Ticket</div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label><div className="label">Ticket #</div>
-                    <input type="text" value={draft.checklist?.locate?.ticket ?? ''} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })} />
+                  <label><div className="label"><IconTicket className="ico" />Ticket #</div>
+                    <input type="text" inputMode="numeric" value={draft.checklist?.locate?.ticket ?? ''} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })} />
                   </label>
                   <label><div className="label">Requested</div>
                     <input type="date" value={(draft.checklist?.locate?.requested ?? '').slice(0,10)} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })} />
@@ -590,8 +682,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   </label>
                 </div>
               </div>
+              <div className="form-section span-2">Subtasks</div>
               <div className="span-2">
-                <div className="label">Subtasks</div>
                 <SubtasksEditor
                   value={draft.checklist?.subtasks ?? []}
                   onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
