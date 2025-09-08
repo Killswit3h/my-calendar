@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 import * as chrono from 'chrono-node';
@@ -16,7 +15,8 @@ type Checklist = {
   subtasks?: { id: string; text: string; done: boolean }[];
 };
 type WorkShift = 'DAY' | 'NIGHT';
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; type?: JobType; shift?: WorkShift; checklist?: Checklist | null };
+type PaymentType = 'DAILY' | 'ADJUSTED';
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 const TYPE_COLOR: Record<JobType, string> = {
@@ -54,7 +54,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       if (!r.ok) return;
       const rows = await r.json();
       setEvents(rows.map((row: any) => {
-        const { invoice, rest } = splitInvoice(row.description ?? '');
+        const { invoice, payment, rest } = splitInvoice(row.description ?? '');
         const startIso = new Date(row.start).toISOString();
         const rawEndIso = row.end ? new Date(row.end).toISOString() : startIso;
         const endIso = row.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso; // FullCalendar expects exclusive end for all-day
@@ -64,7 +64,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           start: startIso,
           end: endIso,
           allDay: !!row.allDay,
-          extendedProps: { location: row.location ?? '', description: rest, invoice, type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
+          extendedProps: { location: row.location ?? '', description: rest, invoice, payment, type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
           className: typeToClass(row.type),
         } as EventInput;
       }));
@@ -98,7 +98,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [locInput, setLocInput] = useState('');
   const [quickText, setQuickText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState<'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'>('dayGridMonth');
+  const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
@@ -162,8 +162,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [open]);
 
 
-  const views: ('timeGridDay' | 'timeGridWeek' | 'dayGridMonth')[] = ['timeGridDay', 'timeGridWeek', 'dayGridMonth'];
-  const changeView = useCallback((v: 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth') => {
+  const views: ('dayGridWeek' | 'dayGridMonth')[] = ['dayGridWeek', 'dayGridMonth'];
+  const changeView = useCallback((v: 'dayGridWeek' | 'dayGridMonth') => {
     setCurrentView(v);
     calendarRef.current?.getApi().changeView(v);
   }, []);
@@ -220,11 +220,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         const startIso = new Date(c.start).toISOString();
         const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
         const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
-        setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay, extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+        setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay, extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
       }
     } else {
       const nowIso = new Date().toISOString();
-      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE' });
+      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY' });
       setEditId(null);
       setOpen(true);
     }
@@ -418,6 +418,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       allDay: sel.allDay,
       type: 'FENCE',
       invoice: '',
+      payment: 'DAILY',
       shift: 'DAY',
     });
 
@@ -446,6 +447,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         location: e.extendedProps['location'] as string | undefined,
         description: e.extendedProps['description'] as string | undefined,
         invoice: e.extendedProps['invoice'] as string | undefined,
+        payment: e.extendedProps['payment'] as PaymentType | undefined,
         type: e.extendedProps['type'] as JobType | undefined,
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
@@ -466,6 +468,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       location: e.extendedProps?.location as string | undefined,
       description: e.extendedProps?.description as string | undefined,
       invoice: e.extendedProps?.invoice as string | undefined,
+      payment: e.extendedProps?.payment as PaymentType | undefined,
       type: e.extendedProps?.type as JobType | undefined,
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
@@ -495,7 +498,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const u = await r.json();
       const startIso = new Date(u.start).toISOString();
       const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
@@ -506,7 +509,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const c = await r.json();
       const startIso = new Date(c.start).toISOString();
       const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
@@ -701,27 +704,28 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     <div className="cal-shell">
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-wrap gap-2">
-        <form onSubmit={handleQuickAdd} className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center">
+          <form onSubmit={handleQuickAdd} className="flex gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Quick add event"
+              value={quickText}
+              onChange={e => setQuickText(e.target.value)}
+              className="w-80"
+            />
+            <button type="submit" className="btn primary">Add</button>
+          </form>
           <input
             type="text"
-            placeholder="Quick add event"
-            value={quickText}
-            onChange={e => setQuickText(e.target.value)}
-            className="w-60"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="search-input"
+            style={{ minWidth: '200px' }}
           />
-          <button type="submit" className="btn primary">Add</button>
-        </form>
-        <input
-          type="text"
-          placeholder="Search"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="search-input"
-          style={{ minWidth: '200px' }}
-        />
+        </div>
         <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
-          <button type="button" className={`btn${currentView==='timeGridDay' ? ' primary' : ''}`} onClick={() => changeView('timeGridDay')}>Day</button>
-          <button type="button" className={`btn${currentView==='timeGridWeek' ? ' primary' : ''}`} onClick={() => changeView('timeGridWeek')}>Week</button>
+          <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
           <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
         </div>
         <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
@@ -734,12 +738,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           <div className="calendar-pane surface p-2">
             <FullCalendar
               ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
+              displayEventTime={false}
               expandRows
               handleWindowResize
               windowResizeDelay={100}
@@ -777,16 +782,17 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       ) : (
         <div className="surface p-2 calendar-bleed" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, interactionPlugin]}
             initialView={currentView}
             initialDate={initialDate}
             height="auto"
-            dayCellDidMount={dayCellDidMount}
-            eventContent={eventContent}
-            expandRows
-            handleWindowResize
+              dayCellDidMount={dayCellDidMount}
+              eventContent={eventContent}
+              displayEventTime={false}
+              expandRows
+              handleWindowResize
             windowResizeDelay={100}
             dayMaxEventRows
             fixedWeekCount={false}
@@ -866,6 +872,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </label>
               <label><div className="label">Invoice #</div>
                 <input type="text" inputMode="numeric" value={draft.invoice ?? ''} onChange={e => setDraft({ ...draft, invoice: e.target.value })} />
+              </label>
+              <label><div className="label">Payment</div>
+                <select value={draft.payment ?? 'DAILY'} onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}>
+                  <option value="DAILY">Daily</option>
+                  <option value="ADJUSTED">Adjusted</option>
+                </select>
               </label>
               <label className="span-2"><div className="label">Description</div>
                 <textarea ref={descRef} value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} onKeyDown={handleDescKeyDown} />
@@ -1076,24 +1088,32 @@ function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; pla
 
 // (helpers defined once above)
 
-function splitInvoice(desc: string): { invoice: string; rest: string } {
+function splitInvoice(desc: string): { invoice: string; payment: PaymentType | ''; rest: string } {
   const lines = (desc || '').split(/\r?\n/)
   let invoice = ''
+  let payment: PaymentType | '' = ''
   const restLines: string[] = []
-  const re = /^\s*invoice\s*#?\s*:\s*(.+)\s*$/i
+  const reInv = /^\s*invoice\s*#?\s*:\s*(.+)\s*$/i
+  const rePay = /^\s*payment\s*:\s*(daily|adjusted)\s*$/i
   for (const ln of lines) {
-    const m = ln.match(re)
-    if (m && !invoice) { invoice = m[1].trim(); continue }
+    const mi = ln.match(reInv)
+    if (mi && !invoice) { invoice = mi[1].trim(); continue }
+    const mp = ln.match(rePay)
+    if (mp && !payment) { payment = mp[1].toUpperCase() as PaymentType; continue }
     restLines.push(ln)
   }
-  return { invoice, rest: restLines.join('\n').trim() }
+  return { invoice, payment, rest: restLines.join('\n').trim() }
 }
-function splitInvoiceProps(desc: string) { const { invoice, rest } = splitInvoice(desc); return { description: rest, invoice } }
-function composeDescription(desc: string, invoice: string): string {
+function splitInvoiceProps(desc: string) { const { invoice, payment, rest } = splitInvoice(desc); return { description: rest, invoice, payment } }
+function composeDescription(desc: string, invoice: string, payment: string): string {
   const d = (desc || '').trim()
   const i = (invoice || '').trim()
-  if (!i) return d
-  return `Invoice: ${i}` + (d ? `\n${d}` : '')
+  const p = (payment || '').trim().toUpperCase()
+  const parts: string[] = []
+  if (i) parts.push(`Invoice: ${i}`)
+  if (p) parts.push(`Payment: ${p === 'ADJUSTED' ? 'Adjusted' : 'Daily'}`)
+  if (d) parts.push(d)
+  return parts.join('\n')
 }
 
 function defaultChecklist(): Checklist { return { locate: { ticket: '', requested: '', expires: '', contacted: false }, subtasks: [] }; }
