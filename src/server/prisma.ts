@@ -1,31 +1,73 @@
 import { prisma as base } from "@/lib/prisma"
 import { uploadJson, buildEventBackupKey } from "@/server/backup"
 
-// Ensure middleware is only registered once during dev HMR
-const g = globalThis as unknown as { __prisma_backup_mw__?: boolean }
-
-if (!g.__prisma_backup_mw__) {
-  g.__prisma_backup_mw__ = true
-  base.$use(async (params, next) => {
-    const isEvent = params.model === "Event"
-    const isWrite = params.action === "create" || params.action === "update" || params.action === "upsert" || params.action === "delete"
-    const action = params.action as "create" | "update" | "upsert" | "delete" | string
-    const result = await next(params)
-    if (isEvent && isWrite && result) {
-      try {
-        const id: string | undefined = result.id as string | undefined
-        if (id) {
-          const key = buildEventBackupKey(id, action as any)
-          await uploadJson(key, { ...result, op: action })
-        }
-      } catch (e) {
-        console.error("Event backup failed (middleware)", e)
-      }
-    }
-    return result
+function withEventBackup() {
+  return base.$extends({
+    query: {
+      event: {
+        async create({ args, query }) {
+          const result = await query(args)
+          try {
+            const id = (result as any)?.id as string | undefined
+            if (id) {
+              const key = buildEventBackupKey(id, "create")
+              await uploadJson(key, { ...result, op: "create" })
+            }
+          } catch (e) {
+            console.error("Event backup failed (create)", e)
+          }
+          return result
+        },
+        async update({ args, query }) {
+          const result = await query(args)
+          try {
+            const id = (result as any)?.id as string | undefined
+            if (id) {
+              const key = buildEventBackupKey(id, "update")
+              await uploadJson(key, { ...result, op: "update" })
+            }
+          } catch (e) {
+            console.error("Event backup failed (update)", e)
+          }
+          return result
+        },
+        async upsert({ args, query }) {
+          const result = await query(args)
+          try {
+            const id = (result as any)?.id as string | undefined
+            if (id) {
+              const key = buildEventBackupKey(id, "upsert")
+              await uploadJson(key, { ...result, op: "upsert" })
+            }
+          } catch (e) {
+            console.error("Event backup failed (upsert)", e)
+          }
+          return result
+        },
+        async delete({ args, query }) {
+          const result = await query(args)
+          try {
+            const id = (result as any)?.id as string | undefined
+            if (id) {
+              const key = buildEventBackupKey(id, "delete")
+              await uploadJson(key, { ...result, op: "delete" })
+            }
+          } catch (e) {
+            console.error("Event backup failed (delete)", e)
+          }
+          return result
+        },
+      },
+    },
   })
 }
 
-export const prisma = base
-export default prisma
+type PrismaWithBackup = ReturnType<typeof withEventBackup>
+// Prisma 6 removed $use middleware. Use query extensions instead.
+// Ensure the extension is only applied once during dev HMR.
+const g = globalThis as unknown as { __prisma_with_backup__?: PrismaWithBackup }
 
+export const prisma = g.__prisma_with_backup__ ?? withEventBackup()
+if (process.env.NODE_ENV !== "production") g.__prisma_with_backup__ = prisma
+
+export default prisma
