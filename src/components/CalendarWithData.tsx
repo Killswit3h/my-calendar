@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
+import * as chrono from 'chrono-node';
 import '@/styles/calendar.css';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
@@ -94,6 +96,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const locationRef = useRef<HTMLInputElement>(null);
   const autoRef = useRef<any>(null);
   const [locInput, setLocInput] = useState('');
+  const [quickText, setQuickText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentView, setCurrentView] = useState<'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'>('dayGridMonth');
+  const calendarRef = useRef<FullCalendar | null>(null);
+  const [isTablet, setIsTablet] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
+  const touchStart = useRef<number | null>(null);
 
   useEffect(() => {
     const m = window.matchMedia('(max-width: 640px)');
@@ -101,6 +110,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     handler();
     m.addEventListener('change', handler);
     return () => m.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px) and (max-width: 1023px)');
+    const handler = () => setIsTablet(mq.matches);
+    handler();
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
   useEffect(() => {
@@ -144,15 +161,61 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); setDraft(null); setEditId(null); }
-      if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); saveDraft(); }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open, saveDraft]);
+
+  const views: ('timeGridDay' | 'timeGridWeek' | 'dayGridMonth')[] = ['timeGridDay', 'timeGridWeek', 'dayGridMonth'];
+  const changeView = useCallback((v: 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth') => {
+    setCurrentView(v);
+    calendarRef.current?.getApi().changeView(v);
+  }, []);
+  const cycleView = useCallback((dir: number) => {
+    const idx = views.indexOf(currentView);
+    const next = views[(idx + dir + views.length) % views.length];
+    changeView(next);
+  }, [currentView, changeView]);
+  const handleTouchStart = (e: TouchEvent) => { touchStart.current = e.changedTouches[0].clientX; };
+  const handleTouchEnd = (e: TouchEvent) => {
+    if (touchStart.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current;
+    if (Math.abs(dx) > 50) cycleView(dx < 0 ? 1 : -1);
+    touchStart.current = null;
+  };
+
+  const escapeReg = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const highlightText = (text: string, q: string) => {
+    if (!q) return text;
+    const re = new RegExp(`(${escapeReg(q)})`, 'ig');
+    return text.replace(re, '<mark>$1</mark>');
+  };
+
+  const handleQuickAdd = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    const txt = quickText.trim();
+    if (!txt) return;
+    const parsed = chrono.parse(txt)[0];
+    if (parsed && parsed.start) {
+      const start = parsed.start.date();
+      const end = parsed.end ? parsed.end.date() : new Date(start.getTime() + 60 * 60 * 1000);
+      const title = (txt.replace(parsed.text, '').trim()) || 'Event';
+      const r = await fetch(`/api/calendars/${calendarId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description: '', start: start.toISOString(), end: end.toISOString(), allDay: false, location: '', type: null, shift: null, checklist: null })
+      });
+      if (r.ok) {
+        const c = await r.json();
+        const startIso = new Date(c.start).toISOString();
+        const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
+        const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+        setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay, extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+      }
+    } else {
+      const nowIso = new Date().toISOString();
+      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: 'FENCE' });
+      setEditId(null);
+      setOpen(true);
+    }
+    setQuickText('');
+  }, [quickText, calendarId]);
 
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
     const res = await fetch(`/api/holidays?year=${year}&country=${cc}`); const json = await res.json();
@@ -196,8 +259,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     fetchWeather(start, end, coords);
   }, [coords, initialDate, fetchWeather]);
 
-  const handleDatesSet = useCallback((arg: { start: Date; end: Date }) => {
+  const handleDatesSet = useCallback((arg: { start: Date; end: Date; view: any }) => {
     setVisibleRange({ start: arg.start, end: arg.end });
+    setCurrentView(arg.view.type);
     const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2);
     const y = mid.getUTCFullYear();
     fetchHolidays(y, country);
@@ -347,21 +411,53 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, []);
 
   const handleEventClick = useCallback((arg: EventClickArg) => {
-    const e = arg.event; if (!e.id) return; setEditId(e.id);
+    const e = arg.event; if (!e.id) return;
+    if (isTablet) {
+      setSelectedEvent({
+        id: e.id,
+        title: e.title,
+        start: e.start ? e.start.toISOString() : new Date().toISOString(),
+        end: e.end ? e.end.toISOString() : undefined,
+        allDay: e.allDay,
+        extendedProps: e.extendedProps,
+        className: e.classNames.join(' '),
+      } as EventInput);
+    } else {
+      setEditId(e.id);
+      setDraft({
+        title: e.title,
+        start: e.start ? e.start.toISOString() : new Date().toISOString(),
+        end: e.end ? e.end.toISOString() : undefined,
+        allDay: e.allDay,
+        location: e.extendedProps['location'] as string | undefined,
+        description: e.extendedProps['description'] as string | undefined,
+        invoice: e.extendedProps['invoice'] as string | undefined,
+        type: e.extendedProps['type'] as JobType | undefined,
+        shift: e.extendedProps['shift'] as WorkShift | undefined,
+        checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
+      });
+      setOpen(true);
+    }
+  }, [isTablet]);
+
+  const openEditFromDetails = useCallback(() => {
+    if (!selectedEvent) return;
+    const e: any = selectedEvent;
+    setEditId(e.id as string);
     setDraft({
       title: e.title,
-      start: e.start ? e.start.toISOString() : new Date().toISOString(),
-      end: e.end ? e.end.toISOString() : undefined,
-      allDay: e.allDay,
-      location: e.extendedProps['location'] as string | undefined,
-      description: e.extendedProps['description'] as string | undefined,
-      invoice: e.extendedProps['invoice'] as string | undefined,
-      type: e.extendedProps['type'] as JobType | undefined,
-      shift: e.extendedProps['shift'] as WorkShift | undefined,
-      checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
+      start: e.start as string,
+      end: e.end as string | undefined,
+      allDay: e.allDay as boolean,
+      location: e.extendedProps?.location as string | undefined,
+      description: e.extendedProps?.description as string | undefined,
+      invoice: e.extendedProps?.invoice as string | undefined,
+      type: e.extendedProps?.type as JobType | undefined,
+      shift: e.extendedProps?.shift as WorkShift | undefined,
+      checklist: e.extendedProps?.checklist ?? defaultChecklist(),
     });
     setOpen(true);
-  }, []);
+  }, [selectedEvent]);
 
   const updateEventById = useCallback((id: string, patch: Partial<NewEvent>) => {
     setEvents(prev => prev.map(ev => ev.id === id ? { ...ev, start: patch.start ?? (ev.start as string), end: patch.end ?? (ev.end as string | undefined), allDay: patch.allDay ?? (ev.allDay as boolean) } : ev));
@@ -406,6 +502,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); setDraft(null); setEditId(null); }
+      if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); saveDraft(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, saveDraft]);
 
   const deleteCurrent = useCallback(async () => {
     if (!editId) return; await fetch(`/api/events/${editId}`, { method: 'DELETE' });
@@ -485,7 +591,17 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
   };
 
-  const allEvents = useMemo(() => (holidayOn ? [...events, ...holidays] : events), [events, holidays, holidayOn]);
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return events;
+    return events.filter(ev => {
+      const title = (ev.title || '').toLowerCase();
+      const desc = ((ev.extendedProps as any)?.description || '').toLowerCase();
+      const crew = ((ev.extendedProps as any)?.crew || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || crew.includes(q);
+    });
+  }, [events, searchQuery]);
+  const allEvents = useMemo(() => (holidayOn ? [...filtered, ...holidays] : filtered), [filtered, holidays, holidayOn]);
 
   // Compact Google Maps link inside each event (if location exists)
   const eventContent = useCallback((arg: EventContentArg) => {
@@ -495,7 +611,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     frag.style.gap = '0.25rem';
     const span = document.createElement('span');
     span.className = 'evt-title';
-    span.textContent = arg.event.title;
+    span.innerHTML = highlightText(arg.event.title, searchQuery);
     frag.appendChild(span);
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
     if (loc && loc.trim()) {
@@ -509,7 +625,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       frag.appendChild(a);
     }
     return { domNodes: [frag] };
-  }, []);
+  }, [highlightText, searchQuery]);
 
   // todos persisted in DB
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -570,41 +686,113 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   return (
     <div className="cal-shell">
       {/* controls */}
-      <div className="cal-controls calendar-bleed">
+      <div className="cal-controls calendar-bleed flex-wrap gap-2">
+        <form onSubmit={handleQuickAdd} className="flex flex-1 gap-2" style={{ minWidth: '200px' }}>
+          <input
+            type="text"
+            placeholder="Quick add event"
+            value={quickText}
+            onChange={e => setQuickText(e.target.value)}
+            className="flex-1"
+          />
+          <button type="submit" className="btn primary">Add</button>
+        </form>
+        <input
+          type="text"
+          placeholder="Search"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="search-input"
+          style={{ minWidth: '200px' }}
+        />
+        <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
+          <button type="button" className={`btn${currentView==='timeGridDay' ? ' primary' : ''}`} onClick={() => changeView('timeGridDay')}>Day</button>
+          <button type="button" className={`btn${currentView==='timeGridWeek' ? ' primary' : ''}`} onClick={() => changeView('timeGridWeek')}>Week</button>
+          <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
+        </div>
         <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
         <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
       </div>
 
       {/* calendar */}
-      <div className="surface p-2 calendar-bleed">
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          initialDate={initialDate}
+      {isTablet ? (
+        <div className="tablet-split calendar-bleed" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className="calendar-pane surface p-2">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView={currentView}
+              initialDate={initialDate}
+              height="auto"
+              dayCellDidMount={dayCellDidMount}
+              eventContent={eventContent}
+              expandRows
+              handleWindowResize
+              windowResizeDelay={100}
+              dayMaxEventRows
+              fixedWeekCount={false}
+              selectable
+              selectMirror
+              editable
+              eventStartEditable
+              eventDurationEditable
+              select={handleSelect}
+              datesSet={handleDatesSet}
+              events={allEvents}
+              eventClick={handleEventClick}
+              eventDrop={handleEventDrop}
+              eventResize={handleEventResize}
+              headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+              buttonText={{ today: 'Today' }}
+              eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
+            />
+          </div>
+          <div className="details-pane surface" style={{ padding: '1rem' }}>
+            {selectedEvent ? (
+              <div>
+                <h3 dangerouslySetInnerHTML={{ __html: highlightText(selectedEvent.title || '', searchQuery) }} />
+                {selectedEvent.extendedProps && (selectedEvent.extendedProps as any).description ? (
+                  <p dangerouslySetInnerHTML={{ __html: highlightText((selectedEvent.extendedProps as any).description || '', searchQuery) }} />
+                ) : null}
+                <button className="btn" onClick={openEditFromDetails}>Edit</button>
+              </div>
+            ) : (
+              <div className="muted-sm">Select an event</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="surface p-2 calendar-bleed" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={currentView}
+            initialDate={initialDate}
             height="auto"
-          dayCellDidMount={dayCellDidMount}
-          eventContent={eventContent}
-          expandRows
-          handleWindowResize
-          windowResizeDelay={100}
-          dayMaxEventRows
-          fixedWeekCount={false}
-          selectable
-          selectMirror
-          editable
-          eventStartEditable
-          eventDurationEditable
-          select={handleSelect}
-          datesSet={handleDatesSet}
-          events={allEvents}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          eventResize={handleEventResize}
-          headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-          buttonText={{ today: 'Today' }}
-          eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
-        />
-      </div>
+            dayCellDidMount={dayCellDidMount}
+            eventContent={eventContent}
+            expandRows
+            handleWindowResize
+            windowResizeDelay={100}
+            dayMaxEventRows
+            fixedWeekCount={false}
+            selectable
+            selectMirror
+            editable
+            eventStartEditable
+            eventDurationEditable
+            select={handleSelect}
+            datesSet={handleDatesSet}
+            events={allEvents}
+            eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            buttonText={{ today: 'Today' }}
+            eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
+          />
+        </div>
+      )}
 
       {/* modal */}
       {open && draft ? (
