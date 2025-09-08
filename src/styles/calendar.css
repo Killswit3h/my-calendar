@@ -71,7 +71,7 @@
 .fc .fc-event.evt-temp-fence {
   --fc-event-bg-color: var(--evt-temp-fence);
   --fc-event-border-color: var(--evt-temp-fence);
-  --fc-event-text-color: #111; /* better on yellow */
+  --fc-event-text-color: #fff; /* white text on yellow */
 }
 .fc .fc-event.evt-handrail {
   --fc-event-bg-color: var(--evt-handrail);
@@ -191,7 +191,7 @@
   border-color: var(--evt-temp-fence) !important;
   --fc-event-bg-color: var(--evt-temp-fence);
   --fc-event-border-color: var(--evt-temp-fence);
-  color: #111 !important; /* better on yellow */
+  color: #fff !important; /* white text on yellow */
 }
 .fc .fc-event.evt-handrail,
 .fc .fc-h-event.evt-handrail,
