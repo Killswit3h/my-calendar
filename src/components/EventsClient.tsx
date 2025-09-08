@@ -32,11 +32,38 @@ export default function EventsClient({ calendarId }: { calendarId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <input className="border p-2" placeholder="Title" value={title} onChange={e=>setTitle(e.target.value)} />
-        <input className="border p-2" type="datetime-local" value={start} onChange={e=>setStart(e.target.value)} />
-        <input className="border p-2" type="datetime-local" value={end} onChange={e=>setEnd(e.target.value)} />
-        <button className="border px-3" onClick={createEvent} disabled={busy||!title||!start||!end}>
+      {/*
+        The global stylesheet forces all inputs to be 100% width which caused
+        the date pickers to stretch across the form and overlap each other.
+        Explicit widths keep the layout compact so the controls no longer
+        collide.
+      */}
+      <div className="flex flex-wrap gap-2 items-end">
+        <input
+          className="border p-2 flex-1 min-w-[12rem]"
+          placeholder="Title"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+        />
+        <input
+          className="border p-2"
+          style={{ width: "16rem" }}
+          type="datetime-local"
+          value={start}
+          onChange={e => setStart(e.target.value)}
+        />
+        <input
+          className="border p-2"
+          style={{ width: "16rem" }}
+          type="datetime-local"
+          value={end}
+          onChange={e => setEnd(e.target.value)}
+        />
+        <button
+          className="border px-3"
+          onClick={createEvent}
+          disabled={busy || !title || !start || !end}
+        >
           {busy ? "Saving..." : "Add"}
         </button>
       </div>
