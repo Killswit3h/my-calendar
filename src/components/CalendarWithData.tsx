@@ -189,8 +189,22 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleQuickAdd = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    const txt = quickText.trim();
+    let txt = quickText.trim();
     if (!txt) return;
+
+    // detect job type keywords (e.g. "fence", "guardrail")
+    const typeMatch = txt.match(/\b(temp(?:orary)?\s*fence|guardrail|fence|attenuator|handrail)\b/i);
+    let type: JobType | null = null;
+    if (typeMatch) {
+      const kw = typeMatch[1].toLowerCase();
+      if (kw.includes('temp')) type = 'TEMP_FENCE';
+      else if (kw === 'guardrail') type = 'GUARDRAIL';
+      else if (kw === 'attenuator') type = 'ATTENUATOR';
+      else if (kw === 'handrail') type = 'HANDRAIL';
+      else if (kw === 'fence') type = 'FENCE';
+      txt = txt.replace(typeMatch[0], '').trim();
+    }
+
     const parsed = chrono.parse(txt)[0];
     if (parsed && parsed.start) {
       const start = parsed.start.date();
@@ -199,7 +213,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const r = await fetch(`/api/calendars/${calendarId}/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: '', start: start.toISOString(), end: end.toISOString(), allDay: false, location: '', type: null, shift: null, checklist: null })
+        body: JSON.stringify({ title, description: '', start: start.toISOString(), end: end.toISOString(), allDay: false, location: '', type, shift: null, checklist: null })
       });
       if (r.ok) {
         const c = await r.json();
@@ -210,7 +224,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     } else {
       const nowIso = new Date().toISOString();
-      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: 'FENCE' });
+      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE' });
       setEditId(null);
       setOpen(true);
     }
@@ -687,13 +701,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     <div className="cal-shell">
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-wrap gap-2">
-        <form onSubmit={handleQuickAdd} className="flex flex-1 gap-2" style={{ minWidth: '200px' }}>
+        <form onSubmit={handleQuickAdd} className="flex gap-2 items-center">
           <input
             type="text"
             placeholder="Quick add event"
             value={quickText}
             onChange={e => setQuickText(e.target.value)}
-            className="flex-1"
+            className="w-60"
           />
           <button type="submit" className="btn primary">Add</button>
         </form>
