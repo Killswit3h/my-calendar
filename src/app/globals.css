@@ -4,24 +4,43 @@
 
 /* ---- System / theme ---- */
 :root {
-  /* macOS-style dark palette */
-  --bg: #1c1c1e;       /* system background dark */
-  --fg: #f2f2f7;       /* primary label */
-  --muted: #aeaeb2;    /* secondary label */
+  /* Material 3 dark scheme */
+  --md-sys-color-primary: #d0bcff;
+  --md-sys-color-on-primary: #381e72;
+  --md-sys-color-primary-container: #4f378b;
+  --md-sys-color-on-primary-container: #eaddff;
+  --md-sys-color-secondary: #ccc2dc;
+  --md-sys-color-on-secondary: #332d41;
+  --md-sys-color-secondary-container: #4a4458;
+  --md-sys-color-on-secondary-container: #e8def8;
+  --md-sys-color-background: #1c1b1f;
+  --md-sys-color-on-background: #e6e1e5;
+  --md-sys-color-surface: #1c1b1f;
+  --md-sys-color-on-surface: #e6e1e5;
+  --md-sys-color-surface-variant: #49454f;
+  --md-sys-color-outline: #938f99;
+  --md-sys-color-outline-variant: #49454f;
+  --md-sys-color-error: #f2b8b5;
+  --md-sys-color-on-error: #601410;
 
-  --card: #2c2c2e;     /* secondary background */
-  --card-2: #242426;   /* tertiary background */
-  --surface: #2a2a2c;  /* grouped background */
+  /* app tokens mapped to Material 3 */
+  --bg: var(--md-sys-color-background);
+  --fg: var(--md-sys-color-on-background);
+  --muted: var(--md-sys-color-outline);
 
-  --primary: #0a84ff;  /* macOS accent blue */
-  --primary-600: #0063e1;
-  --danger: #ff453a;   /* macOS red */
-  --warning: #ffd60a;  /* macOS yellow */
+  --card: var(--md-sys-color-surface);
+  --card-2: var(--md-sys-color-surface-variant);
+  --surface: var(--md-sys-color-surface);
 
-  --border: #3a3a3c;   /* separator */
-  --border-2: #2f2f31;
+  --primary: var(--md-sys-color-primary);
+  --primary-600: #b69df8;
+  --danger: var(--md-sys-color-error);
+  --warning: #ffd60a;
 
-  --ring: 0 0 0 3px rgba(10, 132, 255, .28);
+  --border: var(--md-sys-color-outline);
+  --border-2: var(--md-sys-color-outline-variant);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
 
   /* FullCalendar vars */
   --fc-page-bg-color: var(--bg);
@@ -47,7 +66,6 @@ body {
     "Noto Color Emoji", sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 a { color: var(--primary); text-decoration: none; }
@@ -80,67 +98,54 @@ a { color: var(--primary); text-decoration: none; }
 
 /* ---- Buttons ---- */
 .btn {
-  height: 36px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 24px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--card), var(--card-2));
-  color: var(--fg);
+  border-radius: 20px;
+  border: none;
+  background: var(--primary);
+  color: var(--md-sys-color-on-primary);
   cursor: pointer;
-  backdrop-filter: blur(10px) saturate(180%);
-  transition: transform .2s ease, box-shadow .25s ease, background .25s ease, border-color .15s ease;
+  transition: box-shadow .2s ease, background .2s ease;
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-  background: linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
 }
 .btn:focus-visible { outline: none; box-shadow: var(--ring); }
-.btn:active { transform: translateY(0); }
+.btn:active { box-shadow: none; }
 
 .btn.icon {
-  width: 36px;
+  width: 40px;
   justify-content: center;
   padding: 0;
+  border-radius: 20px;
 }
 
 .btn.primary {
-  background: linear-gradient(180deg, var(--primary), var(--primary-600));
-  border-color: color-mix(in srgb, var(--primary) 65%, #0a0a0a);
-  color: white;
-}
-
-.btn.primary:hover,
-.btn.danger:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+  background: var(--primary);
+  color: var(--md-sys-color-on-primary);
 }
 
 .btn.danger {
-  background: linear-gradient(180deg, #f87171, #ef4444);
-  border-color: #b91c1c;
-  color: white;
+  background: var(--danger);
+  color: var(--md-sys-color-on-error);
 }
 
 .btn.ghost {
   background: transparent;
-  border-color: var(--border);
+  color: var(--primary);
 }
 
 /* ---- Card / surface ---- */
 .surface {
-  background:
-    radial-gradient(60% 80% at 0% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 70%),
-    linear-gradient(180deg, var(--surface), var(--card));
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
   overflow: hidden;
-  backdrop-filter: blur(20px) saturate(180%);
 }
 
 /* ---- FullCalendar tweaks ---- */
@@ -149,26 +154,26 @@ a { color: var(--primary); text-decoration: none; }
 .fc .fc-toolbar-title { font-weight: 700; letter-spacing: .2px; font-size: 20px; }
 
 .fc .fc-button {
-  border-radius: 10px !important;
-  border: 1px solid var(--border) !important;
-  background: var(--card-2) !important;
-  color: var(--fg) !important;
+  border-radius: 20px !important;
+  border: none !important;
+  background: var(--primary) !important;
+  color: var(--md-sys-color-on-primary) !important;
+  box-shadow: none !important;
 }
 .fc .fc-button-group .fc-button { border-radius: 0 !important; }
-.fc .fc-button-group .fc-button:first-child { border-top-left-radius: 10px !important; border-bottom-left-radius: 10px !important; }
-.fc .fc-button-group .fc-button:last-child { border-top-right-radius: 10px !important; border-bottom-right-radius: 10px !important; }
-.fc .fc-button-group .fc-button + .fc-button { margin-left: -1px; }
-.fc .fc-toolbar-chunk .fc-button { box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+.fc .fc-button-group .fc-button:first-child { border-top-left-radius: 20px !important; border-bottom-left-radius: 20px !important; }
+.fc .fc-button-group .fc-button:last-child { border-top-right-radius: 20px !important; border-bottom-right-radius: 20px !important; }
+.fc .fc-button-group .fc-button + .fc-button { margin-left: 0; }
+.fc .fc-toolbar-chunk .fc-button { box-shadow: none; }
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
   background: var(--primary) !important;
-  border-color: color-mix(in srgb, var(--primary) 65%, #0a0a0a) !important;
 }
 
 .fc-theme-standard .fc-scrollgrid {
   border: 1px solid var(--border-2);
   border-radius: 12px;
-  background: linear-gradient(180deg, var(--card), var(--card-2));
+  background: var(--surface);
   box-shadow: 0 2px 8px rgba(0,0,0,.25);
 }
 .fc-theme-standard th,
@@ -183,7 +188,7 @@ a { color: var(--primary); text-decoration: none; }
 /* Today as a pill behind the day number */
 .fc .fc-daygrid-day.fc-day-today { background: transparent; }
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-  color: white;
+  color: var(--md-sys-color-on-primary);
   background: var(--primary);
   border-radius: 999px;
   padding: 2px 8px;
