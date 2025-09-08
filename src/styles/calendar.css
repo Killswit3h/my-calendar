@@ -126,6 +126,12 @@
 
 /* Full-width control row above calendar */
 .cal-controls { display: flex; align-items: center; justify-content: flex-start; height: 56px; padding: 0 16px; gap: 10px; }
+.cal-controls input { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
+.view-toggle .btn { min-height: 44px; }
+.tablet-split { display: flex; gap: 1rem; }
+.calendar-pane { flex: 1 1 60%; }
+.details-pane { flex: 1 1 40%; overflow: auto; }
+mark { background: var(--primary); color: var(--primary-contrast); }
 
 /* ===== TODO BOARD ===== */
 .todo-section { margin-top: 1rem; }
