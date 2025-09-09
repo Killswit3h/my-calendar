@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -12,7 +12,7 @@ import {
   type Team,
 } from "../../employees";
 
-export default function EmployeesPage() {
+function EmployeesPageContent() {
   const params = useSearchParams();
   const back = params.get("from") || "/";
 
@@ -87,6 +87,14 @@ export default function EmployeesPage() {
         ))}
       </ul>
     </main>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmployeesPageContent />
+    </Suspense>
   );
 }
 
