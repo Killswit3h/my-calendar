@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent } from 'react';
+import Link from 'next/link';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -845,6 +846,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
+          <Link href="/employees" className="btn ml-auto">Employees</Link>
         </div>
       </div>
 
