@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -47,6 +48,7 @@ const IconTicket = (props: any) => (
 );
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
+  const router = useRouter();
   const initialDate = useMemo(() => {
     const now = new Date();
     const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
@@ -845,6 +847,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
+          <button
+            type="button"
+            className="btn ml-auto"
+            onClick={() => router.push(`/employees?from=/calendar/${calendarId}`)}
+          >
+            Employees
+          </button>
         </div>
       </div>
 
