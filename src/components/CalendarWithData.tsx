@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent, Suspense } from 'react';
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -32,6 +33,14 @@ const VENDOR_COLOR: Record<Vendor, string> = {
   JORGE: 'green',
   TONY: 'blue',
   CHRIS: 'orange',
+};
+
+const EmployeesLink = () => {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const search = params.toString();
+  const href = `/employees?from=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`;
+  return <Link href={href} className="btn ml-auto">Employees</Link>;
 };
 
 const IconType = (props: any) => (
@@ -846,7 +855,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
-          <Link href="/employees" className="btn ml-auto">Employees</Link>
+          <Suspense fallback={<span className="btn ml-auto">Employees</span>}>
+            <EmployeesLink />
+          </Suspense>
         </div>
       </div>
 
