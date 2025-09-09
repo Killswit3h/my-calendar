@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getEmployees,
   addEmployee,
@@ -14,30 +15,28 @@ import {
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>(getEmployees());
   const [search, setSearch] = useState("");
-
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [quick, setQuick] = useState("");
   const [team, setTeam] = useState<Team>("South");
-
   const [editing, setEditing] = useState<string | null>(null);
   const [editFirst, setEditFirst] = useState("");
   const [editLast, setEditLast] = useState("");
   const [editTeam, setEditTeam] = useState<Team>("South");
+  const router = useRouter();
 
   const refresh = () => setEmployees(getEmployees());
 
   const filtered = employees.filter((e) =>
-    `${e.firstName} ${e.lastName}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    `${e.firstName} ${e.lastName}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  function handleAdd(e: React.FormEvent) {
+  function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) return;
-    addEmployee({ firstName: firstName.trim(), lastName: lastName.trim(), team });
-    setFirstName("");
-    setLastName("");
+    const parts = quick.trim().split(/\s+/);
+    if (parts.length < 2) return;
+    const [first, ...rest] = parts;
+    const last = rest.join(" ");
+    addEmployee({ firstName: first, lastName: last, team });
+    setQuick("");
     setTeam("South");
     refresh();
   }
@@ -70,105 +69,70 @@ export default function EmployeesPage() {
   }
 
   return (
-    <main className="p-4 space-y-6">
-      <div className="flex justify-between items-center">
+    <main className="p-4 space-y-4 max-w-xl mx-auto">
+      <div className="flex items-center gap-2">
+        <button className="btn" onClick={() => router.back()}>Back</button>
         <input
           type="text"
           placeholder="Search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border px-2 py-1 rounded"
+          className="border px-3 py-2 rounded flex-1"
         />
-        <button className="btn ghost" onClick={reset}>Reset to seed</button>
+        <button className="btn ghost ml-auto" onClick={reset}>Reset to seed</button>
       </div>
-      <form onSubmit={handleAdd} className="flex flex-wrap gap-2 items-end">
-        <div>
-          <label className="block text-sm mb-1">First name</label>
-          <input
-            className="border px-2 py-1 rounded"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Last name</label>
-          <input
-            className="border px-2 py-1 rounded"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Team</label>
-          <select
-            className="border px-2 py-1 rounded"
-            value={team}
-            onChange={(e) => setTeam(e.target.value as Team)}
-          >
-            <option value="South">South</option>
-            <option value="Central">Central</option>
-          </select>
-        </div>
+      <form onSubmit={handleQuickAdd} className="flex gap-2 items-end">
+        <input
+          className="border px-3 py-2 rounded flex-1"
+          placeholder="First Last"
+          value={quick}
+          onChange={(e) => setQuick(e.target.value)}
+        />
+        <select
+          className="border rounded px-3 py-2"
+          value={team}
+          onChange={(e) => setTeam(e.target.value as Team)}
+        >
+          <option value="South">South</option>
+          <option value="Central">Central</option>
+        </select>
         <button type="submit" className="btn primary">Add</button>
       </form>
-      <table className="w-full border">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="border px-2 py-1 text-left">First</th>
-            <th className="border px-2 py-1 text-left">Last</th>
-            <th className="border px-2 py-1 text-left">Team</th>
-            <th className="border px-2 py-1">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((e) => (
-            <tr key={e.id} className="border-t">
-              {editing === e.id ? (
-                <>
-                  <td className="border px-2 py-1">
-                    <input
-                      className="border px-1 py-0.5 rounded w-full"
-                      value={editFirst}
-                      onChange={(ev) => setEditFirst(ev.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      className="border px-1 py-0.5 rounded w-full"
-                      value={editLast}
-                      onChange={(ev) => setEditLast(ev.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <select
-                      className="border px-1 py-0.5 rounded w-full"
-                      value={editTeam}
-                      onChange={(ev) => setEditTeam(ev.target.value as Team)}
-                    >
-                      <option value="South">South</option>
-                      <option value="Central">Central</option>
-                    </select>
-                  </td>
-                  <td className="border px-2 py-1 space-x-2 text-center">
-                    <button className="btn" onClick={() => saveEdit(e.id)}>Save</button>
-                    <button className="btn ghost" onClick={cancelEdit}>Cancel</button>
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td className="border px-2 py-1">{e.firstName}</td>
-                  <td className="border px-2 py-1">{e.lastName}</td>
-                  <td className="border px-2 py-1">{e.team}</td>
-                  <td className="border px-2 py-1 space-x-2 text-center">
-                    <button className="btn" onClick={() => startEdit(e)}>Edit</button>
-                    <button className="btn danger" onClick={() => remove(e.id)}>Delete</button>
-                  </td>
-                </>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ul className="bg-white rounded border divide-y">
+        {filtered.map((e) => (
+          editing === e.id ? (
+            <li key={e.id} className="p-2 flex items-center gap-2">
+              <input
+                className="border rounded px-2 py-1 flex-1"
+                value={editFirst}
+                onChange={(ev) => setEditFirst(ev.target.value)}
+              />
+              <input
+                className="border rounded px-2 py-1 flex-1"
+                value={editLast}
+                onChange={(ev) => setEditLast(ev.target.value)}
+              />
+              <select
+                className="border rounded px-2 py-1"
+                value={editTeam}
+                onChange={(ev) => setEditTeam(ev.target.value as Team)}
+              >
+                <option value="South">South</option>
+                <option value="Central">Central</option>
+              </select>
+              <button className="btn" onClick={() => saveEdit(e.id)}>Save</button>
+              <button className="btn ghost" onClick={cancelEdit}>Cancel</button>
+            </li>
+          ) : (
+            <li key={e.id} className="p-2 flex items-center gap-2">
+              <span className="flex-1">{e.firstName} {e.lastName}</span>
+              <span className="text-sm text-gray-500 w-20">{e.team}</span>
+              <button className="btn" onClick={() => startEdit(e)}>Edit</button>
+              <button className="btn danger" onClick={() => remove(e.id)}>Delete</button>
+            </li>
+          )
+        ))}
+      </ul>
     </main>
   );
 }
