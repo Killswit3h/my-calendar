@@ -10,13 +10,14 @@ import '@/styles/calendar.css';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
+type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
 type Checklist = {
   locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
   subtasks?: { id: string; text: string; done: boolean }[];
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; shift?: WorkShift; checklist?: Checklist | null };
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; vendor?: Vendor; payroll?: boolean; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 const TYPE_COLOR: Record<JobType, string> = {
@@ -25,6 +26,11 @@ const TYPE_COLOR: Record<JobType, string> = {
   ATTENUATOR: 'var(--evt-attenuator)',
   HANDRAIL: 'var(--evt-handrail)',
   TEMP_FENCE: 'var(--evt-temp-fence)',
+};
+const VENDOR_COLOR: Record<Vendor, string> = {
+  JORGE: 'green',
+  TONY: 'blue',
+  CHRIS: 'orange',
 };
 
 const IconType = (props: any) => (
@@ -55,7 +61,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       if (!r.ok) return;
       const rows = await r.json();
       setEvents(rows.map((row: any) => {
-        const { invoice, payment, rest } = splitInvoice(row.description ?? '');
+        const { invoice, payment, vendor, payroll, rest } = splitInvoice(row.description ?? '');
         const startIso = new Date(row.start).toISOString();
         const rawEndIso = row.end ? new Date(row.end).toISOString() : startIso;
         const endIso = row.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso; // FullCalendar expects exclusive end for all-day
@@ -65,7 +71,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           start: startIso,
           end: endIso,
           allDay: !!row.allDay,
-          extendedProps: { location: row.location ?? '', description: rest, invoice, payment, type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
+          extendedProps: { location: row.location ?? '', description: rest, invoice, payment, vendor, payroll, type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
           className: typeToClass(row.type),
         } as EventInput;
       }));
@@ -225,7 +231,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     } else {
       const nowIso = new Date().toISOString();
-      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY' });
+      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY', vendor: 'JORGE', payroll: false });
       setEditId(null);
       setOpen(true);
     }
@@ -420,6 +426,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       type: 'FENCE',
       invoice: '',
       payment: 'DAILY',
+      vendor: 'JORGE',
+      payroll: false,
       shift: 'DAY',
     });
 
@@ -449,6 +457,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         description: e.extendedProps['description'] as string | undefined,
         invoice: e.extendedProps['invoice'] as string | undefined,
         payment: e.extendedProps['payment'] as PaymentType | undefined,
+        vendor: e.extendedProps['vendor'] as Vendor | undefined,
+        payroll: e.extendedProps['payroll'] as boolean | undefined,
         type: e.extendedProps['type'] as JobType | undefined,
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
@@ -470,6 +480,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       description: e.extendedProps?.description as string | undefined,
       invoice: e.extendedProps?.invoice as string | undefined,
       payment: e.extendedProps?.payment as PaymentType | undefined,
+      vendor: e.extendedProps?.vendor as Vendor | undefined,
+      payroll: e.extendedProps?.payroll as boolean | undefined,
       type: e.extendedProps?.type as JobType | undefined,
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
@@ -499,7 +511,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const u = await r.json();
       const startIso = new Date(u.start).toISOString();
       const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
@@ -510,7 +522,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) return; const c = await r.json();
       const startIso = new Date(c.start).toISOString();
       const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
@@ -539,13 +551,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: draft.description ?? '', start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+      body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) return; const c = await r.json();
     const startIso = new Date(c.start).toISOString();
     const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
     const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
     setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay,
-      extendedProps: { location: c.location ?? '', description: c.description ?? '', type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+      extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
 
   const updateStart = (iso: string) => {
@@ -587,6 +599,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   };
 
   const currentTypeColor = draft ? TYPE_COLOR[(draft.type ?? 'FENCE') as JobType] : 'transparent';
+  const currentVendorColor = draft ? VENDOR_COLOR[(draft.vendor ?? 'JORGE') as Vendor] : 'transparent';
 
   const handleDescKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -866,6 +879,21 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   </select>
                 </div>
               </label>
+              <label><div className="label">Vendor</div>
+                <div className="inline"><span className="type-chip" style={{ background: currentVendorColor }}></span>
+                  <select value={draft.vendor ?? 'JORGE'} onChange={e => setDraft({ ...draft, vendor: e.target.value as Vendor })}>
+                    <option value="JORGE" style={{ color: VENDOR_COLOR.JORGE }}>Jorge</option>
+                    <option value="TONY" style={{ color: VENDOR_COLOR.TONY }}>Tony</option>
+                    <option value="CHRIS" style={{ color: VENDOR_COLOR.CHRIS }}>Chris</option>
+                  </select>
+                </div>
+              </label>
+              <label><div className="label">Payroll</div>
+                <select value={draft.payroll ? 'YES' : 'NO'} onChange={e => setDraft({ ...draft, payroll: e.target.value === 'YES' })}>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </label>
               <div className="form-section span-2">Work Details</div>
               <label><div className="label"><IconLocation className="ico" />Location</div>
                 <input ref={locationRef} type="text" value={locInput} onChange={e => { setLocInput(e.target.value); if (!e.target.value) { autoRef.current?.set && autoRef.current.set('place', null); } }} />
@@ -1091,30 +1119,44 @@ function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; pla
 
 // (helpers defined once above)
 
-function splitInvoice(desc: string): { invoice: string; payment: PaymentType | ''; rest: string } {
+function splitInvoice(desc: string): { invoice: string; payment: PaymentType | ''; vendor: Vendor | ''; payroll: boolean | null; rest: string } {
   const lines = (desc || '').split(/\r?\n/)
   let invoice = ''
   let payment: PaymentType | '' = ''
+  let vendor: Vendor | '' = ''
+  let payroll: boolean | null = null
   const restLines: string[] = []
   const reInv = /^\s*invoice\s*#?\s*:\s*(.+)\s*$/i
   const rePay = /^\s*payment\s*:\s*(daily|adjusted)\s*$/i
+  const reVen = /^\s*vendor\s*:\s*(jorge|tony|chris)\s*$/i
+  const rePayr = /^\s*payroll\s*:\s*(yes|no)\s*$/i
   for (const ln of lines) {
     const mi = ln.match(reInv)
     if (mi && !invoice) { invoice = mi[1].trim(); continue }
     const mp = ln.match(rePay)
     if (mp && !payment) { payment = mp[1].toUpperCase() as PaymentType; continue }
+    const mv = ln.match(reVen)
+    if (mv && !vendor) { vendor = mv[1].toUpperCase() as Vendor; continue }
+    const mpr = ln.match(rePayr)
+    if (mpr && payroll === null) { payroll = mpr[1].toUpperCase() === 'YES'; continue }
     restLines.push(ln)
   }
-  return { invoice, payment, rest: restLines.join('\n').trim() }
+  return { invoice, payment, vendor, payroll, rest: restLines.join('\n').trim() }
 }
-function splitInvoiceProps(desc: string) { const { invoice, payment, rest } = splitInvoice(desc); return { description: rest, invoice, payment } }
-function composeDescription(desc: string, invoice: string, payment: string): string {
+function splitInvoiceProps(desc: string) { const { invoice, payment, vendor, payroll, rest } = splitInvoice(desc); return { description: rest, invoice, payment, vendor, payroll } }
+function composeDescription(desc: string, invoice: string, payment: string, vendor: string, payroll: boolean): string {
   const d = (desc || '').trim()
   const i = (invoice || '').trim()
   const p = (payment || '').trim().toUpperCase()
+  const v = (vendor || '').trim().toUpperCase()
   const parts: string[] = []
   if (i) parts.push(`Invoice: ${i}`)
   if (p) parts.push(`Payment: ${p === 'ADJUSTED' ? 'Adjusted' : 'Daily'}`)
+  if (v) {
+    const name = v === 'JORGE' ? 'Jorge' : v === 'TONY' ? 'Tony' : v === 'CHRIS' ? 'Chris' : v
+    parts.push(`Vendor: ${name}`)
+  }
+  if (typeof payroll === 'boolean') parts.push(`Payroll: ${payroll ? 'Yes' : 'No'}`)
   if (d) parts.push(d)
   return parts.join('\n')
 }
