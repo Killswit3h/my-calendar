@@ -42,9 +42,10 @@ const IconTicket = (props: any) => (
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
   const initialDate = useMemo(() => {
-    const now = new Date(); const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
+    const now = new Date();
+    const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
     const m0 = Number.isFinite(initialMonth0 as any) ? Math.min(11, Math.max(0, Number(initialMonth0))) : now.getUTCMonth();
-    return new Date(Date.UTC(y, m0, 1));
+    return new Date(Date.UTC(y, m0, now.getUTCDate()));
   }, [initialYear, initialMonth0]);
 
   const [events, setEvents] = useState<EventInput[]>([]);
@@ -703,9 +704,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   return (
     <div className="cal-shell">
       {/* controls */}
-      <div className="cal-controls calendar-bleed flex-wrap gap-2">
-        <div className="flex gap-2 items-center">
-          <form onSubmit={handleQuickAdd} className="flex gap-2 items-center">
+      <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
+        <div className="flex gap-2 items-center flex-wrap">
+          <form id="quick-add-form" onSubmit={handleQuickAdd} className="flex items-center">
             <input
               type="text"
               placeholder="Quick add event"
@@ -713,8 +714,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               onChange={e => setQuickText(e.target.value)}
               className="w-80"
             />
-            <button type="submit" className="btn primary">Add</button>
           </form>
+          <button type="submit" form="quick-add-form" className="btn primary">Add</button>
           <input
             type="text"
             placeholder="Search"
@@ -724,12 +725,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             style={{ minWidth: '200px' }}
           />
         </div>
-        <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
-          <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
-          <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
+        <div className="flex gap-2 items-center flex-wrap">
+          <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
+            <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
+            <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
+          </div>
+          <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
+          <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
         </div>
-        <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
-        <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
       </div>
 
       {/* calendar */}
