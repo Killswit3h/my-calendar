@@ -18,7 +18,7 @@ function toId(first: string, last: string): string {
   return `${kebab(first)}-${kebab(last)}`;
 }
 
-const seedEmployees: Employee[] = [
+const seedEmployeeData: Omit<Employee, 'id'>[] = [
   { firstName: 'Adrian', lastName: 'Ramos', team: 'South' },
   { firstName: 'Carlos', lastName: 'Manuel Diaz', team: 'South' },
   { firstName: 'Christopher', lastName: 'Jones', team: 'Central' },
@@ -45,8 +45,10 @@ const seedEmployees: Employee[] = [
   { firstName: 'Ventura', lastName: 'Hernandez', team: 'South' },
 ];
 
-// assign ids
-seedEmployees.forEach(e => (e.id = toId(e.firstName, e.lastName)));
+const seedEmployees: Employee[] = seedEmployeeData.map(e => ({
+  ...e,
+  id: toId(e.firstName, e.lastName),
+}));
 
 function sortEmployees(list: Employee[]): Employee[] {
   return list.sort(
