@@ -71,8 +71,19 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           start: startIso,
           end: endIso,
           allDay: !!row.allDay,
-          extendedProps: { location: row.location ?? '', description: rest, invoice, payment, vendor, payroll, type: row.type ?? null, shift: row.shift ?? null, checklist: row.checklist ?? null },
+          extendedProps: {
+            location: row.location ?? '',
+            description: rest,
+            invoice,
+            payment,
+            vendor,
+            payroll,
+            type: row.type ?? null,
+            shift: row.shift ?? null,
+            checklist: row.checklist ?? null,
+          },
           className: typeToClass(row.type),
+          display: 'block',
         } as EventInput;
       }));
     }
@@ -214,20 +225,53 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
     const parsed = chrono.parse(txt)[0];
     if (parsed && parsed.start) {
+      const hasTime = parsed.start.isCertain('hour');
       const start = parsed.start.date();
-      const end = parsed.end ? parsed.end.date() : new Date(start.getTime() + 60 * 60 * 1000);
+      const end = parsed.end
+        ? parsed.end.date()
+        : hasTime
+          ? new Date(start.getTime() + 60 * 60 * 1000)
+          : start;
       const title = (txt.replace(parsed.text, '').trim()) || 'Event';
       const r = await fetch(`/api/calendars/${calendarId}/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: '', start: start.toISOString(), end: end.toISOString(), allDay: false, location: '', type, shift: null, checklist: null })
+        body: JSON.stringify({
+          title,
+          description: '',
+          start: start.toISOString(),
+          end: end.toISOString(),
+          allDay: !hasTime,
+          location: '',
+          type,
+          shift: null,
+          checklist: null,
+        }),
       });
       if (r.ok) {
         const c = await r.json();
         const startIso = new Date(c.start).toISOString();
         const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
         const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
-        setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay, extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+        setEvents(p => [
+          ...p,
+          {
+            id: c.id,
+            title: c.title,
+            start: startIso,
+            end: endIso,
+            allDay: !!c.allDay,
+            extendedProps: {
+              location: c.location ?? '',
+              ...splitInvoiceProps(c.description ?? ''),
+              type: c.type ?? null,
+              shift: c.shift ?? null,
+              checklist: c.checklist ?? null,
+            },
+            className: typeToClass(c.type),
+            display: 'block',
+          },
+        ]);
       }
     } else {
       const nowIso = new Date().toISOString();
@@ -370,15 +414,25 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         });
         if (!r.ok) return;
         const c = await r.json();
-        setEvents(p => [...p, {
-          id: c.id,
-          title: c.title,
-          start: new Date(c.start).toISOString(),
-          end: new Date(c.end).toISOString(),
-          allDay: !!c.allDay,
-          extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null },
-          className: typeToClass(c.type),
-        }]);
+        setEvents(p => [
+          ...p,
+          {
+            id: c.id,
+            title: c.title,
+            start: new Date(c.start).toISOString(),
+            end: new Date(c.end).toISOString(),
+            allDay: !!c.allDay,
+            extendedProps: {
+              location: c.location ?? '',
+              ...splitInvoiceProps(c.description ?? ''),
+              type: c.type ?? null,
+              shift: c.shift ?? null,
+              checklist: c.checklist ?? null,
+            },
+            className: typeToClass(c.type),
+            display: 'block',
+          },
+        ]);
         // Remove todo on success
         try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch {}
         setTodos(p => p.filter(t => t.id !== id));
@@ -516,9 +570,21 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const startIso = new Date(u.start).toISOString();
       const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
       const endIso = u.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
-      setEvents(prev => prev.map(ev => ev.id === editId ? {
-        id: u.id, title: u.title, start: startIso, end: endIso, allDay: !!u.allDay,
-        extendedProps: { location: u.location ?? '', ...splitInvoiceProps(u.description ?? ''), type: u.type ?? null, shift: u.shift ?? null, checklist: u.checklist ?? null }, className: typeToClass(u.type),
+      setEvents(prev => prev.map(ev => (ev.id === editId ? {
+        id: u.id,
+        title: u.title,
+        start: startIso,
+        end: endIso,
+        allDay: !!u.allDay,
+        extendedProps: {
+          location: u.location ?? '',
+          ...splitInvoiceProps(u.description ?? ''),
+          type: u.type ?? null,
+          shift: u.shift ?? null,
+          checklist: u.checklist ?? null,
+        },
+        className: typeToClass(u.type),
+        display: 'block',
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -527,8 +593,25 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const startIso = new Date(c.start).toISOString();
       const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
       const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
-      setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay,
-        extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+      setEvents(p => [
+        ...p,
+        {
+          id: c.id,
+          title: c.title,
+          start: startIso,
+          end: endIso,
+          allDay: !!c.allDay,
+          extendedProps: {
+            location: c.location ?? '',
+            ...splitInvoiceProps(c.description ?? ''),
+            type: c.type ?? null,
+            shift: c.shift ?? null,
+            checklist: c.checklist ?? null,
+          },
+          className: typeToClass(c.type),
+          display: 'block',
+        },
+      ]);
     }
     setOpen(false); setDraft(null); setEditId(null);
   }, [draft, editId, calendarId]);
@@ -556,8 +639,25 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const startIso = new Date(c.start).toISOString();
     const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
     const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
-    setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay,
-      extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null, shift: c.shift ?? null, checklist: c.checklist ?? null }, className: typeToClass(c.type) }]);
+    setEvents(p => [
+      ...p,
+      {
+        id: c.id,
+        title: c.title,
+        start: startIso,
+        end: endIso,
+        allDay: !!c.allDay,
+        extendedProps: {
+          location: c.location ?? '',
+          ...splitInvoiceProps(c.description ?? ''),
+          type: c.type ?? null,
+          shift: c.shift ?? null,
+          checklist: c.checklist ?? null,
+        },
+        className: typeToClass(c.type),
+        display: 'block',
+      },
+    ]);
   }, [draft, calendarId]);
 
   const updateStart = (iso: string) => {
