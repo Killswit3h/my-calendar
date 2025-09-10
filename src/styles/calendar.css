@@ -107,6 +107,8 @@
   border: none;
   background: var(--primary);
   color: var(--md-sys-color-on-primary);
+  font-size: 1rem;
+  font-family: inherit;
   cursor: pointer;
   transition: box-shadow .2s ease, background .2s ease;
 }
@@ -199,7 +201,7 @@
 .emp-ms-option.active { background: var(--elev-2); }
 .emp-ms-option.disabled { opacity: 0.5; cursor: default; }
 .emp-ms-option-left { display: flex; align-items: center; gap: 0.25rem; }
-.emp-ms-option-left input { margin-right: 0.25rem; }
+.emp-ms-option-left input { margin-right: 0.25rem; width: 14px; height: 14px; }
 .emp-ms-busy { font-size: 0.75rem; color: var(--danger); }
 .emp-ms-section-title {
   padding: 0.25rem 0.4rem;
@@ -226,6 +228,7 @@
 /* Full-width control row above calendar */
 .cal-controls { display: flex; align-items: center; justify-content: flex-start; min-height: 56px; padding: 0 16px; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
 .cal-controls input { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
+.search-input { width: 20rem; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
 .calendar-pane { flex: 1 1 60%; }

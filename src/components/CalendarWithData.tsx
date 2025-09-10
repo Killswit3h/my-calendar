@@ -841,7 +841,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               placeholder="Quick add event"
               value={quickText}
               onChange={e => setQuickText(e.target.value)}
-              className="w-80"
+              className="search-input"
             />
           </form>
           <button type="submit" form="quick-add-form" className="btn primary">Add</button>
@@ -851,7 +851,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="search-input"
-            style={{ minWidth: '200px' }}
           />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
