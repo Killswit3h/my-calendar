@@ -11,6 +11,9 @@ import {
   type Employee,
   type Team,
 } from "../../employees";
+import { alpha } from "@mui/material/styles";
+import { FixedSizeList, ListChildComponentProps } from "react-window";
+import AccentColorSelect from "../../components/AccentColorSelect";
 
 import {
   AppBar,
@@ -26,6 +29,7 @@ import {
   List,
   ListItem,
   ListItemAvatar,
+  ListItemButton,
   Avatar,
   ListItemText,
   Divider,
@@ -53,7 +57,15 @@ function EmployeesPageContent() {
 
   const [employees, setEmployees] = useState<Employee[]>(getEmployees());
   const [query, setQuery] = useState("");
-  const [teamFilter, setTeamFilter] = useState<Team | "All">("All");
+  const [teamFilter, setTeamFilter] = useState<Team | "All">(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("team-filter");
+      if (saved === "South" || saved === "Central" || saved === "All") {
+        return saved;
+      }
+    }
+    return "All";
+  });
 
   const refresh = () => setEmployees(getEmployees());
 
@@ -78,6 +90,12 @@ function EmployeesPageContent() {
       );
     });
   }, [employees, debounced, teamFilter]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("team-filter", teamFilter);
+    }
+  }, [teamFilter]);
 
   function handleReset() {
     resetEmployees();
@@ -188,44 +206,133 @@ function EmployeesPageContent() {
         </Button>
       </Box>
 
-      <List sx={{ bgcolor: "background.paper" }}>
-        {filtered.map((e) => (
-          <React.Fragment key={e.id}>
-            <ListItem
-              secondaryAction={
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
+      {filtered.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 6 }}>
+          <Typography variant="headlineSmall" gutterBottom>
+            No employees yet
+          </Typography>
+          <Typography variant="bodyMedium" gutterBottom>
+            Add an employee to get started.
+          </Typography>
+          <Button variant="contained" onClick={openAdd}>
+            Add employee
+          </Button>
+        </Box>
+      ) : filtered.length > 200 ? (
+        <FixedSizeList
+          height={Math.min(400, filtered.length * 56)}
+          itemCount={filtered.length}
+          itemSize={56}
+          width="100%"
+        >
+          {({ index, style }: ListChildComponentProps) => {
+            const e = filtered[index];
+            return (
+              <div style={style} key={e.id}>
+                <ListItem
+                  disablePadding
+                  secondaryAction={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography variant="bodyMedium" color="text.secondary">
+                        ({e.team})
+                      </Typography>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          edge="end"
+                          aria-label={`Delete ${e.firstName} ${e.lastName}`}
+                          sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+                          onClick={() => setToDelete(e)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  }
+                >
+                  <ListItemButton
+                    sx={{ py: 1, "&.Mui-focusVisible": { outline: (theme) => `2px solid ${theme.palette.primary.main}` } }}
+                    aria-label={`Open employee ${e.firstName} ${e.lastName}`}
                   >
-                    ({e.team})
-                  </Typography>
-                  <Tooltip title="Delete">
-                    <IconButton edge="end" onClick={() => setToDelete(e)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              }
-              sx={{ py: 1 }}
-            >
-              <ListItemAvatar>
-                <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>
-                  {initials(e)}
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={`${e.firstName} ${e.lastName}`}
-                primaryTypographyProps={{
-                  variant: "body1",
-                  sx: { fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-                }}
-              />
-            </ListItem>
-            <Divider component="li" />
-          </React.Fragment>
-        ))}
-      </List>
+                    <ListItemAvatar>
+                      <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "background.paper", color: "text.secondary" }}>
+                        {initials(e)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={`${e.firstName} ${e.lastName}`}
+                      primaryTypographyProps={{
+                        variant: "bodyMedium",
+                        sx: {
+                          color: (theme) => alpha(theme.palette.primary.main, 0.9),
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+                <Divider component="li" />
+              </div>
+            );
+          }}
+        </FixedSizeList>
+      ) : (
+        <List sx={{ bgcolor: "background.paper" }}>
+          {filtered.map((e) => (
+            <React.Fragment key={e.id}>
+              <ListItem
+                disablePadding
+                secondaryAction={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="bodyMedium" color="text.secondary">
+                      ({e.team})
+                    </Typography>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        edge="end"
+                        aria-label={`Delete ${e.firstName} ${e.lastName}`}
+                        sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+                        onClick={() => setToDelete(e)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                }
+              >
+                <ListItemButton
+                  sx={{ py: 1, "&.Mui-focusVisible": { outline: (theme) => `2px solid ${theme.palette.primary.main}` } }}
+                  aria-label={`Open employee ${e.firstName} ${e.lastName}`}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "background.paper", color: "text.secondary" }}>
+                      {initials(e)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={`${e.firstName} ${e.lastName}`}
+                    primaryTypographyProps={{
+                      variant: "bodyMedium",
+                      sx: {
+                        color: (theme) => alpha(theme.palette.primary.main, 0.9),
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+              <Divider component="li" />
+            </React.Fragment>
+          ))}
+        </List>
+      )}
+
+      <Box sx={{ p: 2 }}>
+        <AccentColorSelect />
+      </Box>
 
       {/* Add employee dialog */}
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth>
