@@ -43,26 +43,34 @@ function EmployeesPageContent() {
     refresh();
   }
 
+  const initials = (e: Employee) =>
+    `${e.firstName[0] ?? ""}${e.lastName[0] ?? ""}`.toUpperCase();
+
   return (
-    <main className="p-4 space-y-4 max-w-md mx-auto">
-      <div className="flex items-center gap-2">
+    <main className="p-4 space-y-6 max-w-lg mx-auto">
+      <header className="flex items-center gap-2">
         <Link href={back} className="btn">
           Back
         </Link>
+        <h1 className="flex-1 text-center text-xl font-medium">Employees</h1>
         <button className="btn ghost ml-auto" onClick={reset}>
           Reset
         </button>
-      </div>
-      <form onSubmit={handleAdd} className="flex gap-2">
+      </header>
+
+      <form
+        onSubmit={handleAdd}
+        className="surface p-4 flex flex-col sm:flex-row gap-3"
+      >
         <input
           type="text"
           placeholder="First Last"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="border px-3 py-2 rounded flex-1"
+          className="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
-          className="border rounded px-3 py-2"
+          className="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={team}
           onChange={(e) => setTeam(e.target.value as Team)}
         >
@@ -73,14 +81,26 @@ function EmployeesPageContent() {
           Add
         </button>
       </form>
-      <ul className="bg-white rounded shadow divide-y">
+
+      <ul className="surface divide-y">
         {employees.map((e) => (
-          <li key={e.id} className="p-2 flex items-center gap-2">
-            <span className="flex-1">
-              {e.firstName} {e.lastName}
-            </span>
-            <span className="text-sm text-gray-500">{e.team}</span>
-            <button className="btn danger" onClick={() => remove(e.id)}>
+          <li
+            key={e.id}
+            className="flex items-center gap-4 p-4 hover:bg-gray-50"
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+              {initials(e)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">
+                {e.firstName} {e.lastName}
+              </p>
+              <p className="text-sm text-gray-500">{e.team}</p>
+            </div>
+            <button
+              className="btn danger"
+              onClick={() => remove(e.id)}
+            >
               Delete
             </button>
           </li>
