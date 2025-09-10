@@ -1,206 +1,142 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useMemo } from "react";
+import {
+  Autocomplete,
+  TextField,
+  Chip,
+  Avatar,
+  Typography,
+  Box,
+  Button,
+} from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import { FixedSizeList, ListChildComponentProps } from "react-window";
 import type { Employee } from "../employees";
 
 interface Props {
   employees: Employee[];
   value: string[];
   onChange: (next: string[]) => void;
-  assignedEmployeeIds?: string[];
-  conflictPolicy?: "disable" | "warn";
-  groupByTeam?: boolean;
   placeholder?: string;
   label?: string;
 }
 
-export default function EmployeeMultiSelect({
-  employees,
-  value,
-  onChange,
-  assignedEmployeeIds = [],
-  conflictPolicy = "warn",
-  groupByTeam = false,
-  placeholder = "Select employees",
-  label,
-}: Props) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [active, setActive] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+const LISTBOX_PADDING = 8; // px
 
-  const filtered = employees.filter((e) =>
-    `${e.firstName} ${e.lastName}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
-
-  const ordered = groupByTeam
-    ? filtered.sort((a, b) => a.team.localeCompare(b.team))
-    : filtered;
-
-  const flat = ordered;
-
-  const toggle = (id: string, disabled?: boolean) => {
-    if (disabled) return;
-    if (value.includes(id)) onChange(value.filter((v) => v !== id));
-    else onChange([...value, id]);
-  };
-
-  useEffect(() => {
-    if (open) setActive(0);
-  }, [open, search]);
-
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  useEffect(() => {
-    function handle(e: KeyboardEvent) {
-      if (!open || !flat.length) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setActive((i) => (i + 1) % flat.length);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setActive((i) => (i - 1 + flat.length) % flat.length);
-      } else if (e.key === " ") {
-        e.preventDefault();
-        const emp = flat[active];
-        if (emp) {
-          const busy = assignedEmployeeIds.includes(emp.id);
-          const disabled = busy && conflictPolicy === "disable";
-          toggle(emp.id, disabled);
-        }
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const emp = flat[active];
-        if (emp) {
-          const busy = assignedEmployeeIds.includes(emp.id);
-          const disabled = busy && conflictPolicy === "disable";
-          toggle(emp.id, disabled);
-        }
-        setOpen(false);
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        setOpen(false);
-      }
-    }
-    document.addEventListener("keydown", handle);
-    return () => document.removeEventListener("keydown", handle);
-  }, [open, active, flat, assignedEmployeeIds, conflictPolicy, value]);
-
-  const renderRow = (e: Employee, idx: number) => {
-    const busy = assignedEmployeeIds.includes(e.id);
-    const disabled = busy && conflictPolicy === "disable";
-    const selected = value.includes(e.id);
-    const highlight = idx === active;
-    return (
-      <li
-        key={e.id}
-        role="option"
-        aria-selected={selected}
-        onMouseEnter={() => setActive(idx)}
-        onClick={() => toggle(e.id, disabled)}
-        className={`flex items-center justify-between px-2 py-2 rounded cursor-pointer ${
-          highlight ? "bg-blue-50" : ""
-        } ${
-          disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100"
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={selected}
-            readOnly
-            disabled={disabled}
-          />
-          <span>
-            {e.firstName} {e.lastName}
-          </span>
-        </div>
-        {busy && (
-          <span className="text-xs text-red-600">
-            {conflictPolicy === "warn" ? "Busy (warn)" : "Busy"}
-          </span>
-        )}
-      </li>
-    );
-  };
-
-  const sections: { title: string; items: Employee[] }[] = [];
-  if (groupByTeam) {
-    const south = ordered.filter((e) => e.team === "South");
-    const central = ordered.filter((e) => e.team === "Central");
-    if (south.length) sections.push({ title: "South FL Team", items: south });
-    if (central.length) sections.push({ title: "Central FL Team", items: central });
-  }
-
-  const listContent = groupByTeam ? (
-    sections.map((s) => (
-      <div key={s.title}>
-        <div className="px-2 py-1 text-xs text-gray-500">{s.title}</div>
-        <ul className="space-y-1">
-          {s.items.map((e) => renderRow(e, flat.indexOf(e)))}
-        </ul>
-      </div>
-    ))
-  ) : (
-    <ul className="space-y-1">{flat.map((e, idx) => renderRow(e, idx))}</ul>
-  );
-
-  const labelText = label && <label className="block text-sm mb-1">{label}</label>;
-  const buttonText = value.length
-    ? employees
-        .filter((e) => value.includes(e.id))
-        .map((e) => `${e.firstName} ${e.lastName}`)
-        .join(", ")
-    : placeholder;
-
-  return (
-    <div className="relative" ref={containerRef}>
-      {labelText}
-      <button
-        type="button"
-        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {buttonText}
-      </button>
-      {open && (
-        <div
-          className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg"
-          role="listbox"
-          aria-multiselectable="true"
-        >
-          <div className="p-2 border-b border-gray-200">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search"
-              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              type="button"
-              className="mt-2 text-xs text-blue-600 hover:underline"
-              onClick={() => onChange([])}
-            >
-              Clear all
-            </button>
-          </div>
-          <div className="max-h-64 overflow-y-auto p-1">{listContent}</div>
-        </div>
-      )}
-    </div>
-  );
+function renderRow(props: ListChildComponentProps) {
+  const { data, index, style } = props;
+  return React.cloneElement(data[index], {
+    style: {
+      ...style,
+      top: (style.top as number) + LISTBOX_PADDING,
+    },
+  });
 }
 
+const ListboxComponent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLElement>>(function ListboxComponent(
+  props,
+  ref
+) {
+  const { children, ...other } = props;
+  const itemData = React.Children.toArray(children);
+  const itemCount = itemData.length;
+  const itemSize = 50;
+  const height = Math.min(8, itemCount) * itemSize + 2 * LISTBOX_PADDING;
+  return (
+    <div ref={ref} {...other}>
+      <FixedSizeList
+        height={height}
+        itemData={itemData}
+        itemCount={itemCount}
+        itemSize={itemSize}
+        width="100%"
+      >
+        {renderRow}
+      </FixedSizeList>
+    </div>
+  );
+});
+
+export default function EmployeeMultiSelect({ employees, value, onChange, placeholder = "Select employees", label }: Props) {
+  const selected = useMemo(() => employees.filter((e) => value.includes(e.id)), [employees, value]);
+  const filterOptions = (opts: Employee[], { inputValue }: any) => {
+    const term = inputValue.toLowerCase();
+    return opts.filter((e) => {
+      const init = `${e.firstName[0] ?? ""}${e.lastName[0] ?? ""}`.toLowerCase();
+      return (
+        e.firstName.toLowerCase().includes(term) ||
+        e.lastName.toLowerCase().includes(term) ||
+        init.includes(term) ||
+        e.team.toLowerCase().includes(term)
+      );
+    });
+  };
+
+  return (
+    <Autocomplete
+      multiple
+      options={employees}
+      value={selected}
+      disableCloseOnSelect
+      getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
+      isOptionEqualToValue={(o, v) => o.id === v.id}
+      filterOptions={filterOptions}
+      onChange={(_, next) => onChange(next.map((n) => n.id))}
+      ListboxComponent={employees.length > 200 ? ListboxComponent : undefined}
+      renderTags={(val, getTagProps) =>
+        val.map((option, idx) => (
+          <Chip
+            {...getTagProps({ index: idx })}
+            key={option.id}
+            label={`${option.firstName} ${option.lastName}`}
+          />
+        ))
+      }
+      renderOption={(props, option) => (
+        <li {...props} key={option.id} style={{ padding: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1 }}>
+            <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: "background.paper", color: "text.secondary" }}>
+              {option.firstName[0]}
+              {option.lastName[0]}
+            </Avatar>
+            <Typography
+              variant="bodyMedium"
+              sx={{ flexGrow: 1, color: (theme) => alpha(theme.palette.primary.main, 0.9) }}
+            >
+              {option.firstName} {option.lastName}
+            </Typography>
+            <Typography variant="bodyMedium" color="text.secondary">
+              ({option.team})
+            </Typography>
+          </Box>
+        </li>
+      )}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label ?? "Select employees"}
+          placeholder={placeholder}
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {value.length > 0 && (
+                  <Button
+                    color="primary"
+                    size="small"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onChange([])}
+                  >
+                    Clear all
+                  </Button>
+                )}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+    />
+  );
+}
