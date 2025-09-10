@@ -40,9 +40,8 @@ const VENDOR_COLOR: Record<Vendor, string> = {
 
 const EmployeesLink = () => {
   const pathname = usePathname();
-  const params = useSearchParams();
-  const search = params.toString();
-  const href = `/employees?from=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`;
+  // Avoid SSR↔CSR hydration mismatches by not including dynamic search params
+  const href = `/employees?from=${encodeURIComponent(pathname)}`;
   return <Link href={href} className="btn">Employees</Link>;
 };
 
