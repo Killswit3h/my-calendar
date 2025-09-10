@@ -1,9 +1,7 @@
 // src/app/api/events/[id]/route.ts
+export const runtime = 'edge'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { uploadJson, buildEventBackupKey } from "@/server/backup"
-import { Prisma } from "@prisma/client"
-export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -76,19 +74,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       location: updated.location,
       type: updated.type,
     }
-    ;(async () => {
-      try {
-        const key = buildEventBackupKey(updated.id, "update")
-        await uploadJson(key, { ...payload, op: "update" })
-      } catch (e) { console.error("Event update backup failed", e) }
-    })()
     return NextResponse.json(payload, { status: 200 })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+    if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
     console.error("Failed to update event", e)
@@ -101,19 +93,13 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   try {
     // Limit returned fields to avoid selecting non-existent DB columns
     await prisma.event.delete({ where: { id }, select: { id: true } })
-    ;(async () => {
-      try {
-        const key = buildEventBackupKey(id, "delete")
-        await uploadJson(key, { id, op: "delete" })
-      } catch (e) { console.error("Event delete backup failed", e) }
-    })()
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+    if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
     console.error("Failed to delete event", e)

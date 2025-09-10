@@ -13,25 +13,15 @@ function genId() {
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const events = await tryPrisma(() =>
-    prisma.event.findMany({
-      where: { calendarId: id },
-      orderBy: { startsAt: "asc" },
-      select: {
-        id: true,
-        calendarId: true,
-        title: true,
-        description: true,
-        startsAt: true,
-        endsAt: true,
-        allDay: true,
-        location: true,
-        type: true,
-      },
-    })
-  , [])
-  // Map DB fields (startsAt/endsAt) to API fields (start/end)
-  const payload = (events as any[]).map((e: any) => ({
+  const rows: any[] = await tryPrisma(
+    () => prisma.$queryRaw`
+      SELECT "id","calendarId","title","description","startsAt","endsAt","allDay","location","type"
+      FROM "Event" WHERE "calendarId" = ${id}
+      ORDER BY "startsAt" ASC
+    `,
+    [] as any[]
+  )
+  const payload = rows.map((e: any) => ({
     id: e.id,
     calendarId: e.calendarId,
     title: e.title,
@@ -59,9 +49,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const endsAt = (b.allDay ? new Date(new Date(b.end).getTime() - 86400000) : new Date(b.end))
     const newId = genId()
     const rows: any[] = await prisma.$queryRaw`
-      INSERT INTO "Event" ("id","calendarId","title","description","start","end","allDay","location","type")
+      INSERT INTO "Event" ("id","calendarId","title","description","startsAt","endsAt","allDay","location","type")
       VALUES (${newId}, ${calendarId}, ${b.title}, ${b.description ?? ""}, ${startsAt}, ${endsAt}, ${!!b.allDay}, ${b.location ?? ""}, ${b.type ?? null})
-      RETURNING "id","calendarId","title","description","start","end","allDay","location","type"
+      RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type"
     `
     if (!rows.length) throw new Error("Failed to insert event")
     const ev = rows[0]
@@ -70,8 +60,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       calendarId: ev.calendarId,
       title: ev.title,
       description: ev.description,
-      start: ev.start,
-      end: ev.end,
+      start: ev.startsAt,
+      end: ev.endsAt,
       allDay: ev.allDay,
       location: ev.location,
       type: ev.type,

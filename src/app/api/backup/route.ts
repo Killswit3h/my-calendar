@@ -1,9 +1,8 @@
 // src/app/api/backup/route.ts
+export const runtime = 'edge'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { uploadJson, buildFullExportKey } from "@/server/backup"
-
-export const runtime = "nodejs"
+// Edge runtime: omit Node/S3 backup. Return JSON directly.
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -50,15 +49,7 @@ export async function GET(_req: NextRequest) {
 
     const exportedAt = new Date().toISOString()
     const payload = { exportedAt, count: events.length, events }
-
-    const key = buildFullExportKey()
-    try {
-      await uploadJson(key, payload)
-      return NextResponse.json({ ok: true, key, count: events.length }, { status: 200 })
-    } catch (e) {
-      console.error("Full export backup failed", e)
-      return NextResponse.json({ ok: false, count: events.length }, { status: 200 })
-    }
+    return NextResponse.json(payload, { status: 200 })
   } catch (e) {
     const msg = (e instanceof Error ? e.message : String(e))
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })

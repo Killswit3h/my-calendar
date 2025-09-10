@@ -28,10 +28,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const rows = await r.json();
       setEvents(rows.map((row: any) => {
         const { invoice, rest } = splitInvoice(row.description ?? '');
+        const startIso = new Date(row.start).toISOString();
+        const rawEndIso = row.end ? new Date(row.end).toISOString() : startIso;
+        const endIso = row.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso; // FC expects exclusive end for all-day
         return ({
           id: row.id, title: row.title,
-          start: new Date(row.start).toISOString(),
-          end: new Date(row.end).toISOString(),
+          start: startIso,
+          end: endIso,
           allDay: !!row.allDay,
           extendedProps: { location: row.location ?? '', description: rest, invoice, type: row.type ?? null },
           className: typeToClass(row.type),
@@ -116,15 +119,21 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
       if (!r.ok) return; const u = await r.json();
+      const uStart = new Date(u.start).toISOString();
+      const uRawEnd = u.end ? new Date(u.end).toISOString() : uStart;
+      const uEnd = u.allDay ? addDaysIso(uRawEnd, 1) : uRawEnd;
       setEvents(prev => prev.map(ev => ev.id === editId ? {
-        id: u.id, title: u.title, start: new Date(u.start).toISOString(), end: new Date(u.end).toISOString(), allDay: !!u.allDay,
+        id: u.id, title: u.title, start: uStart, end: uEnd, allDay: !!u.allDay,
         extendedProps: { location: u.location ?? '', ...splitInvoiceProps(u.description ?? ''), type: u.type ?? null }, className: typeToClass(u.type),
       } : ev));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
       if (!r.ok) return; const c = await r.json();
-      setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.start).toISOString(), end: new Date(c.end).toISOString(), allDay: !!c.allDay,
+      const cStart = new Date(c.start).toISOString();
+      const cRawEnd = c.end ? new Date(c.end).toISOString() : cStart;
+      const cEnd = c.allDay ? addDaysIso(cRawEnd, 1) : cRawEnd;
+      setEvents(p => [...p, { id: c.id, title: c.title, start: cStart, end: cEnd, allDay: !!c.allDay,
         extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null }, className: typeToClass(c.type) }]);
     }
     setOpen(false); setDraft(null); setEditId(null);
@@ -140,7 +149,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? ''), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null }) });
     if (!r.ok) return; const c = await r.json();
-    setEvents(p => [...p, { id: c.id, title: c.title, start: new Date(c.start).toISOString(), end: new Date(c.end).toISOString(), allDay: !!c.allDay,
+    const startIso = new Date(c.start).toISOString();
+    const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
+    const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+    setEvents(p => [...p, { id: c.id, title: c.title, start: startIso, end: endIso, allDay: !!c.allDay,
       extendedProps: { location: c.location ?? '', ...splitInvoiceProps(c.description ?? ''), type: c.type ?? null }, className: typeToClass(c.type) }]);
   }, [draft, calendarId]);
 
@@ -318,6 +330,7 @@ function fromLocalInput(local: string) { return new Date(local).toISOString(); }
 function dateToLocalInput(d: Date) { const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
+function addDaysIso(iso: string, days: number) { const d = new Date(iso); d.setUTCDate(d.getUTCDate() + days); return d.toISOString(); }
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);

@@ -158,7 +158,10 @@
 /* Full-width control row above calendar */
 .cal-controls { display: flex; align-items: center; justify-content: flex-start; min-height: 56px; padding: 0 16px; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
 .cal-controls input { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
-.search-input { width: 20rem; }
+/* Make search and quick-add inputs share the same width */
+.search-input { width: 100%; max-width: 36rem; }
+/* Ensure the quick-add form itself adopts the same max width so the input matches the Search box */
+#quick-add-form { width: 100%; max-width: 36rem; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
 .calendar-pane { flex: 1 1 60%; }
