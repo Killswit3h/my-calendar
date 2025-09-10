@@ -1,17 +1,16 @@
 // src/app/api/calendars/[id]/todos/route.ts
+export const runtime = 'edge'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { tryPrisma } from "@/lib/dbSafe"
-import crypto from "node:crypto"
 
-export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 async function ensureTodoTable() {
   // Create table if it doesn't exist (avoids needing an immediate migration in dev)
   await tryPrisma(() =>
-    prisma.$executeRawUnsafe(
+    prisma.$executeRaw(
     'CREATE TABLE IF NOT EXISTS "Todo" (\n' +
       '  "id" text PRIMARY KEY,\n' +
       '  "calendarId" text NOT NULL,\n' +

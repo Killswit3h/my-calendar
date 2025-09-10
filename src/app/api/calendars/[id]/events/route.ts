@@ -1,9 +1,7 @@
 // src/app/api/calendars/[id]/events/route.ts
+export const runtime = 'edge'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma, tryPrisma } from "@/lib/dbSafe"
-import { uploadJson, buildEventBackupKey } from "@/server/backup"
-import { Prisma } from "@prisma/client"
-export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -13,10 +11,10 @@ function genId() {
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const events = await tryPrisma(() =>
+  const rows = await tryPrisma(() =>
     prisma.event.findMany({
       where: { calendarId: id },
-      orderBy: { startsAt: "asc" },
+      orderBy: { startsAt: 'asc' },
       select: {
         id: true,
         calendarId: true,
@@ -29,8 +27,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
         type: true,
       },
     })
-  , [])
-  const payload = (events as any[]).map((e: any) => ({
+  , [] as any[])
+  const payload = (rows as any[]).map((e: any) => ({
     id: e.id,
     calendarId: e.calendarId,
     title: e.title,
@@ -51,43 +49,51 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ error: "title, start, end required" }, { status: 400 })
 
   try {
-    // Ensure calendar row exists (raw SQL to avoid client/schema drift)
-    await prisma.$executeRaw`INSERT INTO "Calendar" ("id","name") VALUES (${calendarId}, ${"Default"}) ON CONFLICT ("id") DO NOTHING`
+    // Ensure calendar exists
+    await prisma.calendar.upsert({ where: { id: calendarId }, update: {}, create: { id: calendarId, name: "Default" } })
 
     const startsAt = new Date(b.start)
     const endsAt = (b.allDay ? new Date(new Date(b.end).getTime() - 86400000) : new Date(b.end))
-    const newId = genId()
-    const rows: any[] = await prisma.$queryRaw`
-      INSERT INTO "Event" ("id","calendarId","title","description","start","end","allDay","location","type")
-      VALUES (${newId}, ${calendarId}, ${b.title}, ${b.description ?? ""}, ${startsAt}, ${endsAt}, ${!!b.allDay}, ${b.location ?? ""}, ${b.type ?? null})
-      RETURNING "id","calendarId","title","description","start","end","allDay","location","type"
-    `
-    if (!rows.length) throw new Error("Failed to insert event")
-    const ev = rows[0]
+    const created = await prisma.event.create({
+      data: {
+        calendarId,
+        title: String(b.title),
+        description: (b.description ?? "") || "",
+        startsAt,
+        endsAt,
+        allDay: !!b.allDay,
+        location: (b.location ?? "") || "",
+        type: b.type ?? null,
+      },
+      select: {
+        id: true,
+        calendarId: true,
+        title: true,
+        description: true,
+        startsAt: true,
+        endsAt: true,
+        allDay: true,
+        location: true,
+        type: true,
+      },
+    })
     const payload = {
-      id: ev.id,
-      calendarId: ev.calendarId,
-      title: ev.title,
-      description: ev.description,
-      start: ev.start,
-      end: ev.end,
-      allDay: ev.allDay,
-      location: ev.location,
-      type: ev.type,
+      id: created.id,
+      calendarId: created.calendarId,
+      title: created.title,
+      description: created.description,
+      start: (created as any).startsAt,
+      end: (created as any).endsAt,
+      allDay: created.allDay,
+      location: created.location,
+      type: created.type,
     }
-    ;(async () => {
-      try {
-        const key = buildEventBackupKey(ev.id, "create")
-        await uploadJson(key, { ...payload, op: "create" })
-      } catch (e) { console.error("Event create backup failed", e) }
-    })()
     return NextResponse.json(payload, { status: 201 })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
-    // Surface details to help diagnose any remaining schema mismatches
     return NextResponse.json({ error: "Failed to create event", details: msg }, { status: 500 })
   }
 }

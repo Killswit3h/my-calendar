@@ -1,6 +1,5 @@
 // src/app/api/events/[id]/attachment/route.ts
-export const runtime = "nodejs";
-
+export const runtime = 'edge'
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -33,8 +32,9 @@ export async function GET(
     });
   }
 
-  // Prisma Bytes on Node = Buffer. Response expects BodyInit (ArrayBufferView works).
-  const body = new Uint8Array(ev.attachmentData as unknown as Buffer);
+  // Prisma Edge returns Uint8Array for Bytes; cast defensively
+  const data: any = ev.attachmentData
+  const body = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
 
   const filename = (ev.attachmentName ?? "file").replace(/\//g, "");
   return new Response(body, {

@@ -1,4 +1,8 @@
-import { PrismaClient } from "@prisma/client"
-const g = globalThis as unknown as { prisma?: PrismaClient }
-export const prisma = g.prisma ?? new PrismaClient({ log: [] })
-if (process.env.NODE_ENV !== "production") g.prisma = prisma
+// Edge-safe Prisma client for Cloudflare Workers/Pages
+import { PrismaClient } from "@prisma/client/edge"
+import { withAccelerate } from "@prisma/extension-accelerate"
+
+// Use pooled DATABASE_URL (Neon pooler or Prisma Accelerate)
+export const prisma = new PrismaClient({
+  datasources: { db: { url: process.env.DATABASE_URL! } },
+}).$extends(withAccelerate())

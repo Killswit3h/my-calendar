@@ -19,7 +19,7 @@ async function checkDbAvailable(): Promise<boolean> {
   if (cachedAvailable !== null && now - lastCheck < CHECK_TTL_MS) return cachedAvailable
   try {
     // Lightweight connectivity probe
-    await prisma.$queryRawUnsafe("SELECT 1")
+    await prisma.$queryRaw`SELECT 1`
     cachedAvailable = true
   } catch (e) {
     if (isDbUnavailableError(e)) {

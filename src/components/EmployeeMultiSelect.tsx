@@ -107,7 +107,13 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
             </Avatar>
             <Typography
               variant="body2"
-              sx={{ flexGrow: 1, typography: "bodyMedium", color: (theme) => alpha(theme.palette.primary.main, 0.9) }}
+              sx={{
+                flexGrow: 1,
+                typography: "bodyMedium",
+                color: (theme) => theme.palette.common.white,
+                fontWeight: 600,
+                textShadow: "0 1px 1px rgba(0,0,0,0.3)",
+              }}
             >
               {option.firstName} {option.lastName}
             </Typography>
