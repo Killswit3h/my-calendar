@@ -21,6 +21,7 @@
     "@mui/icons-material": "^7.3.2",
     "@mui/material": "^7.3.2",
     "@prisma/client": "^6.15.0",
+    "@prisma/extension-accelerate": "^2.0.2",
     "chrono-node": "^2.7.5",
     "ical-generator": "^7.0.0",
     "leaflet": "^1.9.4",
