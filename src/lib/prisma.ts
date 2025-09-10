@@ -2,7 +2,9 @@
 import { PrismaClient } from "@prisma/client/edge"
 import { withAccelerate } from "@prisma/extension-accelerate"
 
-// Use pooled DATABASE_URL (Neon pooler or Prisma Accelerate)
-export const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL! } },
-}).$extends(withAccelerate())
+// Support both Accelerate (prisma:// or prisma+postgres://) and direct Postgres URLs
+const url = process.env.DATABASE_URL!
+const base = new PrismaClient({ datasources: { db: { url } } })
+export const prisma = (url.startsWith("prisma://") || url.startsWith("prisma+"))
+  ? base.$extends(withAccelerate())
+  : base
