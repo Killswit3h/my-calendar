@@ -43,7 +43,7 @@ const EmployeesLink = () => {
   const params = useSearchParams();
   const search = params.toString();
   const href = `/employees?from=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`;
-  return <Link href={href} className="btn ml-auto">Employees</Link>;
+  return <Link href={href} className="btn">Employees</Link>;
 };
 
 const IconType = (props: any) => (
@@ -861,7 +861,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
-          <Suspense fallback={<span className="btn ml-auto">Employees</span>}>
+          <Suspense fallback={<span className="btn">Employees</span>}>
             <EmployeesLink />
           </Suspense>
         </div>
