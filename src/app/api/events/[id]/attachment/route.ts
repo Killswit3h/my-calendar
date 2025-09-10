@@ -35,9 +35,13 @@ export async function GET(
   // Prisma Edge returns Uint8Array for Bytes; cast defensively
   const data: any = ev.attachmentData
   const body = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+  const arrayBuffer = body.buffer.slice(
+    body.byteOffset,
+    body.byteOffset + body.byteLength,
+  ) as ArrayBuffer;
 
   const filename = (ev.attachmentName ?? "file").replace(/\//g, "");
-  return new Response(body, {
+  return new Response(arrayBuffer, {
     status: 200,
     headers: {
       "Content-Type": ev.attachmentType ?? "application/octet-stream",
