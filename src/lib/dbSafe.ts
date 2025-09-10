@@ -34,9 +34,9 @@ async function checkDbAvailable(): Promise<boolean> {
   return cachedAvailable
 }
 
-export async function tryPrisma<T>(task: Promise<T> | (() => Promise<T>), fallback: T): Promise<T> {
+export async function tryPrisma<T>(task: PromiseLike<T> | (() => PromiseLike<T>), fallback: T): Promise<T> {
   // If a thunk is provided, we can avoid touching the DB when unavailable
-  const thunk = typeof task === 'function' ? (task as () => Promise<T>) : null
+  const thunk = typeof task === 'function' ? (task as () => PromiseLike<T>) : null
   if (thunk) {
     const ok = await checkDbAvailable()
     if (!ok) return fallback
@@ -55,7 +55,7 @@ export async function tryPrisma<T>(task: Promise<T> | (() => Promise<T>), fallba
 
   // Back-compat: if a Promise was passed directly
   try {
-    return await (task as Promise<T>)
+    return await (task as PromiseLike<T>)
   } catch (e) {
     if (isDbUnavailableError(e)) return fallback
     throw e
