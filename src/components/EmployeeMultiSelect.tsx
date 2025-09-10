@@ -101,27 +101,26 @@ export default function EmployeeMultiSelect({
     const disabled = busy && conflictPolicy === "disable";
     const selected = value.includes(e.id);
     const highlight = idx === active;
-    return (
+  return (
       <li
         key={e.id}
         role="option"
         aria-selected={selected}
         onMouseEnter={() => setActive(idx)}
         onClick={() => toggle(e.id, disabled)}
-        className={`px-2 py-1 flex items-center justify-between cursor-pointer ${highlight ? "bg-gray-100" : ""} ${disabled ? "opacity-50" : ""}`}
+        className={`emp-ms-option${highlight ? " active" : ""}${disabled ? " disabled" : ""}`}
       >
-        <div className="flex items-center gap-2">
+        <div className="emp-ms-option-left">
           <input
             type="checkbox"
             checked={selected}
             readOnly
             disabled={disabled}
-            className="mr-2"
           />
           <span>{e.firstName} {e.lastName}</span>
         </div>
         {busy && (
-          <span className="text-xs text-red-600">
+          <span className="emp-ms-busy">
             {conflictPolicy === "warn" ? "Busy (warn)" : "Busy"}
           </span>
         )}
@@ -140,12 +139,14 @@ export default function EmployeeMultiSelect({
   const listContent = groupByTeam ? (
     sections.map((s) => (
       <div key={s.title}>
-        <div className="px-2 py-1 text-xs text-gray-500">{s.title}</div>
-        <ul>{s.items.map((e) => renderRow(e, flat.indexOf(e)))}</ul>
+        <div className="emp-ms-section-title">{s.title}</div>
+        <ul className="emp-ms-grid">
+          {s.items.map((e) => renderRow(e, flat.indexOf(e)))}
+        </ul>
       </div>
     ))
   ) : (
-    <ul>{flat.map((e, idx) => renderRow(e, idx))}</ul>
+    <ul className="emp-ms-grid">{flat.map((e, idx) => renderRow(e, idx))}</ul>
   );
 
   const labelText = label && <label className="block text-sm mb-1">{label}</label>;
@@ -157,11 +158,11 @@ export default function EmployeeMultiSelect({
     : placeholder;
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="emp-ms" ref={containerRef}>
       {labelText}
       <button
         type="button"
-        className="w-full border px-3 py-2 text-left rounded"
+        className="emp-ms-btn"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -169,28 +170,24 @@ export default function EmployeeMultiSelect({
         {buttonText}
       </button>
       {open && (
-        <div
-          className="absolute z-10 mt-1 w-full border bg-white rounded shadow"
-          role="listbox"
-          aria-multiselectable="true"
-        >
-          <div className="p-2 border-b">
+        <div className="emp-ms-menu" role="listbox" aria-multiselectable="true">
+          <div className="emp-ms-search">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search"
-              className="w-full border px-2 py-1 rounded"
+              className="emp-ms-search-input"
             />
             <button
               type="button"
-              className="mt-2 text-sm text-blue-600"
+              className="emp-ms-clear"
               onClick={() => onChange([])}
             >
               Clear all
             </button>
           </div>
-          <div className="max-h-64 overflow-y-auto">{listContent}</div>
+          <div className="emp-ms-options">{listContent}</div>
         </div>
       )}
     </div>
