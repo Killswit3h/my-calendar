@@ -45,7 +45,7 @@ function EmployeesPageContent() {
 
   return (
     <main className="p-4 space-y-4 max-w-md mx-auto">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <Link href={back} className="btn">
           Back
         </Link>
@@ -53,16 +53,16 @@ function EmployeesPageContent() {
           Reset
         </button>
       </div>
-      <form onSubmit={handleAdd} className="flex gap-2">
+      <form onSubmit={handleAdd} className="flex gap-3">
         <input
           type="text"
           placeholder="First Last"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="border px-3 py-2 rounded flex-1"
+          className="text-input flex-1"
         />
         <select
-          className="border rounded px-3 py-2"
+          className="select-input"
           value={team}
           onChange={(e) => setTeam(e.target.value as Team)}
         >
@@ -73,14 +73,14 @@ function EmployeesPageContent() {
           Add
         </button>
       </form>
-      <ul className="bg-white rounded shadow divide-y">
+      <ul className="employee-list">
         {employees.map((e) => (
-          <li key={e.id} className="p-2 flex items-center gap-2">
+          <li key={e.id} className="employee-list-item">
             <span className="flex-1">
               {e.firstName} {e.lastName}
             </span>
-            <span className="text-sm text-gray-500">{e.team}</span>
-            <button className="btn danger" onClick={() => remove(e.id)}>
+            <span className="employee-team">{e.team}</span>
+            <button className="btn ghost danger" onClick={() => remove(e.id)}>
               Delete
             </button>
           </li>

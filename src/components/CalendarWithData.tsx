@@ -43,7 +43,7 @@ const EmployeesLink = () => {
   const params = useSearchParams();
   const search = params.toString();
   const href = `/employees?from=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`;
-  return <Link href={href} className="btn ml-auto">Employees</Link>;
+  return <Link href={href} className="btn">Employees</Link>;
 };
 
 const IconType = (props: any) => (
@@ -833,15 +833,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   return (
     <div className="cal-shell">
       {/* controls */}
-      <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
-        <div className="flex gap-2 items-center flex-wrap">
+      <div className="cal-controls calendar-bleed flex-col items-start gap-3 flex-nowrap">
+        <div className="flex gap-3 items-center flex-wrap">
           <form id="quick-add-form" onSubmit={handleQuickAdd} className="flex items-center">
             <input
               type="text"
               placeholder="Quick add event"
               value={quickText}
               onChange={e => setQuickText(e.target.value)}
-              className="w-80"
+              className="search-input"
             />
           </form>
           <button type="submit" form="quick-add-form" className="btn primary">Add</button>
@@ -851,17 +851,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="search-input"
-            style={{ minWidth: '200px' }}
           />
         </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="view-toggle inline-flex" style={{ gap: '8px' }}>
             <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
             <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
-          <Suspense fallback={<span className="btn ml-auto">Employees</span>}>
+          <Suspense fallback={<span className="btn">Employees</span>}>
             <EmployeesLink />
           </Suspense>
         </div>

@@ -97,8 +97,85 @@
 .inline { display: inline-flex; align-items: center; gap: 0.5rem; }
 @media (min-width: 640px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .span-2 { grid-column: 1 / -1; } }
 .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-.btn { padding: 0.45rem 0.8rem; border-radius: 10px; border: 1px solid var(--border); color: var(--text); }
-.btn.primary { background: linear-gradient(180deg, var(--primary), #0063e1); color: var(--primary-contrast); border-color: #0a4aa6; }
+.btn {
+  height: 40px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 20px;
+  border: none;
+  background: var(--primary);
+  color: var(--md-sys-color-on-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow .2s ease, background .2s ease;
+}
+
+.btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.btn:active { box-shadow: none; }
+
+.btn.primary {
+  background: var(--primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: var(--md-sys-color-on-error);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--primary);
+}
+
+.btn.ghost.danger {
+  color: var(--danger);
+}
+
+/* shared text inputs */
+.search-input {
+  width: 20rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--card-2);
+  color: var(--text);
+}
+
+.text-input,
+.select-input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--card-2);
+  color: var(--text);
+}
+
+/* employee list page */
+.employee-list {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+}
+.employee-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.75rem 1rem;
+}
+.employee-list-item + .employee-list-item {
+  border-top: 1px solid var(--border);
+}
+.employee-team {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
 .form-section { font-size: 0.9rem; font-weight: 500; color: var(--text); margin-top: 0.5rem; }
 .label .ico { width: 1rem; height: 1rem; margin-right: 0.25rem; }
 .type-chip { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }
@@ -169,7 +246,7 @@
 .emp-ms-option.active { background: var(--elev-2); }
 .emp-ms-option.disabled { opacity: 0.5; cursor: default; }
 .emp-ms-option-left { display: flex; align-items: center; gap: 0.25rem; }
-.emp-ms-option-left input { margin-right: 0.25rem; }
+.emp-ms-option-left input { margin-right: 0.25rem; width: 14px; height: 14px; }
 .emp-ms-busy { font-size: 0.75rem; color: var(--danger); }
 .emp-ms-section-title {
   padding: 0.25rem 0.4rem;
@@ -181,8 +258,6 @@
 .fc .day-weather { margin-left: 2px; margin-right: 0; font-size: 0.72rem; color: var(--text-dim); text-decoration: none; display: inline-flex; gap: 4px; align-items: center; opacity: .95; }
 .fc .day-weather:hover { text-decoration: underline; color: var(--text); }
 .fc .day-weather .ico { font-size: 0.9em; line-height: 1; }
-.btn.ghost { background: transparent; }
-.btn:hover { filter: brightness(1.08); }
 
 /* ===== Full-bleed helpers ===== */
 .calendar-bleed,
