@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   // Use environment variables so local/remote DBs work without code changes
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Calendar {
