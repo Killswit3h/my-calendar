@@ -3,7 +3,15 @@ import { PaletteColorOptions } from '@mui/material';
 
 export type Accent = 'forest' | 'blue' | 'gray';
 
-const ACCENTS: Record<Accent, { primary: string; primaryContainer: string; secondary: string; tertiary: string }> = {
+const ACCENTS: Record<
+  Accent,
+  {
+    primary: string;
+    primaryContainer: string;
+    secondary: string;
+    tertiary: string;
+  }
+> = {
   forest: {
     primary: '#1B5E20',
     primaryContainer: '#0D2B12',
@@ -31,7 +39,7 @@ export function createAppTheme(accent: Accent) {
       mode: 'dark',
       primary: {
         main: tones.primary,
-        contrastText: '#FFFFFF',
+        contrastText: '#FFFFFF', // on primary
       },
       secondary: {
         main: tones.secondary,
@@ -40,8 +48,9 @@ export function createAppTheme(accent: Accent) {
         main: '#B3261E',
       },
       background: {
-        default: '#1B1B1F',
-        paper: '#1F1F1F',
+        // M3 dark surfaces
+        default: '#1B1B1F', // surface
+        paper: '#1F1F1F', // surfaceContainerLow
       },
       divider: '#2C2C2C',
     },
@@ -49,14 +58,19 @@ export function createAppTheme(accent: Accent) {
       borderRadius: 8,
     },
     typography: {
-      // Using Material 3 typographic names if available
-      // Fallback to defaults otherwise
       fontFamily: 'Roboto, sans-serif',
     },
   };
-  // Cast to any to allow additional M3 tokens like primaryContainer
-  (options.palette as any).primaryContainer = tones.primaryContainer;
-  (options.palette as any).tertiary = { main: tones.tertiary } as PaletteColorOptions;
+
+  // Add M3 custom palette tokens
+  const palette = options.palette as any;
+  palette.primaryContainer = tones.primaryContainer;
+  palette.tertiary = { main: tones.tertiary } as PaletteColorOptions;
+  palette.surface = '#1B1B1F';
+  palette.surfaceContainerLow = '#1F1F1F';
+  palette.outline = '#939094';
+  palette.outlineVariant = '#46464F';
+
   return createTheme(options);
 }
 

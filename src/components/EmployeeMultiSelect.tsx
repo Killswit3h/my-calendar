@@ -76,6 +76,7 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
   return (
     <Autocomplete
       multiple
+      size="small"
       options={employees}
       value={selected}
       disableCloseOnSelect
@@ -84,12 +85,16 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
       filterOptions={filterOptions}
       onChange={(_, next) => onChange(next.map((n) => n.id))}
       ListboxComponent={employees.length > 200 ? ListboxComponent : undefined}
+      slotProps={{
+        paper: { sx: { bgcolor: (theme) => (theme.palette as any).surfaceContainerLow } },
+      }}
       renderTags={(val, getTagProps) =>
         val.map((option, idx) => (
           <Chip
             {...getTagProps({ index: idx })}
             key={option.id}
             label={`${option.firstName} ${option.lastName}`}
+            size="small"
           />
         ))
       }
@@ -101,12 +106,12 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
               {option.lastName[0]}
             </Avatar>
             <Typography
-              variant="bodyMedium"
-              sx={{ flexGrow: 1, color: (theme) => alpha(theme.palette.primary.main, 0.9) }}
+              variant="body2"
+              sx={{ flexGrow: 1, typography: "bodyMedium", color: (theme) => alpha(theme.palette.primary.main, 0.9) }}
             >
               {option.firstName} {option.lastName}
             </Typography>
-            <Typography variant="bodyMedium" color="text.secondary">
+            <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
               ({option.team})
             </Typography>
           </Box>
@@ -117,6 +122,7 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
           {...params}
           label={label ?? "Select employees"}
           placeholder={placeholder}
+          size="small"
           InputProps={{
             ...params.InputProps,
             endAdornment: (

@@ -22,8 +22,8 @@ import {
   Typography,
   TextField,
   InputAdornment,
-  Select,
   MenuItem,
+  Select,
   Button,
   Box,
   List,
@@ -46,6 +46,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import PersonOffIcon from "@mui/icons-material/PersonOff";
 
 function initials(e: Employee) {
   return `${e.firstName[0] ?? ""}${e.lastName[0] ?? ""}`.toUpperCase();
@@ -156,7 +157,7 @@ function EmployeesPageContent() {
           <Typography
             variant="h5"
             component="h1"
-            sx={{ flexGrow: 1, textAlign: "center" }}
+            sx={{ flexGrow: 1, textAlign: "center", typography: "titleLarge" }}
           >
             Employees
           </Typography>
@@ -187,15 +188,17 @@ function EmployeesPageContent() {
             ),
           }}
         />
-        <Select
+        <TextField
+          select
           size="small"
+          label="Team"
           value={teamFilter}
           onChange={(e) => setTeamFilter(e.target.value as Team | "All")}
         >
           <MenuItem value="All">All</MenuItem>
           <MenuItem value="South">South</MenuItem>
           <MenuItem value="Central">Central</MenuItem>
-        </Select>
+        </TextField>
         <Button
           startIcon={<AddIcon />}
           variant="contained"
@@ -208,10 +211,11 @@ function EmployeesPageContent() {
 
       {filtered.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 6 }}>
-          <Typography variant="headlineSmall" gutterBottom>
+          <PersonOffIcon sx={{ fontSize: 48, mb: 1, color: "text.secondary" }} />
+          <Typography variant="h6" sx={{ typography: "headlineSmall" }} gutterBottom>
             No employees yet
           </Typography>
-          <Typography variant="bodyMedium" gutterBottom>
+          <Typography variant="body2" sx={{ typography: "bodyMedium" }} gutterBottom>
             Add an employee to get started.
           </Typography>
           <Button variant="contained" onClick={openAdd}>
@@ -219,73 +223,76 @@ function EmployeesPageContent() {
           </Button>
         </Box>
       ) : filtered.length > 200 ? (
-        <FixedSizeList
-          height={Math.min(400, filtered.length * 56)}
-          itemCount={filtered.length}
-          itemSize={56}
-          width="100%"
-        >
-          {({ index, style }: ListChildComponentProps) => {
-            const e = filtered[index];
-            return (
-              <div style={style} key={e.id}>
-                <ListItem
-                  disablePadding
-                  secondaryAction={
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="bodyMedium" color="text.secondary">
-                        ({e.team})
-                      </Typography>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          edge="end"
-                          aria-label={`Delete ${e.firstName} ${e.lastName}`}
-                          sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
-                          onClick={() => setToDelete(e)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  }
-                >
-                  <ListItemButton
-                    sx={{ py: 1, "&.Mui-focusVisible": { outline: (theme) => `2px solid ${theme.palette.primary.main}` } }}
-                    aria-label={`Open employee ${e.firstName} ${e.lastName}`}
+        <Box sx={{ bgcolor: (theme) => (theme.palette as any).surfaceContainerLow }}>
+          <FixedSizeList
+            height={Math.min(400, filtered.length * 56)}
+            itemCount={filtered.length}
+            itemSize={56}
+            width="100%"
+          >
+            {({ index, style }: ListChildComponentProps) => {
+              const e = filtered[index];
+              return (
+                <div style={style} key={e.id}>
+                  <ListItem
+                    disablePadding
+                    secondaryAction={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
+                          ({e.team})
+                        </Typography>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            edge="end"
+                            aria-label={`Delete ${e.firstName} ${e.lastName}`}
+                            sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+                            onClick={() => setToDelete(e)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    }
                   >
-                    <ListItemAvatar>
-                      <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "background.paper", color: "text.secondary" }}>
-                        {initials(e)}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={`${e.firstName} ${e.lastName}`}
-                      primaryTypographyProps={{
-                        variant: "bodyMedium",
-                        sx: {
-                          color: (theme) => alpha(theme.palette.primary.main, 0.9),
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        },
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-                <Divider component="li" />
-              </div>
-            );
-          }}
-        </FixedSizeList>
+                    <ListItemButton
+                      sx={{ py: 1, "&.Mui-focusVisible": { outline: (theme) => `2px solid ${theme.palette.primary.main}` } }}
+                      aria-label={`Open employee ${e.firstName} ${e.lastName} (${e.team})`}
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "background.paper", color: "text.secondary" }}>
+                          {initials(e)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={`${e.firstName} ${e.lastName}`}
+                        primaryTypographyProps={{
+                          variant: "body2",
+                          sx: {
+                            typography: "bodyMedium",
+                            color: (theme) => alpha(theme.palette.primary.main, 0.9),
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                  <Divider component="li" />
+                </div>
+              );
+            }}
+          </FixedSizeList>
+        </Box>
       ) : (
-        <List sx={{ bgcolor: "background.paper" }}>
+        <List sx={{ bgcolor: (theme) => (theme.palette as any).surfaceContainerLow }}>
           {filtered.map((e) => (
             <React.Fragment key={e.id}>
               <ListItem
                 disablePadding
                 secondaryAction={
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="bodyMedium" color="text.secondary">
+                    <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
                       ({e.team})
                     </Typography>
                     <Tooltip title="Delete">
@@ -303,7 +310,7 @@ function EmployeesPageContent() {
               >
                 <ListItemButton
                   sx={{ py: 1, "&.Mui-focusVisible": { outline: (theme) => `2px solid ${theme.palette.primary.main}` } }}
-                  aria-label={`Open employee ${e.firstName} ${e.lastName}`}
+                  aria-label={`Open employee ${e.firstName} ${e.lastName} (${e.team})`}
                 >
                   <ListItemAvatar>
                     <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "background.paper", color: "text.secondary" }}>
@@ -313,8 +320,9 @@ function EmployeesPageContent() {
                   <ListItemText
                     primary={`${e.firstName} ${e.lastName}`}
                     primaryTypographyProps={{
-                      variant: "bodyMedium",
+                      variant: "body2",
                       sx: {
+                        typography: "bodyMedium",
                         color: (theme) => alpha(theme.palette.primary.main, 0.9),
                         whiteSpace: "nowrap",
                         overflow: "hidden",
