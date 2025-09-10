@@ -9,6 +9,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
 import * as chrono from 'chrono-node';
 import '@/styles/calendar.css';
+import EmployeeMultiSelect from './EmployeeMultiSelect';
+import { getEmployees } from '@/employees';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -16,6 +18,7 @@ type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
 type Checklist = {
   locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
   subtasks?: { id: string; text: string; done: boolean }[];
+  employees?: string[];
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
@@ -63,6 +66,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const m0 = Number.isFinite(initialMonth0 as any) ? Math.min(11, Math.max(0, Number(initialMonth0))) : now.getUTCMonth();
     return new Date(Date.UTC(y, m0, now.getUTCDate()));
   }, [initialYear, initialMonth0]);
+
+  const employees = useMemo(() => getEmployees(), []);
 
   const [events, setEvents] = useState<EventInput[]>([]);
   useEffect(() => {
@@ -285,7 +290,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     } else {
       const nowIso = new Date().toISOString();
-      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY', vendor: 'JORGE', payroll: false });
+      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY', vendor: 'JORGE', payroll: false, checklist: defaultChecklist() });
       setEditId(null);
       setOpen(true);
     }
@@ -493,6 +498,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       vendor: 'JORGE',
       payroll: false,
       shift: 'DAY',
+      checklist: defaultChecklist(),
     });
 
     setOpen(true);
@@ -1007,6 +1013,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   <option value="NO">No</option>
                 </select>
               </label>
+              <label className="span-2"><div className="label">Employees</div>
+                <EmployeeMultiSelect
+                  employees={employees}
+                  value={draft.checklist?.employees ?? []}
+                  onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
+                />
+              </label>
               <div className="form-section span-2">Work Details</div>
               <label><div className="label"><IconLocation className="ico" />Location</div>
                 <input ref={locationRef} type="text" value={locInput} onChange={e => { setLocInput(e.target.value); if (!e.target.value) { autoRef.current?.set && autoRef.current.set('place', null); } }} />
@@ -1274,7 +1287,7 @@ function composeDescription(desc: string, invoice: string, payment: string, vend
   return parts.join('\n')
 }
 
-function defaultChecklist(): Checklist { return { locate: { ticket: '', requested: '', expires: '', contacted: false }, subtasks: [] }; }
+function defaultChecklist(): Checklist { return { locate: { ticket: '', requested: '', expires: '', contacted: false }, subtasks: [], employees: [] }; }
 
 function parseTodoNotes(notes?: string | null): { description?: string; locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean } } {
   if (!notes) return {};
