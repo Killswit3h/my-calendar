@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate --no-engine && next build",
     "start": "next start",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate --no-engine",
+    "generate:edge": "prisma generate --no-engine",
+    "generate:node": "prisma generate",
     "test": "echo \"No tests\""
   },
   "dependencies": {
