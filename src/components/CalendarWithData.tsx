@@ -1011,6 +1011,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   <option value="NO">No</option>
                 </select>
               </label>
+              <label><div className="label">Payment</div>
+                <select value={draft.payment ?? 'DAILY'} onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}>
+                  <option value="DAILY">Daily</option>
+                  <option value="ADJUSTED">Adjusted</option>
+                </select>
+              </label>
               <label className="span-2"><div className="label">Employees</div>
                 <EmployeeMultiSelect
                   employees={employees}
@@ -1027,12 +1033,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </label>
               <label><div className="label">Invoice #</div>
                 <input type="text" inputMode="numeric" value={draft.invoice ?? ''} onChange={e => setDraft({ ...draft, invoice: e.target.value })} />
-              </label>
-              <label><div className="label">Payment</div>
-                <select value={draft.payment ?? 'DAILY'} onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}>
-                  <option value="DAILY">Daily</option>
-                  <option value="ADJUSTED">Adjusted</option>
-                </select>
               </label>
               <label className="span-2"><div className="label">Description</div>
                 <textarea ref={descRef} value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} onKeyDown={handleDescKeyDown} />
