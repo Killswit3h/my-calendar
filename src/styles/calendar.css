@@ -11,7 +11,9 @@
   --muted: #8e8e93;
   --border: #3a3a3c;
 
-  --primary: #0a84ff;
+  /* Forest green accent */
+  --primary: #1B5E20;
+  --ring: 0 0 0 3px rgba(27, 94, 32, .30);
   --primary-contrast: #ffffff;
   --danger: #ff453a;
   --ok: #30d158;
@@ -35,6 +37,7 @@
 .fc .fc-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .fc .fc-toolbar-title { font-size: clamp(16px, 1.6vw, 20px); color: var(--text); font-weight: 700; }
 .fc .fc-button { padding: 0.3rem 0.55rem; line-height: 1; background: var(--elev-2); border: 1px solid var(--border); color: var(--text); }
+.fc .fc-button-primary { background: var(--primary) !important; border-color: var(--primary) !important; color: var(--primary-contrast) !important; }
 .fc .fc-button-group .fc-button { border-radius: 0; }
 .fc .fc-button-group .fc-button:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
 .fc .fc-button-group .fc-button:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
@@ -106,7 +109,7 @@
   border-radius: 20px;
   border: none;
   background: var(--primary);
-  color: var(--md-sys-color-on-primary);
+  color: var(--primary-contrast);
   font-size: 1rem;
   font-family: inherit;
   cursor: pointer;
@@ -119,7 +122,7 @@
 
 .btn.primary {
   background: var(--primary);
-  color: var(--md-sys-color-on-primary);
+  color: var(--primary-contrast);
 }
 
 .btn.danger {
@@ -161,7 +164,7 @@
 /* Make search and quick-add inputs share the same width */
 .search-input { width: 100%; max-width: 36rem; }
 /* Ensure the quick-add form itself adopts the same max width so the input matches the Search box */
-#quick-add-form { width: 100%; max-width: 36rem; }
+#quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; max-width: 36rem; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
 .calendar-pane { flex: 1 1 60%; }
