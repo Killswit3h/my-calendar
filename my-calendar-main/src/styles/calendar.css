@@ -11,7 +11,8 @@
   --muted: #8a93a1;
   --border: #263040;
 
-  --primary: #2563eb;
+  /* Forest green accent */
+  --primary: #1B5E20;
   --primary-contrast: #ffffff;
   --danger: #e11d48;
   --ok: #16a34a;

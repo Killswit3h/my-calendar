@@ -12,22 +12,23 @@
   --card-2: #0f1318;
   --surface: #131820;
 
-  --primary: #4f8cff;
-  --primary-600: #3c74db;
+  /* Forest green accent */
+  --primary: #1B5E20;
+  --primary-600: #2E7D32;
   --danger: #ef4444;
   --warning: #f59e0b;
 
   --border: #1f2835;
   --border-2: #263144;
 
-  --ring: 0 0 0 3px rgba(79, 140, 255, .25);
+  --ring: 0 0 0 3px rgba(27, 94, 32, .25);
 
   /* FullCalendar vars */
   --fc-page-bg-color: var(--bg);
   --fc-neutral-bg-color: transparent;
   --fc-neutral-text-color: var(--muted);
   --fc-border-color: var(--border);
-  --fc-today-bg-color: rgba(79, 140, 255, .12);
+  --fc-today-bg-color: rgba(27, 94, 32, .12);
 
   /* Taller rows for more events */
   --fc-daygrid-row-min-height: 6.6em;
@@ -96,7 +97,7 @@ a { color: var(--primary); text-decoration: none; }
 
 .btn.primary {
   background: linear-gradient(180deg, var(--primary), var(--primary-600));
-  border-color: #204d9c;
+  border-color: #145A22;
   color: white;
 }
 
@@ -136,7 +137,7 @@ a { color: var(--primary); text-decoration: none; }
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
   background: var(--primary) !important;
-  border-color: #204d9c !important;
+  border-color: #145A22 !important;
 }
 
 .fc-theme-standard .fc-scrollgrid {
@@ -210,7 +211,7 @@ textarea {
 textarea { resize: vertical; min-height: 90px; }
 input:focus, select:focus, textarea:focus {
   box-shadow: var(--ring);
-  border-color: #204d9c;
+  border-color: #145A22;
 }
 
 .modal-actions {

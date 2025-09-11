@@ -834,7 +834,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
         <div className="flex gap-2 items-center flex-wrap">
-          <form id="quick-add-form" onSubmit={handleQuickAdd} className="flex items-center">
+          <form id="quick-add-form" onSubmit={handleQuickAdd} className="quick-add-form">
             <input
               type="text"
               placeholder="Quick add event"
@@ -842,8 +842,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               onChange={e => setQuickText(e.target.value)}
               className="search-input"
             />
+            <button type="submit" className="btn primary">Add</button>
           </form>
-          <button type="submit" form="quick-add-form" className="btn primary">Add</button>
           <input
             type="text"
             placeholder="Search"
