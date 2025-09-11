@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
+    "prisma:migrate-customer": "prisma migrate deploy && prisma generate",
     "test": "echo \"No tests\""
   },
   "dependencies": {
@@ -22,7 +23,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
-    "studio": "^0.13.5"
+    "studio": "^0.13.5",
+    "swr": "^2.2.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.12",

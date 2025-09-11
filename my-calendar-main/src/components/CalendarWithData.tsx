@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import '@/styles/calendar.css';
+import CustomerCombobox from './CustomerCombobox';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -223,6 +225,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           <span className="muted-sm">Country</span>
           <input value={country} onChange={e => setCountry(e.target.value.toUpperCase())} onBlur={() => { const y = new Date().getUTCFullYear(); fetchHolidays(y, country); }} className="country-input" />
         </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <Link className="btn" href="/customers">Customers</Link>
+          <Link className="btn" href="/customers/import">Import Customers</Link>
+        </div>
       </div>
 
       {/* calendar */}
@@ -260,8 +266,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           <div className="modal-card">
             <h3 className="modal-title">{editId ? 'Edit event' : 'Add event'}</h3>
             <div className="form-grid form-compact">
-              <label className="span-2"><div className="label">Title</div>
-                <input type="text" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+              <label className="span-2"><div className="label">Customer</div>
+                <CustomerCombobox value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} />
               </label>
               <label><div className="label">Start</div>
                 <input type="datetime-local" value={toLocalInput(draft.start)} onChange={e => setDraft({ ...draft, start: fromLocalInput(e.target.value) })} />

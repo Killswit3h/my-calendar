@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --no-engine && next build",
+    "build": "prisma generate --no-engine && npm --prefix my-calendar-main exec prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate --no-engine",
     "generate:edge": "prisma generate --no-engine",
