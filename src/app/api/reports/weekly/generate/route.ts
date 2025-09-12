@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { getEventsForWeek } from "@/server/reports/queries";
 import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 import { storeFile } from "@/server/blob";

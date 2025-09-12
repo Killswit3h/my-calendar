@@ -12,7 +12,6 @@ const nextConfig = {
     "exceljs",
     "@vercel/blob",
     "pdf-lib",
-    "xlsx",
   ],
 };
 

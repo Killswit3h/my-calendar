@@ -1,7 +1,7 @@
 // src/app/api/backup/route.ts
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/db"
 // Edge runtime: omit Node/S3 backup. Return JSON directly.
 export const dynamic = "force-dynamic"
 export const revalidate = 0

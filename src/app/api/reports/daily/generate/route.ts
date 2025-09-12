@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { getEventsForDay } from "@/server/reports/queries";
 import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 import { daySnapshotToXlsxEdge } from "@/server/reports/xlsxEdge";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const snapshot = await getEventsForDay(date, vendor ?? null);
     const tz = process.env.REPORT_TIMEZONE || 'America/New_York';
     const pdfBuf = Buffer.from(await snapshotsToPdf([snapshot], vendor ?? null, tz))
-    const xlsxBuf = Buffer.from(daySnapshotToXlsxEdge(snapshot))
+    const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
 
     const pdfName = `daily-${date}${vendor ? '-' + vendor.toLowerCase() : ''}.pdf`;
     const xlsxName = `daily-${date}${vendor ? '-' + vendor.toLowerCase() : ''}.xlsx`;

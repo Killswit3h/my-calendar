@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
-import { normalizeCustomerName } from "../../../../lib/customers";
+import { prisma } from "@/lib/db";
+import { normalizeCustomerName } from "@/lib/customers";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
