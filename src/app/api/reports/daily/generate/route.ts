@@ -5,7 +5,7 @@ import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 import { daySnapshotToXlsxEdge } from "@/server/reports/xlsxEdge";
 import { storeFile } from "@/server/blob";
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 function okRole(): boolean { return true; } // TODO integrate real auth
 

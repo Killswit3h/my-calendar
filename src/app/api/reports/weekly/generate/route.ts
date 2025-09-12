@@ -4,7 +4,7 @@ import { getEventsForWeek } from "@/server/reports/queries";
 import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 import { storeFile } from "@/server/blob";
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 function okRole(): boolean { return true; }
 

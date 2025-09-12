@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate --no-engine && npm --prefix my-calendar-main exec prisma generate && next build",
+    "build:edge": "prisma migrate deploy || echo skip-migrate && prisma generate --no-engine && npm --prefix my-calendar-main exec prisma generate && node scripts/set-runtime.js edge && next build",
+    "build:node": "prisma generate && node scripts/set-runtime.js nodejs && next build",
     "start": "next start",
     "postinstall": "prisma generate --no-engine",
     "generate:edge": "prisma generate --no-engine",

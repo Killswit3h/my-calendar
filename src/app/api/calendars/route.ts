@@ -1,5 +1,5 @@
 // src/app/api/calendars/route.ts
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma, tryPrisma } from "@/lib/dbSafe"
 
@@ -8,9 +8,11 @@ export const revalidate = 0
 
 // GET /api/calendars
 export async function GET(_req: NextRequest) {
-  const calendars = await tryPrisma(() =>
-    prisma.calendar.findMany({ orderBy: { createdAt: "desc" } })
-  , [])
+  type Result = Awaited<ReturnType<typeof prisma.calendar.findMany>>
+  const calendars = await tryPrisma<Result>(
+    () => prisma.calendar.findMany({ orderBy: { createdAt: "desc" } }),
+    [] as Result,
+  )
   return NextResponse.json(calendars, { status: 200 })
 }
 

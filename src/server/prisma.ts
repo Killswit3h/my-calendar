@@ -5,7 +5,7 @@ function withEventBackup() {
   return base.$extends({
     query: {
       event: {
-        async create({ args, query }) {
+        async create({ args, query }: any) {
           const result = await query(args)
           try {
             const id = (result as any)?.id as string | undefined
@@ -18,7 +18,7 @@ function withEventBackup() {
           }
           return result
         },
-        async update({ args, query }) {
+        async update({ args, query }: any) {
           const result = await query(args)
           try {
             const id = (result as any)?.id as string | undefined
@@ -31,7 +31,7 @@ function withEventBackup() {
           }
           return result
         },
-        async upsert({ args, query }) {
+        async upsert({ args, query }: any) {
           const result = await query(args)
           try {
             const id = (result as any)?.id as string | undefined
@@ -44,7 +44,7 @@ function withEventBackup() {
           }
           return result
         },
-        async delete({ args, query }) {
+        async delete({ args, query }: any) {
           const result = await query(args)
           try {
             const id = (result as any)?.id as string | undefined

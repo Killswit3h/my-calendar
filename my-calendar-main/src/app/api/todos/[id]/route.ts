@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const sql = `UPDATE "Todo" SET ${sets.join(', ')} WHERE "id" = $$ID RETURNING "id","calendarId","title","notes","done","type","createdAt"`
   const rewritten = sql.replace('$$ID', `$${params.length + 1}`)
-  const updated = await prisma.$queryRawUnsafe<any[]>(rewritten, ...params, id)
+  const updated = await prisma.$queryRawUnsafe(rewritten, ...params, id) as any[]
   return NextResponse.json(updated[0], { status: 200 })
 }
 

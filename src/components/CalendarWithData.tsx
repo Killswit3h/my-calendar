@@ -308,11 +308,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   // fetch daily forecast for visible range
   const fetchWeather = useCallback(async (start: Date, end: Date, c: { lat: number; lon: number }) => {
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const startDate = fmt(start);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const startDate = fmtLocal(start);
     // subtract 1 day from end to avoid off-by-one on FullCalendar's exclusive end
-    const endAdj = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-    const endDate = fmt(endAdj);
+    const endAdj = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+    const endDate = fmtLocal(endAdj);
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
     try {
       const res = await fetch(url, { cache: 'no-store' });
