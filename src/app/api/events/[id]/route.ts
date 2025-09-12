@@ -5,6 +5,16 @@ import { prisma } from "@/lib/prisma"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "PATCH,DELETE,OPTIONS",
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders })
+}
+
 function cleanJson(v: any): any {
   if (v === undefined) return undefined
   if (v === null) return null
@@ -23,7 +33,7 @@ function cleanJson(v: any): any {
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const b = await req.json().catch(() => null)
-  if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders })
 
   const data: any = {}
   if ("title" in b) data.title = b.title
@@ -44,7 +54,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ("type" in b) data.type = b.type ?? null
   // Note: shift and checklist are not persisted (column not present)
   if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 })
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400, headers: corsHeaders })
   }
 
   try {
@@ -74,17 +84,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       location: updated.location,
       type: updated.type,
     }
-    return NextResponse.json(payload, { status: 200 })
+    return NextResponse.json(payload, { status: 200, headers: corsHeaders })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503, headers: corsHeaders })
     }
     if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders })
     }
     console.error("Failed to update event", e)
-    return NextResponse.json({ error: "Failed to update event" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to update event" }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -93,16 +103,16 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   try {
     // Limit returned fields to avoid selecting non-existent DB columns
     await prisma.event.delete({ where: { id }, select: { id: true } })
-    return NextResponse.json({ ok: true }, { status: 200 })
+    return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503, headers: corsHeaders })
     }
     if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders })
     }
     console.error("Failed to delete event", e)
-    return NextResponse.json({ error: "Failed to delete event", details: msg }, { status: 500 })
+    return NextResponse.json({ error: "Failed to delete event", details: msg }, { status: 500, headers: corsHeaders })
   }
 }
