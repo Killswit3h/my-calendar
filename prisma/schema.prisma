@@ -10,6 +10,13 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Customer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Calendar {
   id          String       @id @default(cuid())
   name        String
@@ -104,4 +111,56 @@ enum EventType {
 enum WorkShift {
   DAY
   NIGHT
+}
+
+/* -------------- Reports --------------- */
+
+model ReportFile {
+  id         String      @id @default(cuid())
+  kind       ReportKind
+  reportDate DateTime?
+  weekStart  DateTime?
+  weekEnd    DateTime?
+  vendor     String?
+  blobUrl    String
+  bytes      Int
+  createdAt  DateTime    @default(now())
+
+  @@index([reportDate, vendor])
+  @@index([weekStart, weekEnd, vendor])
+}
+
+model DailyReportSnapshot {
+  id          String    @id @default(cuid())
+  reportDate  DateTime
+  vendor      String?
+  payloadJson String
+  createdAt   DateTime  @default(now())
+
+  @@index([reportDate, vendor])
+}
+
+model WeeklyReportRequest {
+  id         String         @id @default(cuid())
+  weekStart  DateTime
+  weekEnd    DateTime
+  vendor     String?
+  status     WeeklyStatus   @default(PENDING)
+  createdAt  DateTime       @default(now())
+  finishedAt DateTime?
+  errorText  String?
+
+  @@index([weekStart, weekEnd, vendor])
+}
+
+enum ReportKind {
+  DAILY_PDF
+  DAILY_XLSX
+  WEEKLY_PDF
+}
+
+enum WeeklyStatus {
+  PENDING
+  SUCCESS
+  ERROR
 }
