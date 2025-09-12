@@ -13,10 +13,12 @@ export async function storeFile(kind: string, filename: string, contentType: str
   const buf = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (token) {
     // Vercel Blob expects a PutBody: Blob | File | Buffer | Readable | ReadableStream
-    // Always provide a Blob in Edge-compatible fashion (Node 18+ has Blob)
-    const body: any = (typeof Blob !== 'undefined') ? new Blob([buf], { type: contentType }) : Buffer.from(buf);
-    const res = await put(filename, body, { access: "public", contentType, token });
-    return { url: res.url, bytes: buf.byteLength, kind };
+    // Always provide a Blob using a real ArrayBuffer slice (TS-friendly across environments)
+    const view = buf as Uint8Array;
+    const ab: ArrayBuffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    const body: any = (typeof Blob !== 'undefined') ? new Blob([ab], { type: contentType }) : (typeof Buffer !== 'undefined' ? Buffer.from(view) : view);
+    const res = await put(filename, body as any, { access: "public", contentType, token });
+    return { url: res.url, bytes: view.byteLength, kind };
   }
   const id = uid();
   mem.set(id, { data: buf, type: contentType });
