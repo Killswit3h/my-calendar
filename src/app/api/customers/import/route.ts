@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prismaNode as prisma } from "../../../../lib/prismaNode";
+import { prisma } from "../../../../lib/prisma";
 import { normalizeCustomerName, parseCsv } from "../../../../lib/customers";
 
 function pickName(row: Record<string, string>): string {
@@ -70,4 +70,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
   }
 }
-export const runtime = 'nodejs'
+export const runtime = 'edge'
