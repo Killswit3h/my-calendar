@@ -5,10 +5,20 @@ import { prisma, tryPrisma } from "@/lib/dbSafe"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders })
+}
+
 export async function GET(req: NextRequest) {
   const calendarId = req.nextUrl.searchParams.get("calendarId")
   if (!calendarId)
-    return NextResponse.json({ error: "calendarId required" }, { status: 400 })
+    return NextResponse.json({ error: "calendarId required" }, { status: 400, headers: corsHeaders })
 
   const rows = await tryPrisma(() =>
     prisma.event.findMany({
@@ -40,13 +50,13 @@ export async function GET(req: NextRequest) {
     location: e.location,
     type: e.type,
   }))
-  return NextResponse.json(payload, { status: 200 })
+  return NextResponse.json(payload, { status: 200, headers: corsHeaders })
 }
 
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null)
   if (!b?.calendarId || !b?.title || !b?.start || !b?.end)
-    return NextResponse.json({ error: "calendarId, title, start, end required" }, { status: 400 })
+    return NextResponse.json({ error: "calendarId, title, start, end required" }, { status: 400, headers: corsHeaders })
 
   const calendarId = String(b.calendarId)
   try {
@@ -89,12 +99,12 @@ export async function POST(req: NextRequest) {
       location: created.location,
       type: created.type,
     }
-    return NextResponse.json(payload, { status: 201 })
+    return NextResponse.json(payload, { status: 201, headers: corsHeaders })
   } catch (e: any) {
     const msg = (e?.message || "").toString()
     if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503, headers: corsHeaders })
     }
-    return NextResponse.json({ error: "Failed to create event", details: msg }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create event", details: msg }, { status: 500, headers: corsHeaders })
   }
 }
