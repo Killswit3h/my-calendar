@@ -15,9 +15,17 @@ export default function ImportCustomersPage() {
     setBusy(true);
     try {
       const r = await fetch("/api/customers/import", { method: "POST", body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Import failed");
-      setResult(j);
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || j.message || "Import failed");
+        setResult(j);
+      } else {
+        // Cloudflare error pages are HTML. Surface a readable message.
+        const txt = await r.text();
+        const snippet = txt.slice(0, 200).replace(/\s+/g, ' ').trim();
+        throw new Error(snippet || `HTTP ${r.status}`);
+      }
     } catch (e: any) {
       setErr(e?.message || "Import failed");
     } finally {
