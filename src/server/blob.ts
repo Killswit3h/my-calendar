@@ -12,7 +12,10 @@ export async function storeFile(kind: string, filename: string, contentType: str
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   const buf = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (token) {
-    const res = await put(filename, buf, { access: "public", contentType, token });
+    // Vercel Blob expects a PutBody: Blob | File | Buffer | Readable | ReadableStream
+    // Always provide a Blob in Edge-compatible fashion (Node 18+ has Blob)
+    const body: any = (typeof Blob !== 'undefined') ? new Blob([buf], { type: contentType }) : Buffer.from(buf);
+    const res = await put(filename, body, { access: "public", contentType, token });
     return { url: res.url, bytes: buf.byteLength, kind };
   }
   const id = uid();
