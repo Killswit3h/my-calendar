@@ -569,6 +569,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart, end: newEnd, allDay: e.allDay });
+    else {
+      const err = await r.json().catch(() => ({}));
+      alert(err.error || 'Failed to move event');
+    }
   }, [updateEventById]);
 
   const handleEventResize = useCallback(async (arg: any) => {
@@ -576,6 +580,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart, end: newEnd, allDay: e.allDay });
+    else {
+      const err = await r.json().catch(() => ({}));
+      alert(err.error || 'Failed to resize event');
+    }
   }, [updateEventById]);
 
   const saveDraft = useCallback(async () => {
@@ -583,7 +591,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
-      if (!r.ok) return; const u = await r.json();
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Failed to update event');
+        return;
+      }
+      const u = await r.json();
       const startIso = new Date(u.start).toISOString();
       const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
       const endIso = u.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
@@ -606,7 +619,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
-      if (!r.ok) return; const c = await r.json();
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Failed to create event');
+        return;
+      }
+      const c = await r.json();
       const startIso = new Date(c.start).toISOString();
       const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
       const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
@@ -652,7 +670,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft) return;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
-    if (!r.ok) return; const c = await r.json();
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert(err.error || 'Failed to duplicate event');
+      return;
+    }
+    const c = await r.json();
     const startIso = new Date(c.start).toISOString();
     const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
     const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
