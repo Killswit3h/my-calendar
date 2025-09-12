@@ -1,5 +1,5 @@
 // src/lib/perm.ts
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
 /**
  * Accepts EITHER:

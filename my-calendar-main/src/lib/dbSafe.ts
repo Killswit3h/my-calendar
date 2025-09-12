@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/db"
 
 function isDbUnavailableError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err || "")).toLowerCase()

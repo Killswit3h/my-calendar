@@ -1,6 +1,6 @@
 // src/app/api/calendars/[id]/todos/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/db"
 import { tryPrisma } from "@/lib/dbSafe"
 import crypto from "node:crypto"
 

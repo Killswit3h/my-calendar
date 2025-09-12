@@ -1,4 +1,4 @@
-import { prisma as base } from "@/lib/prisma"
+import { prisma as base } from "@/lib/db"
 import { uploadJson, buildEventBackupKey } from "@/server/backup"
 
 function withEventBackup() {

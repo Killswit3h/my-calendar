@@ -1,6 +1,6 @@
 // src/app/api/events/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/db"
 import { uploadJson, buildEventBackupKey } from "@/server/backup"
 export const runtime = 'nodejs'
 export const dynamic = "force-dynamic"
