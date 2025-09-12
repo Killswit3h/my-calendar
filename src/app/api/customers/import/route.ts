@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeCustomerName, parseCsv } from "@/lib/customers";
 import { readFirstSheet } from "@/lib/excel";
-import { promises as fs } from 'fs';
-import path from 'path';
-import os from 'os';
 
 function pickName(row: Record<string, string>): string {
   const keys = Object.keys(row);
@@ -36,11 +33,8 @@ export async function POST(req: Request) {
       rows = parseCsv(text);
     } else if (/\.(xlsx|xls)$/i.test(fname)) {
       const ab = await (file as any).arrayBuffer();
-      const tmpPath = path.join(os.tmpdir(), `upload-${Date.now()}.xlsx`);
-      await fs.writeFile(tmpPath, Buffer.from(ab));
-      const json = await readFirstSheet(tmpPath);
+      const json = await readFirstSheet(ab);
       rows = json.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [String(k), String(v ?? '')])));
-      await fs.unlink(tmpPath);
     } else {
       return NextResponse.json({ error: 'unsupported_type', message: 'Please upload a CSV or Excel (.xlsx) file' }, { status: 400 });
     }
