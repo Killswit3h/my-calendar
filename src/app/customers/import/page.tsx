@@ -41,7 +41,7 @@ export default function ImportCustomersPage() {
         <div className="form-grid" style={{ maxWidth: 560 }}>
           <label className="span-2">
             <div>CSV File</div>
-            <input type="file" accept=".csv,text/csv" onChange={e => setFile(e.currentTarget.files?.[0] ?? null)} />
+            <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={e => setFile(e.currentTarget.files?.[0] ?? null)} />
           </label>
           <div className="modal-actions">
             <button className="btn primary" onClick={onImport} disabled={busy || !file}>{busy ? "Importing..." : "Import"}</button>
