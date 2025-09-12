@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { uploadJson, buildEventBackupKey } from "@/server/backup"
-export const runtime = "nodejs"
+export const runtime = 'nodejs'
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 

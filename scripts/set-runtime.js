@@ -38,17 +38,19 @@ for (const f of files) {
 }
 console.log(`[set-runtime] Updated ${changed} files to runtime='${target}'`)
 
-// Also swap prisma shim to correct variant
-const prismaShim = path.join(process.cwd(), 'src', 'lib', 'prisma.ts')
-if (fs.existsSync(prismaShim)) {
-  const edgeExport = `export { prisma } from './prisma.edge'\n`
-  const nodeExport = `export { prisma } from './prisma.node'\n`
-  const cur = fs.readFileSync(prismaShim, 'utf8')
-  let next = cur
-  if (target === 'edge') next = edgeExport
-  else next = nodeExport
-  if (next !== cur) {
-    fs.writeFileSync(prismaShim, next)
-    console.log(`[set-runtime] prisma.ts -> ${target}`)
+// Also swap prisma shim(s) to correct variant (root and my-calendar-main)
+for (const shimDir of [path.join(process.cwd(), 'src', 'lib'), path.join(process.cwd(), 'my-calendar-main', 'src', 'lib')]) {
+  const prismaShim = path.join(shimDir, 'prisma.ts')
+  if (fs.existsSync(prismaShim)) {
+    const edgeExport = `export { prisma } from './prisma.edge'\n`
+    const nodeExport = `export { prisma } from './prisma.node'\n`
+    const cur = fs.readFileSync(prismaShim, 'utf8')
+    let next = cur
+    if (target === 'edge') next = edgeExport
+    else next = nodeExport
+    if (next !== cur) {
+      fs.writeFileSync(prismaShim, next)
+      console.log(`[set-runtime] ${path.relative(process.cwd(), prismaShim)} -> ${target}`)
+    }
   }
 }

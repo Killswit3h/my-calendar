@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import useSWR from "swr";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -32,7 +32,19 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between mb-3">
         <h1 className="page-title">Customers</h1>
         <div className="flex gap-2">
-          <Link href="/customers/import" className="btn">Import CSV</Link>
+          <button className="btn" onClick={async () => {
+            const name = prompt('New customer name');
+            if (!name) return;
+            const r = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+            if (!r.ok) { alert('Create failed'); return; }
+            mutate();
+          }}>Add Customer</button>
+          <button className="btn ghost" onClick={async () => {
+            if (!confirm('Seed default customers from repository list?')) return;
+            const r = await fetch('/api/customers/prefill', { method: 'POST' });
+            if (!r.ok) { alert('Seed failed'); return; }
+            mutate();
+          }}>Seed Defaults</button>
           <Link href="/calendar/cme9wqhpe0000ht8sr5o3a6wf" className="btn">Back to Calendar</Link>
         </div>
       </div>
@@ -40,10 +52,10 @@ export default function CustomersPage() {
         <div className="form-grid" style={{ maxWidth: 680 }}>
           <label className="span-2">
             <div>Search</div>
-            <input type="text" placeholder="Type a customer…" value={q} onChange={e=>setQ(e.target.value)} />
+            <input type="text" placeholder="Type a customerâ€¦" value={q} onChange={e=>setQ(e.target.value)} />
           </label>
           <div className="span-2">
-            {isLoading ? <div className="muted-sm">Loading…</div> : null}
+            {isLoading ? <div className="muted-sm">Loadingâ€¦</div> : null}
             <ul className="space-y-2">
               {items.map(it => (
                 <li key={it.id} className="flex items-center justify-between border border-[var(--border)] rounded-[10px] p-2 bg-[var(--card-2)]">
@@ -62,4 +74,5 @@ export default function CustomersPage() {
     </main>
   );
 }
+
 

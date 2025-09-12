@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma, tryPrisma } from "@/lib/dbSafe"
 
-export const runtime = "nodejs"
+export const runtime = 'nodejs'
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 

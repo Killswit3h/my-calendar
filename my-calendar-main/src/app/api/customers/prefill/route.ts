@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import customers from "@/data/customers.json"
-import { prisma } from "../../../lib/prisma"
-import { normalizeCustomerName } from "../../../lib/customers"
+import { prisma } from "../../../../lib/prisma"
+import { normalizeCustomerName } from "../../../../lib/customers"
 
 export const runtime = 'nodejs'
 
@@ -18,4 +18,3 @@ export async function POST() {
   }
   return NextResponse.json({ ok: true, inserted, skipped, total: names.length })
 }
-
