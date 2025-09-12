@@ -57,15 +57,14 @@ export async function getHolidaysDb(
   start: Date,
   end: Date,
   countryCode: string,
-) {
-  type Result = Awaited<ReturnType<typeof prisma.holiday.findMany>>
-  return tryPrisma<Result>(
+): Promise<Holiday[]> {
+  return tryPrisma<Holiday[]>(
     () =>
       prisma.holiday.findMany({
         where: { date: { gte: start, lt: end }, countryCode },
         orderBy: { date: 'asc' },
       }),
-    [] as Result,
+    [] as Holiday[],
   )
 }
 
