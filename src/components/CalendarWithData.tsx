@@ -10,6 +10,7 @@ import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '
 import * as chrono from 'chrono-node';
 import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
+import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
@@ -859,6 +860,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
+          <button className="btn" onClick={async () => {
+            const mid = visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2) : new Date();
+            const ymd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
+            try {
+              const r = await fetch('/api/reports/daily/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: ymd, vendor: null }) });
+              const j = await r.json();
+              if (r.ok && j.pdfUrl) window.open(j.pdfUrl, '_blank'); else alert(j.error || 'Failed to generate');
+            } catch { alert('Failed to generate'); }
+          }}>Generate Today’s Report</button>
+          <Link href="/customers" className="btn">Customers</Link>
           <Suspense fallback={<span className="btn">Employees</span>}>
             <EmployeesLink />
           </Suspense>
@@ -955,7 +966,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             <div className="form-grid form-compact">
               <div className="form-section span-2">Event Info</div>
               <label className="span-2"><div className="label">Title</div>
-                <input type="text" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+                <CustomerCombobox value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} />
               </label>
               {isMobile ? (
                 <>

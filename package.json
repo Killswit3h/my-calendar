@@ -25,6 +25,11 @@
     "@prisma/client": "^6.15.0",
     "@prisma/extension-accelerate": "^2.0.2",
     "chrono-node": "^2.7.5",
+    "@sparticuz/chromium": "^119.0.0",
+    "puppeteer-core": "^23.6.1",
+    "puppeteer": "^23.6.1",
+    "exceljs": "^4.4.0",
+    "@vercel/blob": "^0.23.2",
     "ical-generator": "^7.0.0",
     "leaflet": "^1.9.4",
     "next": "^15.0.0",
@@ -32,7 +37,8 @@
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
     "react-window": "^1.8.11",
-    "studio": "^0.13.5"
+    "studio": "^0.13.5",
+    "swr": "^2.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.12",
