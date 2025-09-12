@@ -24,9 +24,14 @@ export async function writeWorkbook(options: {
   await wb.xlsx.writeFile(filePath)
 }
 
-export async function readFirstSheet(filePath: string) {
+export async function readFirstSheet(input: string | ArrayBuffer | Uint8Array) {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.readFile(filePath)
+  if (typeof input === 'string') {
+    await wb.xlsx.readFile(input)
+  } else {
+    const data = input instanceof ArrayBuffer ? new Uint8Array(input) : input
+    await wb.xlsx.load(data)
+  }
   const ws = wb.worksheets[0]
   if (!ws) return []
 
