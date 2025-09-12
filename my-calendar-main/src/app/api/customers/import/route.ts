@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
-import { normalizeCustomerName, parseCsv } from "../../../../lib/customers";
+import { prisma } from "@/lib/db";
+import { normalizeCustomerName, parseCsv } from "@/lib/customers";
 
 export async function POST(req: Request) {
   try {

@@ -1,9 +1,22 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import type { DaySnapshot, ReportRow } from './queries'
 
-export function daySnapshotToXlsxEdge(day: DaySnapshot): Uint8Array {
+export async function daySnapshotToXlsxEdge(day: DaySnapshot): Promise<Uint8Array> {
   const rows = day.rows.length ? day.rows : ([] as ReportRow[])
-  const data = [["Status","Project / Company","Invoice","Crew Members","Work","Payroll","Payment","Vendor","Time"]]
+  const header = [
+    'Status',
+    'Project / Company',
+    'Invoice',
+    'Crew Members',
+    'Work',
+    'Payroll',
+    'Payment',
+    'Vendor',
+    'Time',
+  ]
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet(day.dateYmd)
+  ws.addRow(header)
   const toRow = (r: ReportRow) => [
     (r.work === 'SHOP' || r.work === 'NO WORK') ? r.work : 'WORK',
     r.project + (r.notes ? `\n${r.notes}` : ''),
@@ -15,16 +28,19 @@ export function daySnapshotToXlsxEdge(day: DaySnapshot): Uint8Array {
     r.vendor ?? '',
     r.timeUnit,
   ]
-  data.push(...rows.map(toRow))
-
-  const ws = XLSX.utils.aoa_to_sheet(data)
-  // Wrap text for columns B (2), D (4), F (6)
-  ;(ws as any)['!cols'] = [
-    { wch: 8 }, { wch: 40 }, { wch: 14 }, { wch: 30 }, { wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 8 },
+  rows.map(toRow).forEach((row) => ws.addRow(row))
+  ws.columns = [
+    { width: 8 },
+    { width: 40 },
+    { width: 14 },
+    { width: 30 },
+    { width: 12 },
+    { width: 18 },
+    { width: 12 },
+    { width: 12 },
+    { width: 8 },
   ]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, day.dateYmd)
-  const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
-  return new Uint8Array(out)
+  ;[2,4,6].forEach((i) => { ws.getColumn(i).alignment = { wrapText: true } })
+  const buffer = await wb.xlsx.writeBuffer()
+  return new Uint8Array(buffer)
 }
-

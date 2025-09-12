@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
-import { normalizeCustomerName } from "../../../../lib/customers";
+import { prisma } from "@/lib/db";
+import { normalizeCustomerName } from "@/lib/customers";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

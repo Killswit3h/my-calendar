@@ -17,6 +17,7 @@
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
     "@prisma/client": "^6.15.0",
+    "@prisma/extension-accelerate": "^2.0.2",
     "ical-generator": "^7.0.0",
     "leaflet": "^1.9.4",
     "next": "^15.0.0",
@@ -37,5 +38,8 @@
     "prisma": "^6.15.0",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "xlsx": "0.0.0-unsupported"
   }
 }

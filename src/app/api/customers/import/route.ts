@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
-import { normalizeCustomerName, parseCsv } from "../../../../lib/customers";
+import { prisma } from "@/lib/db";
+import { normalizeCustomerName, parseCsv } from "@/lib/customers";
+import { readFirstSheet } from "@/lib/excel";
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
 
 function pickName(row: Record<string, string>): string {
   const keys = Object.keys(row);
@@ -32,11 +36,11 @@ export async function POST(req: Request) {
       rows = parseCsv(text);
     } else if (/\.(xlsx|xls)$/i.test(fname)) {
       const ab = await (file as any).arrayBuffer();
-      const XLSX = await import('xlsx');
-      const wb = XLSX.read(ab, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { defval: '' }) as any[];
-      rows = json.map((r) => Object.fromEntries(Object.entries(r).map(([k,v]) => [String(k), String(v ?? '')] )));
+      const tmpPath = path.join(os.tmpdir(), `upload-${Date.now()}.xlsx`);
+      await fs.writeFile(tmpPath, Buffer.from(ab));
+      const json = await readFirstSheet(tmpPath);
+      rows = json.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [String(k), String(v ?? '')])));
+      await fs.unlink(tmpPath);
     } else {
       return NextResponse.json({ error: 'unsupported_type', message: 'Please upload a CSV or Excel (.xlsx) file' }, { status: 400 });
     }
