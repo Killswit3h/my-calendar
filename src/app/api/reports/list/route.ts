@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prismaNode as prisma } from "@/lib/prismaNode";
+import { prisma } from "@/lib/prisma";
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 function okRole(): boolean { return true; }
 
@@ -24,4 +24,3 @@ export async function GET(req: NextRequest) {
   const items = await prisma.reportFile.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 });
   return NextResponse.json({ items });
 }
-

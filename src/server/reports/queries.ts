@@ -1,4 +1,4 @@
-import { prismaNode as prisma } from "@/lib/prismaNode";
+import { prisma } from "@/lib/prisma";
 
 export type ReportRow = {
   project: string;
@@ -112,4 +112,3 @@ export async function getEventsForWeek(mondayYmd: string, sundayYmd: string, ven
   }
   return out;
 }
-

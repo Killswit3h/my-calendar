@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prismaNode as prisma } from "@/lib/prismaNode";
+import { prisma } from "@/lib/prisma";
 import { getEventsForDay } from "@/server/reports/queries";
-import { renderWeeklyHtml } from "@/server/reports/template";
-import { htmlToPdfBuffer } from "@/server/reports/pdf";
-import { daySnapshotToXlsx } from "@/server/reports/xlsx";
+import { snapshotsToPdf } from "@/server/reports/pdfEdge";
+import { daySnapshotToXlsxEdge } from "@/server/reports/xlsxEdge";
 import { storeFile } from "@/server/blob";
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 function okRole(): boolean { return true; } // TODO integrate real auth
 
@@ -31,9 +30,8 @@ export async function POST(req: NextRequest) {
 
     const snapshot = await getEventsForDay(date, vendor ?? null);
     const tz = process.env.REPORT_TIMEZONE || 'America/New_York';
-    const html = renderWeeklyHtml([snapshot], vendor ?? null, tz);
-    const pdfBuf = await htmlToPdfBuffer(html);
-    const xlsxBuf = await daySnapshotToXlsx(snapshot);
+    const pdfBuf = Buffer.from(await snapshotsToPdf([snapshot], vendor ?? null, tz))
+    const xlsxBuf = Buffer.from(daySnapshotToXlsxEdge(snapshot))
 
     const pdfName = `daily-${date}${vendor ? '-' + vendor.toLowerCase() : ''}.pdf`;
     const xlsxName = `daily-${date}${vendor ? '-' + vendor.toLowerCase() : ''}.xlsx`;

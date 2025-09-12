@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prismaNode as prisma } from "../../../../lib/prismaNode";
+import { prisma } from "../../../../lib/prisma";
 import { normalizeCustomerName } from "../../../../lib/customers";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -39,4 +39,4 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
   }
 }
-export const runtime = 'nodejs'
+export const runtime = 'edge'

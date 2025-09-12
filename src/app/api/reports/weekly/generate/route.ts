@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prismaNode as prisma } from "@/lib/prismaNode";
+import { prisma } from "@/lib/prisma";
 import { getEventsForWeek } from "@/server/reports/queries";
-import { renderWeeklyHtml } from "@/server/reports/template";
-import { htmlToPdfBuffer } from "@/server/reports/pdf";
+import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 import { storeFile } from "@/server/blob";
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 function okRole(): boolean { return true; }
 
@@ -24,8 +23,7 @@ export async function POST(req: NextRequest) {
 
     const days = await getEventsForWeek(weekStart, weekEnd, vendor ?? null);
     const tz = process.env.REPORT_TIMEZONE || 'America/New_York';
-    const html = renderWeeklyHtml(days, vendor ?? null, tz);
-    const pdfBuf = await htmlToPdfBuffer(html);
+    const pdfBuf = Buffer.from(await snapshotsToPdf(days, vendor ?? null, tz));
     const pdfName = `weekly-${weekStart}-to-${weekEnd}${vendor ? '-' + vendor.toLowerCase() : ''}.pdf`;
     const stored = await storeFile('WEEKLY_PDF', pdfName, 'application/pdf', pdfBuf);
     await prisma.reportFile.create({ data: { kind: 'WEEKLY_PDF', weekStart: new Date(weekStart), weekEnd: new Date(weekEnd), vendor: vendor ?? null, blobUrl: stored.url, bytes: stored.bytes } });

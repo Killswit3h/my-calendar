@@ -30,6 +30,8 @@
     "puppeteer": "^23.6.1",
     "exceljs": "^4.4.0",
     "@vercel/blob": "^0.23.2",
+    "pdf-lib": "^1.17.1",
+    "xlsx": "^0.18.5",
     "ical-generator": "^7.0.0",
     "leaflet": "^1.9.4",
     "next": "^15.0.0",

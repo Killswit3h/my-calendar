@@ -1,18 +1,18 @@
 import { NextRequest } from "next/server";
-import { openTmpFile } from "@/server/blob";
+import { readMemFile } from "@/server/blob";
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   try {
-    const stream = openTmpFile(id);
-    // Next 15: return ReadableStream via Response
+    const mem = readMemFile(id);
+    if (!mem) return new Response("Not found", { status: 404 });
+    const body = new Uint8Array(mem.data);
     const rs = new ReadableStream({
       start(controller) {
-        stream.on('data', (chunk) => controller.enqueue(chunk));
-        stream.on('end', () => controller.close());
-        stream.on('error', (e) => controller.error(e));
+        controller.enqueue(body);
+        controller.close();
       }
     });
     const url = new URL(req.url);
