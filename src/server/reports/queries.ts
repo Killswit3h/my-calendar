@@ -77,7 +77,7 @@ export async function getEventsForDay(dateYmd: string, vendor?: string | null): 
     orderBy: [{ title: "asc" }, { startsAt: "asc" }],
     select: { title: true, description: true, type: true, checklist: true },
   });
-  const all: ReportRow[] = rowsDb.map((e) => {
+  const all: ReportRow[] = rowsDb.map((e: { title: string | null; description: string | null; type: any; checklist: any }) => {
     const meta = parseMeta(e.description || "");
     const crew: string[] = Array.isArray((e.checklist as any)?.employees) ? ((e.checklist as any).employees as string[]) : [];
     const work = workFromType((e.type as any) || null, meta.notes);

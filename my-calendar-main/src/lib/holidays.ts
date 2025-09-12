@@ -1,4 +1,5 @@
 import { prisma, tryPrisma } from '@/lib/dbSafe'
+import type { Holiday } from '@prisma/client'
 
 const NAGER = (year: number, cc: string) =>
   `https://date.nager.at/api/v3/PublicHolidays/${year}/${cc}`
@@ -57,12 +58,15 @@ export async function getHolidaysDb(
   end: Date,
   countryCode: string,
 ) {
-  return tryPrisma(() =>
-    prisma.holiday.findMany({
-      where: { date: { gte: start, lt: end }, countryCode },
-      orderBy: { date: 'asc' },
-    })
-  , [])
+  type Result = Awaited<ReturnType<typeof prisma.holiday.findMany>>
+  return tryPrisma<Result>(
+    () =>
+      prisma.holiday.findMany({
+        where: { date: { gte: start, lt: end }, countryCode },
+        orderBy: { date: 'asc' },
+      }),
+    [] as Result,
+  )
 }
 
 /** Ensure DB has coverage for all years in range. */
@@ -92,7 +96,7 @@ export async function fetchHolidays(
     await ensureDbHydrated(start, end, opts.countryCode)
     const rows = await getHolidaysDb(start, end, opts.countryCode)
     if (rows.length > 0) {
-      return rows.map((r) => ({
+      return rows.map((r: Holiday) => ({
         date: r.date,
         localName: r.localName,
         name: r.name,
