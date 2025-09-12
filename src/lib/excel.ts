@@ -12,7 +12,6 @@ export async function writeWorkbook(options: {
 
   if (rows.length > 0) {
     const columns = Object.keys(rows[0]).map((k) => ({ header: k, key: k }))
-    // @ts-expect-error ExcelJS types allow header/key pairs
     ws.columns = columns
     rows.forEach((r) => ws.addRow(r))
     ws.columns?.forEach((c: any) => {
@@ -30,7 +29,8 @@ export async function readFirstSheet(input: string | ArrayBuffer | Uint8Array) {
     await wb.xlsx.readFile(input)
   } else {
     const data = input instanceof ArrayBuffer ? new Uint8Array(input) : input
-    await wb.xlsx.load(data)
+    const buf = Buffer.from(data as Uint8Array)
+    await wb.xlsx.load(buf as any)
   }
   const ws = wb.worksheets[0]
   if (!ws) return []
