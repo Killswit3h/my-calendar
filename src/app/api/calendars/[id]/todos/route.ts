@@ -1,7 +1,7 @@
 // src/app/api/calendars/[id]/todos/route.ts
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/db"
 import { tryPrisma } from "@/lib/dbSafe"
 
 export const dynamic = "force-dynamic"
