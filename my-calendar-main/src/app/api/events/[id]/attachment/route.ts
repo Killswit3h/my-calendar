@@ -1,5 +1,5 @@
 // src/app/api/events/[id]/attachment/route.ts
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 import { prisma } from "@/lib/prisma";
 

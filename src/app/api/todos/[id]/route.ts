@@ -1,5 +1,5 @@
 // src/app/api/todos/[id]/route.ts
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 

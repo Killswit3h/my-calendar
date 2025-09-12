@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { tryPrisma } from "@/lib/dbSafe"
 import crypto from "node:crypto"
 
-export const runtime = "nodejs"
+export const runtime = 'nodejs'
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
