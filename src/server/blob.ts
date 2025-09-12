@@ -13,9 +13,10 @@ export async function storeFile(kind: string, filename: string, contentType: str
   const buf = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (token) {
     // Vercel Blob expects a PutBody: Blob | File | Buffer | Readable | ReadableStream
-    // Always provide a Blob using a real ArrayBuffer slice (TS-friendly across environments)
+    // Always provide a Blob with a real ArrayBuffer (avoid SharedArrayBuffer typing issues)
     const view = buf as Uint8Array;
-    const ab: ArrayBuffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    const ab = new ArrayBuffer(view.byteLength);
+    new Uint8Array(ab).set(view);
     const body: any = (typeof Blob !== 'undefined') ? new Blob([ab], { type: contentType }) : (typeof Buffer !== 'undefined' ? Buffer.from(view) : view);
     const res = await put(filename, body as any, { access: "public", contentType, token });
     return { url: res.url, bytes: view.byteLength, kind };
