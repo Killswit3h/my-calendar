@@ -11,8 +11,11 @@ import {
   Button,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { FixedSizeList, ListChildComponentProps } from "react-window";
+import * as ReactWindow from "react-window";
 import type { Employee } from "../employees";
+
+const FixedSizeList = ReactWindow.FixedSizeList;
+type ListChildComponentProps = ReactWindow.ListChildComponentProps;
 
 interface Props {
   employees: Employee[];

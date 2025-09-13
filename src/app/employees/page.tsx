@@ -12,7 +12,7 @@ import {
   type Team,
 } from "../../employees";
 import { alpha } from "@mui/material/styles";
-import { FixedSizeList, ListChildComponentProps } from "react-window";
+import * as ReactWindow from "react-window";
 import AccentColorSelect from "../../components/AccentColorSelect";
 
 import {
@@ -47,6 +47,9 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import PersonOffIcon from "@mui/icons-material/PersonOff";
+
+const FixedSizeList = ReactWindow.FixedSizeList;
+type ListChildComponentProps = ReactWindow.ListChildComponentProps;
 
 function initials(e: Employee) {
   return `${e.firstName[0] ?? ""}${e.lastName[0] ?? ""}`.toUpperCase();
