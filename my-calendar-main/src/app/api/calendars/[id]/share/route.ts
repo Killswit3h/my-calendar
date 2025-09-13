@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma, tryPrisma } from "@/lib/dbSafe";
+import type { ShareToken } from "@prisma/client";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params; // Next 15: await params
-  const tokens = await tryPrisma(() =>
-    prisma.shareToken.findMany({
-      where: { calendarId: id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    })
-  , []);
+  const tokens = await tryPrisma<ShareToken[]>(
+    () =>
+      prisma.shareToken.findMany({
+        where: { calendarId: id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    [] as ShareToken[]
+  );
   return NextResponse.json(tokens);
 }
 
