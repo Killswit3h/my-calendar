@@ -17,6 +17,11 @@ const CHECK_TTL_MS = 60000
 async function checkDbAvailable(): Promise<boolean> {
   const now = Date.now()
   if (cachedAvailable !== null && now - lastCheck < CHECK_TTL_MS) return cachedAvailable
+  if (!process.env.DATABASE_URL) {
+    cachedAvailable = false
+    lastCheck = now
+    return false
+  }
   try {
     await prisma.$queryRawUnsafe("SELECT 1")
     cachedAvailable = true
