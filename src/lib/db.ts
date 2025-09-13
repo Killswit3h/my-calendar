@@ -1,8 +1,8 @@
 // src/lib/db.ts
 // Server-only module. Do not import in client components.
 
-import { PrismaClient } from '@prisma/client/edge'
 import { withAccelerate } from '@prisma/extension-accelerate'
+import { createRequire } from 'module'
 
 function requireEnv(name: string): string {
   const v = process.env[name]
@@ -10,7 +10,17 @@ function requireEnv(name: string): string {
   return v
 }
 
-// DATABASE_URL must be a Prisma Accelerate/Data Proxy URL (starts with prisma://)
-export const prisma = new PrismaClient({
-  datasourceUrl: requireEnv('DATABASE_URL'),
-}).$extends(withAccelerate())
+const require = createRequire(import.meta.url)
+
+const url = requireEnv('DATABASE_URL')
+
+let prisma: any
+if (url.startsWith('prisma://')) {
+  const { PrismaClient } = require('@prisma/client/edge')
+  prisma = new PrismaClient({ datasourceUrl: url }).$extends(withAccelerate())
+} else {
+  const { PrismaClient } = require('@prisma/client')
+  prisma = new PrismaClient({ datasources: { db: { url } } })
+}
+
+export { prisma }
