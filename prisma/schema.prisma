@@ -32,8 +32,8 @@ model Event {
   calendarId     String
   title          String
   description    String?
-  startsAt       DateTime
-  endsAt         DateTime
+  startsAt DateTime @map("start")
+  endsAt   DateTime @map("end")
   allDay         Boolean   @default(true)
   location       String?
   createdAt      DateTime? @default(now()) @ignore
@@ -46,6 +46,7 @@ model Event {
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   @@index([calendarId, startsAt])
+  @@map("Event")
 }
 
 model Todo {

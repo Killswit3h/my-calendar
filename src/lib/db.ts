@@ -1,16 +1,16 @@
 // src/lib/db.ts
-// Server-only module. Do not import in client components.
+import { PrismaClient } from '@prisma/client'
 
-import { withAccelerate } from '@prisma/extension-accelerate'
-
-const url = process.env.DATABASE_URL
-let prisma: any
-if (url) {
-  prisma = url.startsWith('prisma://')
-    ? new (await import('@prisma/client/edge')).PrismaClient({ datasourceUrl: url }).$extends(withAccelerate())
-    : new (await import('@prisma/client')).PrismaClient({ datasources: { db: { url } } })
-} else {
-  prisma = {}
+if (!process.env.DATABASE_URL) {
+  throw new Error('Missing DATABASE_URL. Copy .env.example to .env and set it.')
 }
 
-export { prisma }
+const g = globalThis as unknown as { prisma?: PrismaClient }
+
+export const prisma =
+  g.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['error'],
+  })
+
+if (process.env.NODE_ENV !== 'production') g.prisma = prisma
