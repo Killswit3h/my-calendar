@@ -1,11 +1,16 @@
-// src/lib/db.ts
-// Server-only module. Do not import in client components.
+// my-calendar-main/src/lib/db.ts
+import { PrismaClient } from '@prisma/client'
 
-import { PrismaClient } from '@prisma/client/edge'
-import { withAccelerate } from '@prisma/extension-accelerate'
+if (!process.env.DATABASE_URL) {
+  throw new Error('Missing DATABASE_URL. Copy .env.example to .env and set it.')
+}
 
-const url = process.env.DATABASE_URL
+const g = globalThis as unknown as { prisma?: PrismaClient }
 
-export const prisma = url
-  ? (new PrismaClient({ datasourceUrl: url }).$extends(withAccelerate()) as any)
-  : ({} as any)
+export const prisma: PrismaClient =
+  g.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['error'],
+  })
+
+if (process.env.NODE_ENV !== 'production') g.prisma = prisma
