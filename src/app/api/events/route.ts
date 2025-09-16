@@ -4,30 +4,27 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma, tryPrisma } from '@/lib/dbSafe'
+import { tryPrisma } from '@/lib/dbSafe'
 
-const corsHeaders = {
+const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
 } as const
 
 export function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders as any })
+  return new NextResponse(null, { status: 204, headers: cors as any })
 }
 
 export async function GET(req: NextRequest) {
   const calendarId = req.nextUrl.searchParams.get('calendarId')
   if (!calendarId) {
-    return NextResponse.json(
-      { error: 'calendarId required' },
-      { status: 400, headers: corsHeaders as any }
-    )
+    return NextResponse.json({ error: 'calendarId required' }, { status: 400, headers: cors as any })
   }
 
   const rows = await tryPrisma(
-    () =>
-      prisma.event.findMany({
+    p =>
+      p.event.findMany({
         where: { calendarId },
         orderBy: { startsAt: 'asc' },
         select: {
@@ -46,7 +43,7 @@ export async function GET(req: NextRequest) {
           attachmentType: true,
         },
       }),
-    [] as any[]
+    [] as any[],
   )
 
   const payload = rows.map((e: any) => ({
@@ -54,7 +51,7 @@ export async function GET(req: NextRequest) {
     calendarId: e.calendarId,
     title: e.title,
     description: e.description ?? '',
-    start: e.startsAt, // FullCalendar expects start/end keys
+    start: e.startsAt,
     end: e.endsAt,
     allDay: !!e.allDay,
     location: e.location ?? '',
@@ -65,80 +62,64 @@ export async function GET(req: NextRequest) {
     attachmentType: e.attachmentType ?? null,
   }))
 
-  return NextResponse.json(payload, { status: 200, headers: corsHeaders as any })
+  return NextResponse.json(payload, { headers: cors as any })
 }
 
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null)
-  // Accept start/end or startsAt/endsAt
   const startRaw = b?.start ?? b?.startsAt
   const endRaw = b?.end ?? b?.endsAt
-  const calendarId = b?.calendarId
-  const title = b?.title
-
-  if (!calendarId || !title || !startRaw || !endRaw) {
+  if (!b?.calendarId || !b?.title || !startRaw || !endRaw) {
     return NextResponse.json(
       { error: 'calendarId, title, start|startsAt, end|endsAt required' },
-      { status: 400, headers: corsHeaders as any }
+      { status: 400, headers: cors as any },
     )
   }
 
   const startsAt = new Date(startRaw)
   const endsAt = new Date(endRaw)
-  if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime())) {
-    return NextResponse.json(
-      { error: 'Invalid start or end date' },
-      { status: 400, headers: corsHeaders as any }
-    )
+  if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+    return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
   }
-  if (endsAt <= startsAt) {
-    return NextResponse.json(
-      { error: 'end must be after start' },
-      { status: 400, headers: corsHeaders as any }
-    )
-  }
-
-  // FullCalendar uses exclusive end for all-day. Store as given.
-  const allDay = !!b.allDay
 
   try {
-    // Ensure calendar exists
-    await prisma.calendar.upsert({
-      where: { id: String(calendarId) },
-      update: {},
-      create: { id: String(calendarId), name: 'Default' },
-    })
+    const created = await tryPrisma(async p => {
+      await p.calendar.upsert({
+        where: { id: String(b.calendarId) },
+        update: {},
+        create: { id: String(b.calendarId), name: 'Default' },
+      })
 
-    const created = await prisma.event.create({
-      data: {
-        calendarId: String(calendarId),
-        title: String(title),
-        description: (b.description ?? '') || '',
-        startsAt,
-        endsAt, // exclusive if allDay
-        allDay,
-        location: (b.location ?? '') || '',
-        type: b.type ?? null,
-        shift: b.shift ?? null,
-        checklist: b.checklist ?? null,
-        // Note: attachmentData omitted in text-only API
-      },
-      select: {
-        id: true,
-        calendarId: true,
-        title: true,
-        description: true,
-        startsAt: true,
-        endsAt: true,
-        allDay: true,
-        location: true,
-        type: true,
-        shift: true,
-        checklist: true,
-        attachmentName: true,
-        attachmentType: true,
-      },
-    })
+      return p.event.create({
+        data: {
+          calendarId: String(b.calendarId),
+          title: String(b.title),
+          description: (b.description ?? '') || '',
+          startsAt,
+          endsAt,
+          allDay: !!b.allDay,
+          location: (b.location ?? '') || '',
+          type: b.type ?? null,
+          shift: b.shift ?? null,
+          checklist: b.checklist ?? null,
+        },
+        select: {
+          id: true,
+          calendarId: true,
+          title: true,
+          description: true,
+          startsAt: true,
+          endsAt: true,
+          allDay: true,
+          location: true,
+          type: true,
+          shift: true,
+          checklist: true,
+          attachmentName: true,
+          attachmentType: true,
+        },
+      })
+    }, null as any)
 
     const payload = {
       id: created.id,
@@ -156,15 +137,10 @@ export async function POST(req: NextRequest) {
       attachmentType: created.attachmentType ?? null,
     }
 
-    return NextResponse.json(payload, { status: 201, headers: corsHeaders as any })
+    return NextResponse.json(payload, { status: 201, headers: cors as any })
   } catch (e: any) {
     const msg = String(e?.message ?? '')
-    if (msg.includes("Can't reach database server") || msg.includes('P1001')) {
-      return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: corsHeaders as any })
-    }
-    return NextResponse.json(
-      { error: 'Failed to create event', details: msg },
-      { status: 500, headers: corsHeaders as any }
-    )
+    const status = msg.includes("Can't reach database server") || msg.includes('P1001') ? 503 : 500
+    return NextResponse.json({ error: 'Failed to create event', details: msg }, { status, headers: cors as any })
   }
 }

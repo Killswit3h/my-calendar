@@ -1,17 +1,13 @@
 // src/lib/dbSafe.ts
-import { prisma as nodePrisma } from './db'
+import { getPrisma } from './db'
 
-export const prisma = nodePrisma
-
-export async function tryPrisma<T>(thunk: () => Promise<T>, fallback: T): Promise<T> {
+export async function tryPrisma<T>(thunk: (p: any) => Promise<T>, fallback: T): Promise<T> {
   try {
-    return await thunk()
+    const p = await getPrisma()
+    return await thunk(p)
   } catch (e: any) {
-    const code = e?.code
     const msg = String(e?.message ?? '')
-    const transient = ['P1000', 'P1001', 'P1002', 'P1008', 'P1017'].includes(code)
-    const network = msg.includes("Can't reach database server")
-    if (transient || network) return fallback
+    if (msg.includes("Can't reach database server") || e?.code === 'P1001') return fallback
     throw e
   }
 }
