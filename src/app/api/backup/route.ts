@@ -1,58 +1,33 @@
 // src/app/api/backup/route.ts
 export const runtime = 'nodejs'
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
-// Edge runtime: omit Node/S3 backup. Return JSON directly.
-export const dynamic = "force-dynamic"
+export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type EventRow = {
-  id: string
-  calendarId: string
-  title: string
-  description: string | null
-  startsAt: Date
-  endsAt: Date
-  allDay: boolean
-  location: string | null
-  type: string | null
+import { NextRequest, NextResponse } from 'next/server'
+import { getPrisma } from '@/lib/db'
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+} as const
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: cors as any })
 }
 
+// Health or dry-run backup trigger
 export async function GET(_req: NextRequest) {
-  try {
-    const rows = await prisma.event.findMany({
-      orderBy: { startsAt: "asc" },
-      select: {
-        id: true,
-        calendarId: true,
-        title: true,
-        description: true,
-        startsAt: true,
-        endsAt: true,
-        allDay: true,
-        location: true,
-        type: true,
-      },
-    })
-
-    const events = (rows as EventRow[]).map(r => ({
-      id: r.id,
-      calendarId: r.calendarId,
-      title: r.title,
-      description: r.description ?? "",
-      start: r.startsAt,
-      end: r.endsAt,
-      allDay: r.allDay,
-      location: r.location ?? "",
-      type: r.type,
-    }))
-
-    const exportedAt = new Date().toISOString()
-    const payload = { exportedAt, count: events.length, events }
-    return NextResponse.json(payload, { status: 200 })
-  } catch (e) {
-    const msg = (e instanceof Error ? e.message : String(e))
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
-  }
+  const p = await getPrisma()
+  await p.$queryRaw`SELECT 1`
+  return NextResponse.json({ ok: true }, { headers: cors as any })
 }
 
+// Real backup trigger (fill in your logic)
+export async function POST(req: NextRequest) {
+  const p = await getPrisma()
+  // const b = await req.json().catch(() => ({}))
+  // TODO: implement your backup using `p` and your storage (S3/R2/etc.)
+  // Example start: const events = await p.event.findMany({ take: 1000 })
+  return NextResponse.json({ ok: true }, { status: 201, headers: cors as any })
+}

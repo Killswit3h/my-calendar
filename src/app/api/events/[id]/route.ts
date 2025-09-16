@@ -1,118 +1,110 @@
 // src/app/api/events/[id]/route.ts
 export const runtime = 'nodejs'
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
-export const dynamic = "force-dynamic"
+export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "PATCH,DELETE,OPTIONS",
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { tryPrisma } from '@/lib/dbSafe'
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'PATCH,DELETE,OPTIONS',
+} as const
 
 export function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders })
-}
-
-function cleanJson(v: any): any {
-  if (v === undefined) return undefined
-  if (v === null) return null
-  if (Array.isArray(v)) return v.map(cleanJson).filter((x) => x !== undefined)
-  if (typeof v === "object") {
-    const out: any = {}
-    for (const k of Object.keys(v)) {
-      const cv = cleanJson(v[k])
-      if (cv !== undefined) out[k] = cv
-    }
-    return out
-  }
-  return v
+  return new NextResponse(null, { status: 204, headers: cors as any })
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const b = await req.json().catch(() => null)
-  if (!b) return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders })
+  if (!b) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: cors as any })
 
   const data: any = {}
-  if ("title" in b) data.title = b.title
-  let startsAt: Date | undefined
-  let endsAt: Date | undefined
-  if ("start" in b) startsAt = new Date(b.start)
-  if ("end" in b) endsAt = new Date(b.end ?? b.start)
-  const isAllDay = ("allDay" in b) ? !!b.allDay : undefined
-  if (isAllDay && endsAt) {
-    // Convert FullCalendar exclusive end to inclusive end for storage
-    endsAt = new Date(endsAt.getTime() - 86400000)
+  if ('title' in b) data.title = b.title
+  if ('description' in b) data.description = b.description ?? null
+  if ('location' in b) data.location = b.location ?? null
+  if ('type' in b) data.type = b.type ?? null
+  if ('allDay' in b) data.allDay = !!b.allDay
+
+  // accept start|startsAt and end|endsAt
+  if (b.start || b.startsAt) {
+    const d = new Date(b.start ?? b.startsAt)
+    if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid start' }, { status: 400, headers: cors as any })
+    data.startsAt = d
   }
-  if (startsAt) data.startsAt = startsAt
-  if (endsAt) data.endsAt = endsAt
-  if ("allDay" in b) data.allDay = !!b.allDay
-  if ("description" in b) data.description = b.description ?? null
-  if ("location" in b) data.location = b.location ?? null
-  if ("type" in b) data.type = b.type ?? null
-  // Note: shift and checklist are not persisted (column not present)
+  if (b.end || b.endsAt) {
+    const d = new Date(b.end ?? b.endsAt)
+    if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid end' }, { status: 400, headers: cors as any })
+    data.endsAt = d
+  }
+  if (data.startsAt && data.endsAt && data.endsAt <= data.startsAt) {
+    return NextResponse.json({ error: 'end must be after start' }, { status: 400, headers: cors as any })
+  }
+
   if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update" }, { status: 400, headers: corsHeaders })
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400, headers: cors as any })
   }
 
   try {
-    const updated = await prisma.event.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        calendarId: true,
-        title: true,
-        description: true,
-        startsAt: true,
-        endsAt: true,
-        allDay: true,
-        location: true,
-        type: true,
-      },
-    })
+    const updated = await tryPrisma(
+      p =>
+        p.event.update({
+          where: { id },
+          data,
+          select: {
+            id: true,
+            calendarId: true,
+            title: true,
+            description: true,
+            startsAt: true,
+            endsAt: true,
+            allDay: true,
+            location: true,
+            type: true,
+          },
+        }),
+      null as any,
+    )
+
     const payload = {
       id: updated.id,
-      calendarId: (updated as any).calendarId,
+      calendarId: updated.calendarId,
       title: updated.title,
       description: updated.description,
-      start: (updated as any).startsAt,
-      end: (updated as any).endsAt,
+      start: updated.startsAt,
+      end: updated.endsAt,
       allDay: updated.allDay,
       location: updated.location,
       type: updated.type,
     }
-    return NextResponse.json(payload, { status: 200, headers: corsHeaders })
+    return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {
-    const msg = (e?.message || "").toString()
-    if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503, headers: corsHeaders })
+    const msg = String(e?.message ?? '')
+    if (msg.includes("Can't reach database server") || msg.includes('P1001')) {
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: cors as any })
     }
-    if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders })
+    if (msg.includes('P2025') || msg.toLowerCase().includes('not found')) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404, headers: cors as any })
     }
-    console.error("Failed to update event", e)
-    return NextResponse.json({ error: "Failed to update event" }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Failed to update event' }, { status: 500, headers: cors as any })
   }
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   try {
-    // Limit returned fields to avoid selecting non-existent DB columns
-    await prisma.event.delete({ where: { id }, select: { id: true } })
-    return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders })
+    await tryPrisma(p => p.event.delete({ where: { id }, select: { id: true } }), null as any)
+    return NextResponse.json({ ok: true }, { status: 200, headers: cors as any })
   } catch (e: any) {
-    const msg = (e?.message || "").toString()
-    if (msg.includes("Can't reach database server") || msg.includes("P1001")) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503, headers: corsHeaders })
+    const msg = String(e?.message ?? '')
+    if (msg.includes("Can't reach database server") || msg.includes('P1001')) {
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: cors as any })
     }
-    if (msg.includes("P2025") || msg.toLowerCase().includes("not found")) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders })
+    if (msg.includes('P2025') || msg.toLowerCase().includes('not found')) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404, headers: cors as any })
     }
-    console.error("Failed to delete event", e)
-    return NextResponse.json({ error: "Failed to delete event", details: msg }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Failed to delete event', details: msg }, { status: 500, headers: cors as any })
   }
 }

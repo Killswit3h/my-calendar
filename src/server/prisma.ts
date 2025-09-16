@@ -1,73 +1,40 @@
-import { prisma as base } from "@/lib/db"
+// src/server/prisma.ts
+import { getPrisma } from "@/lib/db"
 import { uploadJson, buildEventBackupKey } from "@/server/backup"
 
-function withEventBackup() {
-  return base.$extends({
-    query: {
-      event: {
-        async create({ args, query }: any) {
-          const result = await query(args)
-          try {
-            const id = (result as any)?.id as string | undefined
-            if (id) {
-              const key = buildEventBackupKey(id, "create")
-              await uploadJson(key, { ...result, op: "create" })
-            }
-          } catch (e) {
-            console.error("Event backup failed (create)", e)
-          }
-          return result
-        },
-        async update({ args, query }: any) {
-          const result = await query(args)
-          try {
-            const id = (result as any)?.id as string | undefined
-            if (id) {
-              const key = buildEventBackupKey(id, "update")
-              await uploadJson(key, { ...result, op: "update" })
-            }
-          } catch (e) {
-            console.error("Event backup failed (update)", e)
-          }
-          return result
-        },
-        async upsert({ args, query }: any) {
-          const result = await query(args)
-          try {
-            const id = (result as any)?.id as string | undefined
-            if (id) {
-              const key = buildEventBackupKey(id, "upsert")
-              await uploadJson(key, { ...result, op: "upsert" })
-            }
-          } catch (e) {
-            console.error("Event backup failed (upsert)", e)
-          }
-          return result
-        },
-        async delete({ args, query }: any) {
-          const result = await query(args)
-          try {
-            const id = (result as any)?.id as string | undefined
-            if (id) {
-              const key = buildEventBackupKey(id, "delete")
-              await uploadJson(key, { ...result, op: "delete" })
-            }
-          } catch (e) {
-            console.error("Event backup failed (delete)", e)
-          }
-          return result
-        },
+// Wrap only Event mutations with lightweight backup hooks.
+// Everything else passes through to the base client.
+function withEventBackup(p: any) {
+  return {
+    ...p,
+    event: {
+      ...p.event,
+      async create(args: any) {
+        const res = await p.event.create(args)
+        try { await uploadJson(buildEventBackupKey(res.id, "create"), { after: res }) } catch {}
+        return res
+      },
+      async update(args: any) {
+        const res = await p.event.update(args)
+        try { await uploadJson(buildEventBackupKey(res.id, "update"), { after: res }) } catch {}
+        return res
+      },
+      async upsert(args: any) {
+        const res = await p.event.upsert(args)
+        try { await uploadJson(buildEventBackupKey(res.id, "upsert"), { after: res }) } catch {}
+        return res
+      },
+      async delete(args: any) {
+        const res = await p.event.delete(args)
+        try { await uploadJson(buildEventBackupKey(res.id, "delete"), { before: res }) } catch {}
+        return res
       },
     },
-  })
+  }
 }
 
-type PrismaWithBackup = ReturnType<typeof withEventBackup>
-// Prisma 6 removed $use middleware. Use query extensions instead.
-// Ensure the extension is only applied once during dev HMR.
-const g = globalThis as unknown as { __prisma_with_backup__?: PrismaWithBackup }
-
-export const prisma = g.__prisma_with_backup__ ?? withEventBackup()
-if (process.env.NODE_ENV !== "production") g.__prisma_with_backup__ = prisma
-
-export default prisma
+// Call this where you need the client with backup hooks.
+export async function getPrismaWithBackup() {
+  const base = await getPrisma()
+  return withEventBackup(base)
+}

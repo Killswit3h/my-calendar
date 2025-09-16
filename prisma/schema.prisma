@@ -5,9 +5,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  // Use environment variables so local/remote DBs work without code changes
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url       = env("DATABASE_URL")          // pooled URL (runtime)
+  directUrl = env("DIRECT_DATABASE_URL")   // direct URL (migrate/CLI)
 }
 
 model Customer {

@@ -1,26 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-
+// src/app/api/reports/list/route.ts
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-function okRole(): boolean { return true; }
+import { NextRequest, NextResponse } from 'next/server'
+import { getPrisma } from '@/lib/db'
+
+function okRole(): boolean { return true }
 
 export async function GET(req: NextRequest) {
-  if (!okRole()) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  const url = new URL(req.url);
-  const kind = url.searchParams.get('kind') as any;
-  const date = url.searchParams.get('date');
-  const weekStart = url.searchParams.get('weekStart');
-  const weekEnd = url.searchParams.get('weekEnd');
-  const vendor = url.searchParams.get('vendor');
+  if (!okRole()) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
-  const where: any = {};
-  if (kind) where.kind = kind;
-  if (date) where.reportDate = new Date(date);
-  if (weekStart) where.weekStart = new Date(weekStart);
-  if (weekEnd) where.weekEnd = new Date(weekEnd);
-  if (vendor) where.vendor = vendor;
+  const sp = req.nextUrl.searchParams
+  const kind = sp.get('kind') as any
+  const date = sp.get('date')
+  const weekStart = sp.get('weekStart')
+  const weekEnd = sp.get('weekEnd')
+  const vendor = sp.get('vendor')
 
-  const items = await prisma.reportFile.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 });
-  return NextResponse.json({ items });
+  const where: any = {}
+  if (kind) where.kind = kind
+  if (date) where.reportDate = new Date(date)
+  if (weekStart) where.weekStart = new Date(weekStart)
+  if (weekEnd) where.weekEnd = new Date(weekEnd)
+  if (vendor) where.vendor = vendor
+
+  const p = await getPrisma()
+  const items = await p.reportFile.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+
+  return NextResponse.json({ items })
 }
