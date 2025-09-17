@@ -23,7 +23,7 @@
     "@fullcalendar/timegrid": "^6.1.19",
     "@mui/icons-material": "^7.3.2",
     "@mui/material": "^7.3.2",
-    "@prisma/client": "^6.16.1",
+    "@prisma/client": "^6.16.2",
     "@sparticuz/chromium": "^119.0.0",
     "@vercel/blob": "^0.23.2",
     "chrono-node": "^2.7.5",
@@ -51,14 +51,14 @@
     "@types/react-window": "^1.8.8",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
-    "prisma": "^6.16.1",
+    "prisma": "^6.16.2",
     "tailwindcss": "^4.1.12",
     "tsx": "^4.20.5",
     "typescript": "^5.5.4"
   },
   "overrides": {
     "xlsx": "0.0.0-unsupported",
-      "glob": "^10.4.5",
-  "rimraf": "^5.0.5"
+    "glob": "^10.4.5",
+    "rimraf": "^5.0.5"
   }
 }
