@@ -79,7 +79,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         const { invoice, payment, vendor, payroll, rest } = splitInvoice(row.description ?? '');
         const startIso = new Date(row.start).toISOString();
         const rawEndIso = row.end ? new Date(row.end).toISOString() : startIso;
-        const endIso = row.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso; // FullCalendar expects exclusive end for all-day
+        const endIso = rawEndIso; // API already provides exclusive end for all-day events
         return {
           id: row.id,
           title: row.title,
@@ -267,7 +267,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         const c = await r.json();
         const startIso = new Date(c.start).toISOString();
         const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-        const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+        const endIso = rawEndIso;
         setEvents(p => [
           ...p,
           {
@@ -599,7 +599,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const u = await r.json();
       const startIso = new Date(u.start).toISOString();
       const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
-      const endIso = u.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+      const endIso = rawEndIso;
       setEvents(prev => prev.map(ev => (ev.id === editId ? {
         id: u.id,
         title: u.title,
@@ -627,7 +627,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const c = await r.json();
       const startIso = new Date(c.start).toISOString();
       const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-      const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+      const endIso = rawEndIso;
       setEvents(p => [
         ...p,
         {
@@ -678,7 +678,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const c = await r.json();
     const startIso = new Date(c.start).toISOString();
     const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-    const endIso = c.allDay ? addDaysIso(rawEndIso, 1) : rawEndIso;
+    const endIso = rawEndIso;
     setEvents(p => [
       ...p,
       {
@@ -1270,7 +1270,7 @@ function fromLocalDateTime(date: string, time: string) { return fromLocalInput(`
 function dateToLocalInput(d: Date) { const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
-function addDaysIso(iso: string, days: number) { const d = new Date(iso); d.setUTCDate(d.getUTCDate() + days); return d.toISOString(); }
+
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
@@ -1354,3 +1354,4 @@ function SubtasksEditor({ value, onChange }: { value: { id: string; text: string
     </div>
   );
 }
+
