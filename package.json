@@ -10,7 +10,8 @@
     "postinstall": "prisma generate && npm --prefix my-calendar-main exec prisma generate",
     "generate:edge": "prisma generate --no-engine",
     "generate:node": "prisma generate",
-    "test": "echo \"No tests\""
+    "test": "echo \"No tests\"",
+    "cf:build": "npm run build:edge"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.883.0",
