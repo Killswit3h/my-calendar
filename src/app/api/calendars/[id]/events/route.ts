@@ -20,6 +20,37 @@ type EventRow = {
   checklist: unknown | null
 }
 
+type ApiEvent = {
+  id: string
+  calendarId: string
+  title: string
+  description: string
+  start: string
+  end: string
+  allDay: boolean
+  location: string
+  type: EventRow['type']
+  shift: EventRow['shift']
+  checklist: unknown | null
+}
+
+function serializeEvent(row: EventRow): ApiEvent {
+  const start = row.allDay ? ymdTz(row.start) : row.start.toISOString()
+  const end = row.allDay ? ymdTz(row.end) : row.end.toISOString()
+  return {
+    id: row.id,
+    calendarId: row.calendarId,
+    title: row.title,
+    description: row.description ?? '',
+    start,
+    end,
+    allDay: row.allDay,
+    location: row.location ?? '',
+    type: row.type ?? null,
+    shift: row.shift ?? null,
+    checklist: row.checklist ?? null,
+  }
+}
 const TZ = 'America/New_York' // render all-day dates in this tz
 
 function toDate(v: unknown): Date | null {
@@ -93,31 +124,7 @@ export async function GET(
     [] as EventRow[],
   )
 
-  const payload = rows.map((r) => r.allDay ? {
-    id: r.id,
-    calendarId: r.calendarId,
-    title: r.title,
-    description: r.description ?? '',
-    startsAt: ymdTz(r.start),  // date-only in TZ
-    endsAt: ymdTz(r.end),      // exclusive date in TZ
-    allDay: true,
-    location: r.location ?? '',
-    type: r.type ?? null,
-    shift: r.shift ?? null,
-    checklist: r.checklist ?? null,
-  } : {
-    id: r.id,
-    calendarId: r.calendarId,
-    title: r.title,
-    description: r.description ?? '',
-    startsAt: r.start,
-    endsAt: r.end,
-    allDay: false,
-    location: r.location ?? '',
-    type: r.type ?? null,
-    shift: r.shift ?? null,
-    checklist: r.checklist ?? null,
-  })
+  const payload = rows.map(serializeEvent)
 
   return NextResponse.json(payload, { status: 200 })
 }
@@ -179,31 +186,7 @@ export async function POST(
   )
   if (!created) return NextResponse.json({ error: 'database unavailable' }, { status: 503 })
 
-  const payload = created.allDay ? {
-    id: created.id,
-    calendarId: created.calendarId,
-    title: created.title,
-    description: created.description ?? '',
-    startsAt: ymdTz(created.start), // date-only in TZ
-    endsAt: ymdTz(created.end),     // exclusive date in TZ
-    allDay: true,
-    location: created.location ?? '',
-    type: created.type ?? null,
-    shift: created.shift ?? null,
-    checklist: created.checklist ?? null,
-  } : {
-    id: created.id,
-    calendarId: created.calendarId,
-    title: created.title,
-    description: created.description ?? '',
-    startsAt: created.start,
-    endsAt: created.end,
-    allDay: false,
-    location: created.location ?? '',
-    type: created.type ?? null,
-    shift: created.shift ?? null,
-    checklist: created.checklist ?? null,
-  }
+  const payload = serializeEvent(created)
 
   return NextResponse.json(payload, { status: 201 })
 }
