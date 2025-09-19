@@ -17,17 +17,12 @@ export const getPrisma = async () => {
 
     const accelUrl = process.env.PRISMA_ACCELERATE_URL
     if (!accelUrl || !accelUrl.startsWith('prisma://')) {
-      throw new Error('Edge requires PRISMA_ACCELERATE_URL starting with prisma://')
+      throw new Error('PRISMA_ACCELERATE_URL must start with prisma://')
     }
 
     edgeClient = new PrismaClient({
-      datasourceUrl: accelUrl, // Edge must use prisma:// via Accelerate
-    }).$extends(
-      withAccelerate({
-        url: accelUrl,
-        apiKey: process.env.PRISMA_ACCELERATE_API_KEY, // optional if key is in URL
-      })
-    )
+      datasourceUrl: accelUrl, // use Accelerate endpoint
+    }).$extends(withAccelerate())
 
     return edgeClient
   }
