@@ -64,14 +64,36 @@ type EventLikeWithLegacyFields = {
   end?: string | Date | null;
   startsAt?: string | Date | null;
   endsAt?: string | Date | null;
+  allDay?: boolean | null;
 };
 
-type NormalizedEvent<T> = T & { start: string | Date; end: string | Date };
+type NormalizedEvent<T> = T & { start: string; end: string };
 
 function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
-  const startValue: string | Date = obj.start ?? obj.startsAt ?? new Date();
-  const endValue: string | Date = obj.end ?? obj.endsAt ?? startValue;
-  return { ...obj, start: startValue, end: endValue } as NormalizedEvent<T>;
+  const startRaw = obj.start ?? obj.startsAt;
+  if (!startRaw) {
+    const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
+    return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>;
+  }
+  const endRaw = obj.end ?? obj.endsAt ?? startRaw;
+  const allDay = Boolean((obj as { allDay?: boolean }).allDay);
+
+  const cast = (value: string | Date | null | undefined, fallback: string): string => {
+    if (typeof value === 'string' && value.trim().length > 0) return value;
+    if (value instanceof Date) {
+      const iso = value.toISOString();
+      return allDay ? iso.slice(0, 10) : iso;
+    }
+    if (value == null) return fallback;
+    const str = String(value);
+    return str.length ? str : fallback;
+  };
+
+  const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
+  const start = cast(startRaw, fallbackStart);
+  const end = cast(endRaw, start);
+
+  return { ...obj, start, end } as NormalizedEvent<T>;
 }
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
@@ -91,30 +113,28 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       if (!r.ok) return;
       const rows = await r.json();
       setEvents(rows.map((row: any) => {
-        // normalize server fields → ISO strings for FullCalendar
-        const { start, end } = normalizeEvent(row);
-        const startIso = new Date(start).toISOString();
-        const rawEndIso = end ? new Date(end).toISOString() : startIso;
-        const endIso = rawEndIso; // server provides correct exclusivity for all-day
-        const { invoice, payment, vendor, payroll, rest } = splitInvoice(row.description ?? '');
+        // normalize server response for FullCalendar
+        const normalized = normalizeEvent(row);
+        const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
         return {
-          id: row.id,
-          title: row.title,
-          start: startIso,
-          end: endIso,
-          allDay: !!row.allDay,
+          id: normalized.id,
+          title: normalized.title,
+          start: normalized.start,
+          end: normalized.end,
+          allDay: !!normalized.allDay,
           extendedProps: {
-            location: row.location ?? '',
+            location: normalized.location ?? '',
             description: rest,
             invoice,
             payment,
             vendor,
             payroll,
-            type: row.type ?? null,
-            shift: row.shift ?? null,
-            checklist: row.checklist ?? null,
+            type: normalized.type ?? null,
+            shift: normalized.shift ?? null,
+            checklist: normalized.checklist ?? null,
+            calendarId: normalized.calendarId ?? '',
           },
-          className: typeToClass(row.type),
+          className: typeToClass(normalized.type),
           display: 'block',
         } as EventInput;
       }));
@@ -280,25 +300,24 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       });
       if (r.ok) {
         const c = await r.json();
-        const { start: s, end: eIso } = normalizeEvent(c);
-        const startIso = new Date(s).toISOString();
-        const endIso = new Date(eIso ?? s).toISOString();
+        const normalized = normalizeEvent(c);
         setEvents(p => [
           ...p,
           {
-            id: c.id,
-            title: c.title,
-            start: startIso,
-            end: endIso,
-            allDay: !!c.allDay,
+            id: normalized.id,
+            title: normalized.title,
+            start: normalized.start,
+            end: normalized.end,
+            allDay: !!normalized.allDay,
             extendedProps: {
-              location: c.location ?? '',
-              ...splitInvoiceProps(c.description ?? ''),
-              type: c.type ?? null,
-              shift: c.shift ?? null,
-              checklist: c.checklist ?? null,
+              location: normalized.location ?? '',
+              ...splitInvoiceProps(normalized.description ?? ''),
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
             },
-            className: typeToClass(c.type),
+            className: typeToClass(normalized.type),
             display: 'block',
           },
         ]);
@@ -418,7 +437,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       try {
         const startIso = fromLocalDateTime(dateStr, '00:00');
         const endIso = startIso;
-        const r = await fetch(`/api/calendars/${calendarId}/events`, {
+        const response: Response = await fetch(`/api/calendars/${calendarId}/events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -433,25 +452,26 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             checklist: meta.locate ? { locate: { ...meta.locate }, subtasks: [] } : null,
           }),
         });
-        if (!r.ok) return;
-        const c = await r.json();
-        const { start: s, end: eIso } = normalizeEvent(c);
+        if (!response.ok) return;
+        const c = await response.json();
+        const normalized = normalizeEvent(c);
         setEvents(p => [
           ...p,
           {
-            id: c.id,
-            title: c.title,
-            start: new Date(s).toISOString(),
-            end: new Date((eIso ?? s)).toISOString(),
-            allDay: !!c.allDay,
+            id: normalized.id,
+            title: normalized.title,
+            start: startIso,
+            end: endIso,
+            allDay: !!normalized.allDay,
             extendedProps: {
-              location: c.location ?? '',
-              ...splitInvoiceProps(c.description ?? ''),
-              type: c.type ?? null,
-              shift: c.shift ?? null,
-              checklist: c.checklist ?? null,
+              location: normalized.location ?? '',
+              ...splitInvoiceProps(normalized.description ?? ''),
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
             },
-            className: typeToClass(c.type),
+            className: typeToClass(normalized.type),
             display: 'block',
           },
         ]);
@@ -567,7 +587,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleEventDrop = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
-    const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
+    const newStart = e.startStr ?? e.start?.toISOString() ?? null;
+    const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
@@ -578,7 +599,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleEventResize = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
-    const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
+    const newStart = e.startStr ?? e.start?.toISOString() ?? null;
+    const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
@@ -598,23 +620,22 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         return;
       }
       const u = await r.json();
-      const { start: s, end: eIso } = normalizeEvent(u);
-      const startIso = new Date(s).toISOString();
-      const endIso = new Date(eIso ?? s).toISOString();
+      const normalized = normalizeEvent(u);
       setEvents(prev => prev.map(ev => (ev.id === editId ? {
-        id: u.id,
-        title: u.title,
-        start: startIso,
-        end: endIso,
-        allDay: !!u.allDay,
+        id: normalized.id,
+        title: normalized.title,
+        start: normalized.start,
+        end: normalized.end,
+        allDay: !!normalized.allDay,
         extendedProps: {
-          location: u.location ?? '',
-          ...splitInvoiceProps(u.description ?? ''),
-          type: u.type ?? null,
-          shift: u.shift ?? null,
-          checklist: u.checklist ?? null,
+          location: normalized.location ?? '',
+          ...splitInvoiceProps(normalized.description ?? ''),
+          type: normalized.type ?? null,
+          shift: normalized.shift ?? null,
+          checklist: normalized.checklist ?? null,
+          calendarId: normalized.calendarId ?? '',
         },
-        className: typeToClass(u.type),
+        className: typeToClass(normalized.type),
         display: 'block',
         } : ev)));
     } else {
@@ -626,25 +647,24 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         return;
       }
       const c = await r.json();
-      const { start: s, end: eIso } = normalizeEvent(c);
-      const startIso = new Date(s).toISOString();
-      const endIso = new Date(eIso ?? s).toISOString();
+      const normalized = normalizeEvent(c);
       setEvents(p => [
         ...p,
         {
-          id: c.id,
-          title: c.title,
-          start: startIso,
-          end: endIso,
-          allDay: !!c.allDay,
+          id: normalized.id,
+          title: normalized.title,
+          start: normalized.start,
+          end: normalized.end,
+          allDay: !!normalized.allDay,
           extendedProps: {
-            location: c.location ?? '',
-            ...splitInvoiceProps(c.description ?? ''),
-            type: c.type ?? null,
-            shift: c.shift ?? null,
-            checklist: c.checklist ?? null,
+            location: normalized.location ?? '',
+            ...splitInvoiceProps(normalized.description ?? ''),
+            type: normalized.type ?? null,
+            shift: normalized.shift ?? null,
+            checklist: normalized.checklist ?? null,
+            calendarId: normalized.calendarId ?? '',
           },
-          className: typeToClass(c.type),
+          className: typeToClass(normalized.type),
           display: 'block',
         },
       ]);
@@ -677,25 +697,24 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       return;
     }
     const c = await r.json();
-    const { start: s, end: eIso } = normalizeEvent(c);
-    const startIso = new Date(s).toISOString();
-    const endIso = new Date(eIso ?? s).toISOString();
+    const normalized = normalizeEvent(c);
     setEvents(p => [
       ...p,
       {
-        id: c.id,
-        title: c.title,
-        start: startIso,
-        end: endIso,
-        allDay: !!c.allDay,
+        id: normalized.id,
+        title: normalized.title,
+        start: normalized.start,
+        end: normalized.end,
+        allDay: !!normalized.allDay,
         extendedProps: {
-          location: c.location ?? '',
-          ...splitInvoiceProps(c.description ?? ''),
-          type: c.type ?? null,
-          shift: c.shift ?? null,
-          checklist: c.checklist ?? null,
+          location: normalized.location ?? '',
+          ...splitInvoiceProps(normalized.description ?? ''),
+          type: normalized.type ?? null,
+          shift: normalized.shift ?? null,
+          checklist: normalized.checklist ?? null,
+          calendarId: normalized.calendarId ?? '',
         },
-        className: typeToClass(c.type),
+        className: typeToClass(normalized.type),
         display: 'block',
       },
     ]);
@@ -908,6 +927,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -954,6 +974,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
