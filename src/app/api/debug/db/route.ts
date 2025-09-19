@@ -1,7 +1,15 @@
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/db';
+
+type DebugSampleRow = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+};
 
 export async function GET() {
   try {
@@ -10,7 +18,7 @@ export async function GET() {
     const host = new URL(process.env.DATABASE_URL!).host;
 
     const count = await prisma.event.count();
-    const first = await prisma.event.findMany({
+    const first: DebugSampleRow[] = await prisma.event.findMany({
       orderBy: { start: 'asc' },
       take: 5,
       select: { id: true, title: true, start: true, end: true, allDay: true },
