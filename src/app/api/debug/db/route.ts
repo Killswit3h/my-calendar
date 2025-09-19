@@ -11,12 +11,20 @@ export async function GET() {
 
     const count = await prisma.event.count();
     const first = await prisma.event.findMany({
-      orderBy: { startsAt: 'asc' },
+      orderBy: { start: 'asc' },
       take: 5,
-      select: { id: true, title: true, startsAt: true, endsAt: true, allDay: true },
+      select: { id: true, title: true, start: true, end: true, allDay: true },
     });
 
-    return NextResponse.json({ host, count, sample: first });
+    const sample = first.map((e) => ({
+      id: e.id,
+      title: e.title,
+      startsAt: e.start,
+      endsAt: e.end,
+      allDay: e.allDay,
+    }));
+
+    return NextResponse.json({ host, count, sample });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
