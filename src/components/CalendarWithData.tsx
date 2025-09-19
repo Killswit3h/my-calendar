@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -41,7 +41,6 @@ const VENDOR_COLOR: Record<Vendor, string> = {
 
 const EmployeesLink = () => {
   const pathname = usePathname();
-  // Avoid SSR↔CSR hydration mismatches by not including dynamic search params
   const href = `/employees?from=${encodeURIComponent(pathname)}`;
   return <Link href={href} className="btn">Employees</Link>;
 };
@@ -58,6 +57,22 @@ const IconLocation = (props: any) => (
 const IconTicket = (props: any) => (
   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M21 5H3v4h1a2 2 0 1 1 0 4H3v4h18v-4h-1a2 2 0 1 1 0-4h1V5z"/></svg>
 );
+
+/** Normalizes event payloads so downstream code can rely on {start,end}. */
+type EventLikeWithLegacyFields = {
+  start?: string | Date | null;
+  end?: string | Date | null;
+  startsAt?: string | Date | null;
+  endsAt?: string | Date | null;
+};
+
+type NormalizedEvent<T> = T & { start: string | Date; end: string | Date };
+
+function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
+  const startValue: string | Date = obj.start ?? obj.startsAt ?? new Date();
+  const endValue: string | Date = obj.end ?? obj.endsAt ?? startValue;
+  return { ...obj, start: startValue, end: endValue } as NormalizedEvent<T>;
+}
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
   const initialDate = useMemo(() => {
@@ -76,10 +91,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       if (!r.ok) return;
       const rows = await r.json();
       setEvents(rows.map((row: any) => {
+        // normalize server fields → ISO strings for FullCalendar
+        const { start, end } = normalizeEvent(row);
+        const startIso = new Date(start).toISOString();
+        const rawEndIso = end ? new Date(end).toISOString() : startIso;
+        const endIso = rawEndIso; // server provides correct exclusivity for all-day
         const { invoice, payment, vendor, payroll, rest } = splitInvoice(row.description ?? '');
-        const startIso = new Date(row.start).toISOString();
-        const rawEndIso = row.end ? new Date(row.end).toISOString() : startIso;
-        const endIso = rawEndIso; // API already provides exclusive end for all-day events
         return {
           id: row.id,
           title: row.title,
@@ -194,7 +211,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
   }, [open]);
 
-
   const views: ('dayGridWeek' | 'dayGridMonth')[] = ['dayGridWeek', 'dayGridMonth'];
   const changeView = useCallback((v: 'dayGridWeek' | 'dayGridMonth') => {
     setCurrentView(v);
@@ -225,7 +241,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     let txt = quickText.trim();
     if (!txt) return;
 
-    // detect job type keywords (e.g. "fence", "guardrail")
     const typeMatch = txt.match(/\b(temp(?:orary)?\s*fence|guardrail|fence|attenuator|handrail)\b/i);
     let type: JobType | null = null;
     if (typeMatch) {
@@ -265,9 +280,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       });
       if (r.ok) {
         const c = await r.json();
-        const startIso = new Date(c.start).toISOString();
-        const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-        const endIso = rawEndIso;
+        const { start: s, end: eIso } = normalizeEvent(c);
+        const startIso = new Date(s).toISOString();
+        const endIso = new Date(eIso ?? s).toISOString();
         setEvents(p => [
           ...p,
           {
@@ -304,14 +319,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     })); setHolidays(bg);
   }, []);
 
-  // manual location only (set via Weather dialog). If none, no weather badges.
-
-  // fetch daily forecast for visible range
   const fetchWeather = useCallback(async (start: Date, end: Date, c: { lat: number; lon: number }) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     const fmtLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const startDate = fmtLocal(start);
-    // subtract 1 day from end to avoid off-by-one on FullCalendar's exclusive end
     const endAdj = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
     const endDate = fmtLocal(endAdj);
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
@@ -330,7 +341,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     } catch {}
   }, []);
 
-  // initial weather for the starting month once coords are known
   useEffect(() => {
     if (!coords) return;
     const y = initialDate.getUTCFullYear();
@@ -350,8 +360,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [country, fetchHolidays, coords, fetchWeather]);
 
   const weatherIcon = (code: number, pop: number) => {
-    // Map Open-Meteo WMO weather codes to a small emoji icon
-    // Ref: https://open-meteo.com/en/docs#api_form
     if (pop >= 70) return '🌧️';
     if (code === 0) return '☀️';
     if ([1, 2].includes(code)) return '⛅️';
@@ -379,12 +387,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     a.appendChild(ico); a.appendChild(txt);
     a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer';
-    // prevent calendar selection when clicking the link
     ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
       a.addEventListener(evt as any, (e) => { e.stopPropagation(); });
     });
     const dayNum = top.querySelector('.fc-daygrid-day-number');
-    // insert to the left of the date number
     if (dayNum && dayNum.parentNode) {
       dayNum.parentNode.insertBefore(a, dayNum);
     } else {
@@ -395,9 +401,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const dayCellDidMount = useCallback((arg: { date: Date; el: HTMLElement }) => {
     injectBadgeIntoCell(arg.el);
 
-    // Enable dropping a Todo onto a day cell to create an event
     const el = arg.el;
-    const dateStr = dateToLocalInput(arg.date).slice(0, 10); // YYYY-MM-DD local
+    const dateStr = dateToLocalInput(arg.date).slice(0, 10);
     el.setAttribute('data-date', dateStr);
     const onDragOver = (e: Event) => { (e as DragEvent).preventDefault(); };
     const onDrop = async (e: Event) => {
@@ -430,13 +435,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         });
         if (!r.ok) return;
         const c = await r.json();
+        const { start: s, end: eIso } = normalizeEvent(c);
         setEvents(p => [
           ...p,
           {
             id: c.id,
             title: c.title,
-            start: new Date(c.start).toISOString(),
-            end: new Date(c.end).toISOString(),
+            start: new Date(s).toISOString(),
+            end: new Date((eIso ?? s)).toISOString(),
             allDay: !!c.allDay,
             extendedProps: {
               location: c.location ?? '',
@@ -449,7 +455,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             display: 'block',
           },
         ]);
-        // Remove todo on success
         try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch {}
         setTodos(p => p.filter(t => t.id !== id));
       } catch {}
@@ -459,14 +464,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [weather, coords, calendarId]);
 
   useEffect(() => {
-    // When weather map updates, (re)inject badges into currently rendered cells
     const cells = document.querySelectorAll('.fc-daygrid-day');
     cells.forEach(injectBadgeIntoCell);
   }, [weather, coords]);
 
-  // simple geo helper for Weather dialog
   async function geocode(q: string): Promise<{ lat: number; lon: number } | null> {
-    // Accept "lat,lon"
     const m = q.split(',').map(x => x.trim());
     if (m.length === 2 && !isNaN(Number(m[0])) && !isNaN(Number(m[1]))) {
       return { lat: parseFloat(m[0]), lon: parseFloat(m[1]) };
@@ -481,16 +483,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     return null;
   }
 
-  // FIXED: build local times from Date objects, not startStr/endStr
   const handleSelect = useCallback((sel: DateSelectArg) => {
     setEditId(null);
 
-    const startLocal = dateToLocalInput(sel.start);                     // local YYYY-MM-DDTHH:mm
-    const endLocal = dateToLocalInput(sel.end ?? sel.start);            // default to same day
+    const startLocal = dateToLocalInput(sel.start);
+    const endLocal = dateToLocalInput(sel.end ?? sel.start);
 
     setDraft({
       title: '',
-      start: fromLocalInput(startLocal),                                 // to ISO string
+      start: fromLocalInput(startLocal),
       end: fromLocalInput(endLocal),
       allDay: sel.allDay,
       type: 'FENCE',
@@ -568,7 +569,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const e = arg.event; if (!e.id) return;
     const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) updateEventById(e.id, { start: newStart, end: newEnd, allDay: e.allDay });
+    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to move event');
@@ -579,7 +580,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const e = arg.event; if (!e.id) return;
     const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) updateEventById(e.id, { start: newStart, end: newEnd, allDay: e.allDay });
+    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to resize event');
@@ -597,9 +598,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         return;
       }
       const u = await r.json();
-      const startIso = new Date(u.start).toISOString();
-      const rawEndIso = u.end ? new Date(u.end).toISOString() : startIso;
-      const endIso = rawEndIso;
+      const { start: s, end: eIso } = normalizeEvent(u);
+      const startIso = new Date(s).toISOString();
+      const endIso = new Date(eIso ?? s).toISOString();
       setEvents(prev => prev.map(ev => (ev.id === editId ? {
         id: u.id,
         title: u.title,
@@ -625,9 +626,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         return;
       }
       const c = await r.json();
-      const startIso = new Date(c.start).toISOString();
-      const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-      const endIso = rawEndIso;
+      const { start: s, end: eIso } = normalizeEvent(c);
+      const startIso = new Date(s).toISOString();
+      const endIso = new Date(eIso ?? s).toISOString();
       setEvents(p => [
         ...p,
         {
@@ -676,9 +677,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       return;
     }
     const c = await r.json();
-    const startIso = new Date(c.start).toISOString();
-    const rawEndIso = c.end ? new Date(c.end).toISOString() : startIso;
-    const endIso = rawEndIso;
+    const { start: s, end: eIso } = normalizeEvent(c);
+    const startIso = new Date(s).toISOString();
+    const endIso = new Date(eIso ?? s).toISOString();
     setEvents(p => [
       ...p,
       {
@@ -774,7 +775,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [events, searchQuery]);
   const allEvents = useMemo(() => (holidayOn ? [...filtered, ...holidays] : filtered), [filtered, holidays, holidayOn]);
 
-  // Compact Google Maps link inside each event (if location exists)
   const eventContent = useCallback((arg: EventContentArg) => {
     const frag = document.createElement('div');
     frag.style.display = 'flex';
@@ -798,7 +798,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     return { domNodes: [frag] };
   }, [highlightText, searchQuery]);
 
-  // todos persisted in DB
   const [todos, setTodos] = useState<Todo[]>([]);
   const reloadTodos = useCallback(async () => {
     try {
@@ -953,31 +952,31 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
-            initialView={currentView}
-            initialDate={initialDate}
-            height="auto"
+              initialView={currentView}
+              initialDate={initialDate}
+              height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
               displayEventTime={false}
               expandRows
               handleWindowResize
-            windowResizeDelay={100}
-            dayMaxEventRows
-            fixedWeekCount={false}
-            selectable
-            selectMirror
-            editable
-            eventStartEditable
-            eventDurationEditable
-            select={handleSelect}
-            datesSet={handleDatesSet}
-            events={allEvents}
-            eventClick={handleEventClick}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-            buttonText={{ today: 'Today' }}
-            eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
+              windowResizeDelay={100}
+              dayMaxEventRows
+              fixedWeekCount={false}
+              selectable
+              selectMirror
+              editable
+              eventStartEditable
+              eventDurationEditable
+              select={handleSelect}
+              datesSet={handleDatesSet}
+              events={allEvents}
+              eventClick={handleEventClick}
+              eventDrop={handleEventDrop}
+              eventResize={handleEventResize}
+              headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+              buttonText={{ today: 'Today' }}
+              eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
           />
         </div>
       )}
@@ -1276,8 +1275,6 @@ function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; pla
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
 }
 
-// (helpers defined once above)
-
 function splitInvoice(desc: string): { invoice: string; payment: PaymentType | ''; vendor: Vendor | ''; payroll: boolean | null; rest: string } {
   const lines = (desc || '').split(/\r?\n/)
   let invoice = ''
@@ -1354,4 +1351,6 @@ function SubtasksEditor({ value, onChange }: { value: { id: string; text: string
     </div>
   );
 }
+
+
 
