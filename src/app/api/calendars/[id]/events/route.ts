@@ -11,8 +11,8 @@ type EventRow = {
   calendarId: string
   title: string
   description: string | null
-  startsAt: Date
-  endsAt: Date
+  start: Date
+  end: Date
   allDay: boolean
   location: string | null
   type: 'GUARDRAIL' | 'FENCE' | 'TEMP_FENCE' | 'HANDRAIL' | 'ATTENUATOR' | null
@@ -75,16 +75,16 @@ export async function GET(
     async (p) => {
       const where: any = { calendarId }
       if (from || to) {
-        where.startsAt = {}
-        if (from) where.startsAt.gte = new Date(from!)
-        if (to) where.startsAt.lte = new Date(to!)
+        where.start = {}
+        if (from) where.start.gte = new Date(from!)
+        if (to) where.start.lte = new Date(to!)
       }
       const out = await p.event.findMany({
         where,
-        orderBy: { startsAt: 'asc' },
+        orderBy: { start: 'asc' },
         select: {
           id: true, calendarId: true, title: true, description: true,
-          startsAt: true, endsAt: true, allDay: true, location: true,
+          start: true, end: true, allDay: true, location: true,
           type: true, shift: true, checklist: true,
         },
       })
@@ -98,8 +98,8 @@ export async function GET(
     calendarId: r.calendarId,
     title: r.title,
     description: r.description ?? '',
-    start: ymdTz(r.startsAt),  // date-only in TZ
-    end: ymdTz(r.endsAt),      // exclusive date in TZ
+    startsAt: ymdTz(r.start),  // date-only in TZ
+    endsAt: ymdTz(r.end),      // exclusive date in TZ
     allDay: true,
     location: r.location ?? '',
     type: r.type ?? null,
@@ -110,8 +110,8 @@ export async function GET(
     calendarId: r.calendarId,
     title: r.title,
     description: r.description ?? '',
-    start: r.startsAt,         // full ISO for timed
-    end: r.endsAt,
+    startsAt: r.start,
+    endsAt: r.end,
     allDay: false,
     location: r.location ?? '',
     type: r.type ?? null,
@@ -159,8 +159,8 @@ export async function POST(
           calendarId,
           title,
           description: typeof body.description === 'string' ? body.description : null,
-          startsAt: s,
-          endsAt: e,
+          start: s,
+          end: e,
           allDay,
           location: typeof body.location === 'string' ? body.location : null,
           type: body.type ?? null,
@@ -169,7 +169,7 @@ export async function POST(
         },
         select: {
           id: true, calendarId: true, title: true, description: true,
-          startsAt: true, endsAt: true, allDay: true, location: true,
+          start: true, end: true, allDay: true, location: true,
           type: true, shift: true, checklist: true,
         },
       })
@@ -184,8 +184,8 @@ export async function POST(
     calendarId: created.calendarId,
     title: created.title,
     description: created.description ?? '',
-    start: ymdTz(created.startsAt), // date-only in TZ
-    end: ymdTz(created.endsAt),     // exclusive date in TZ
+    startsAt: ymdTz(created.start), // date-only in TZ
+    endsAt: ymdTz(created.end),     // exclusive date in TZ
     allDay: true,
     location: created.location ?? '',
     type: created.type ?? null,
@@ -196,8 +196,8 @@ export async function POST(
     calendarId: created.calendarId,
     title: created.title,
     description: created.description ?? '',
-    start: created.startsAt,
-    end: created.endsAt,
+    startsAt: created.start,
+    endsAt: created.end,
     allDay: false,
     location: created.location ?? '',
     type: created.type ?? null,
@@ -207,4 +207,3 @@ export async function POST(
 
   return NextResponse.json(payload, { status: 201 })
 }
-
