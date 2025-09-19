@@ -5,8 +5,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")          // pooled URL (runtime)
-  directUrl = env("DIRECT_URL")   // direct URL (migrate/CLI)
+  url       = env("DATABASE_URL")   // pooled URL (runtime)
+  directUrl = env("DIRECT_URL")     // direct URL (migrate/CLI)
 }
 
 model Customer {
@@ -31,8 +31,11 @@ model Event {
   calendarId     String
   title          String
   description    String?
-  startsAt DateTime @map("start")
-  endsAt   DateTime @map("end")
+
+  // Map to existing DB columns
+  start          DateTime  @map("startsAt")
+  end            DateTime  @map("endsAt")
+
   allDay         Boolean   @default(true)
   location       String?
   createdAt      DateTime? @default(now()) @ignore
@@ -42,9 +45,11 @@ model Event {
   type           EventType?
   shift          WorkShift?
   checklist      Json?
+
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
-  @@index([calendarId, startsAt])
+  // Use model field names in indexes
+  @@index([calendarId, start])
   @@map("Event")
 }
 
