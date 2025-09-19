@@ -14,15 +14,38 @@ export const getPrisma = async () => {
   if (isEdge()) {
     if (edgeClient) return edgeClient
     const { PrismaClient } = await import('@prisma/client/edge')
-    if (!process.env.DATABASE_URL || !process.env.PRISMA_ACCELERATE_URL)
-      throw new Error('Missing DATABASE_URL or PRISMA_ACCELERATE_URL')
-    edgeClient = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL }).$extends(withAccelerate())
+
+    const accelUrl = process.env.PRISMA_ACCELERATE_URL
+    if (!accelUrl || !accelUrl.startsWith('prisma://')) {
+      throw new Error('Edge requires PRISMA_ACCELERATE_URL starting with prisma://')
+    }
+
+    edgeClient = new PrismaClient({
+      datasourceUrl: accelUrl, // Edge must use prisma:// via Accelerate
+    }).$extends(
+      withAccelerate({
+        url: accelUrl,
+        apiKey: process.env.PRISMA_ACCELERATE_API_KEY, // optional if key is in URL
+      })
+    )
+
     return edgeClient
   }
+
   if (nodeClient) return nodeClient
   const { PrismaClient } = await import('@prisma/client')
+
+  const dbUrl = process.env.DATABASE_URL
+  if (!dbUrl) throw new Error('Missing DATABASE_URL for Node runtime')
+
   const g = globalThis as any
-  nodeClient = g.prisma ?? new PrismaClient({ log: process.env.NODE_ENV === 'development' ? ['warn','error'] : ['error'] })
+  nodeClient =
+    g.prisma ??
+    new PrismaClient({
+      datasources: { db: { url: dbUrl } },
+      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    })
+
   if (process.env.NODE_ENV !== 'production') g.prisma = nodeClient
   return nodeClient
 }
