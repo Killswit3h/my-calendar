@@ -5,6 +5,7 @@ export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -32,14 +33,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (b.start || b.startsAt) {
     const d = new Date(b.start ?? b.startsAt)
     if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid start' }, { status: 400, headers: cors as any })
-    data.startsAt = d
+    data.start = d
   }
   if (b.end || b.endsAt) {
     const d = new Date(b.end ?? b.endsAt)
     if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid end' }, { status: 400, headers: cors as any })
-    data.endsAt = d
+    data.end = d
   }
-  if (data.startsAt && data.endsAt && data.endsAt <= data.startsAt) {
+  if (data.start && data.end && data.end <= data.start) {
     return NextResponse.json({ error: 'end must be after start' }, { status: 400, headers: cors as any })
   }
 
@@ -58,27 +59,35 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             calendarId: true,
             title: true,
             description: true,
-            startsAt: true,
-            endsAt: true,
+            start: true,
+            end: true,
             allDay: true,
             location: true,
             type: true,
+            shift: true,
+            checklist: true,
           },
         }),
       null as any,
     )
 
-    const payload = {
+    if (!updated) {
+      return NextResponse.json({ error: 'database unavailable' }, { status: 503, headers: cors as any })
+    }
+
+    const payload = serializeCalendarEvent({
       id: updated.id,
       calendarId: updated.calendarId,
       title: updated.title,
-      description: updated.description,
-      start: updated.startsAt,
-      end: updated.endsAt,
+      description: updated.description ?? '',
+      start: updated.start,
+      end: updated.end,
       allDay: updated.allDay,
-      location: updated.location,
-      type: updated.type,
-    }
+      location: updated.location ?? '',
+      type: updated.type ?? null,
+      shift: updated.shift ?? null,
+      checklist: updated.checklist ?? null,
+    })
     return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {
     const msg = String(e?.message ?? '')

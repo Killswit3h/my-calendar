@@ -111,8 +111,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     async function load() {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { cache: 'no-store' });
       if (!r.ok) return;
-      const rows = await r.json();
-      setEvents(rows.map((row: any) => {
+      const json = await r.json();
+      const list = Array.isArray(json?.events) ? json.events : Array.isArray(json) ? json : [];
+      setEvents(list.map((row: any) => {
         // normalize server response for FullCalendar
         const normalized = normalizeEvent(row);
         const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
@@ -460,8 +461,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           {
             id: normalized.id,
             title: normalized.title,
-            start: startIso,
-            end: endIso,
+            start: normalized.start,
+            end: normalized.end,
             allDay: !!normalized.allDay,
             extendedProps: {
               location: normalized.location ?? '',
