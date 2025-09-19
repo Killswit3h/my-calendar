@@ -5,54 +5,25 @@ export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
+import type { CalendarEventPayload, EventRowLike } from '@/lib/events/serializer'
 
-type EventRow = {
-  id: string
-  calendarId: string
-  title: string
-  description: string | null
+type EventRow = EventRowLike & {
   start: Date
   end: Date
   allDay: boolean
+  description: string | null
   location: string | null
   type: 'GUARDRAIL' | 'FENCE' | 'TEMP_FENCE' | 'HANDRAIL' | 'ATTENUATOR' | null
   shift: 'DAY' | 'NIGHT' | null
   checklist: unknown | null
 }
 
-type ApiEvent = {
-  id: string
-  calendarId: string
-  title: string
-  description: string
-  start: string
-  end: string
-  allDay: boolean
-  location: string
-  type: EventRow['type']
-  shift: EventRow['shift']
-  checklist: unknown | null
-}
+type ApiEvent = CalendarEventPayload
 
 function serializeEvent(row: EventRow): ApiEvent {
-  const start = row.allDay ? ymdTz(row.start) : row.start.toISOString()
-  const end = row.allDay ? ymdTz(row.end) : row.end.toISOString()
-  return {
-    id: row.id,
-    calendarId: row.calendarId,
-    title: row.title,
-    description: row.description ?? '',
-    start,
-    end,
-    allDay: row.allDay,
-    location: row.location ?? '',
-    type: row.type ?? null,
-    shift: row.shift ?? null,
-    checklist: row.checklist ?? null,
-  }
+  return serializeCalendarEvent(row)
 }
-const TZ = 'America/New_York' // render all-day dates in this tz
-
 function toDate(v: unknown): Date | null {
   if (v instanceof Date) return v
   if (typeof v === 'string' || typeof v === 'number') {
@@ -70,14 +41,6 @@ function toBool(v: unknown, def = true): boolean {
   }
   return def
 }
-// YYYY-MM-DD in a specific timezone
-function ymdTz(d: Date, tz = TZ): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-  })
-  return fmt.format(d) // en-CA gives YYYY-MM-DD
-}
-
 async function readEventInput(req: NextRequest): Promise<Record<string, any> | null> {
   const ct = req.headers.get('content-type')?.toLowerCase() ?? ''
   const raw = await req.text().catch(() => '')
@@ -126,7 +89,7 @@ export async function GET(
 
   const payload = rows.map(serializeEvent)
 
-  return NextResponse.json(payload, { status: 200 })
+  return NextResponse.json({ events: payload }, { status: 200 })
 }
 
 /* ---------- POST ---------- */
