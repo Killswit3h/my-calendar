@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent, Suspense } from 'react';
 import Link from 'next/link';
@@ -107,42 +107,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const employees = useMemo(() => getEmployees(), []);
 
   const [events, setEvents] = useState<EventInput[]>([]);
-  useEffect(() => {
-    async function load() {
-      const r = await fetch(`/api/calendars/${calendarId}/events`, { cache: 'no-store' });
-      if (!r.ok) return;
-      const json = await r.json();
-      const list = Array.isArray(json?.events) ? json.events : Array.isArray(json) ? json : [];
-      setEvents(list.map((row: any) => {
-        // normalize server response for FullCalendar
-        const normalized = normalizeEvent(row);
-        const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
-        return {
-          id: normalized.id,
-          title: normalized.title,
-          start: normalized.start,
-          end: normalized.end,
-          allDay: !!normalized.allDay,
-          extendedProps: {
-            location: normalized.location ?? '',
-            description: rest,
-            invoice,
-            payment,
-            vendor,
-            payroll,
-            type: normalized.type ?? null,
-            shift: normalized.shift ?? null,
-            checklist: normalized.checklist ?? null,
-            calendarId: normalized.calendarId ?? '',
-          },
-          className: typeToClass(normalized.type),
-          display: 'block',
-        } as EventInput;
-      }));
-    }
-    load().catch(() => {});
-  }, [calendarId]);
-
   const [holidayOn, setHolidayOn] = useState(true);
   const [country, setCountry] = useState('US');
   const [holidays, setHolidays] = useState<EventInput[]>([]);
@@ -169,8 +133,75 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [locInput, setLocInput] = useState('');
   const [quickText, setQuickText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const filterEventsForSearch = useCallback((list: EventInput[]) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(ev => {
+      const title = (ev.title || '').toLowerCase();
+      const desc = ((ev.extendedProps as any)?.description || '').toLowerCase();
+      const crew = ((ev.extendedProps as any)?.crew || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || crew.includes(q);
+    });
+  }, [searchQuery]);
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
+  const refetchCalendar = useCallback(() => {
+    const api = calendarRef.current?.getApi();
+    if (api) api.refetchEvents();
+  }, []);
+  const fetchEventsForView = useCallback(
+    async (
+      info: { startStr?: string; endStr?: string; start?: Date; end?: Date },
+      success: (events: EventInput[]) => void,
+      failure?: (error: Error) => void,
+    ) => {
+      try {
+        const base = new URL(`/api/calendars/${calendarId}/events`, window.location.origin);
+        const startParam = info?.startStr ?? (info?.start ? info.start.toISOString() : null);
+        const endParam = info?.endStr ?? (info?.end ? info.end.toISOString() : null);
+        if (startParam) base.searchParams.set('start', startParam);
+        if (endParam) base.searchParams.set('end', endParam);
+        const res = await fetch(base.toString(), { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const payload = await res.json();
+        const rows = Array.isArray(payload?.events) ? payload.events : Array.isArray(payload) ? payload : [];
+        const mapped = rows.map((row: any) => {
+          const normalized = normalizeEvent(row);
+          const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
+          return {
+            id: normalized.id,
+            title: normalized.title,
+            start: normalized.start,
+            end: normalized.end,
+            allDay: !!normalized.allDay,
+            extendedProps: {
+              location: normalized.location ?? '',
+              description: rest,
+              invoice,
+              payment,
+              vendor,
+              payroll,
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
+            },
+            className: typeToClass(normalized.type),
+            display: 'block',
+          } as EventInput;
+        });
+        setEvents(mapped);
+        const filtered = filterEventsForSearch(mapped);
+        const result = holidayOn ? [...filtered, ...holidays] : filtered;
+        success(result);
+      } catch (err) {
+        console.error(err);
+        const error = err instanceof Error ? err : new Error('Failed to load events');
+        if (failure) failure(error);
+      }
+    },
+    [calendarId, filterEventsForSearch, holidayOn, holidays],
+  );
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
   const touchStart = useRef<number | null>(null);
@@ -190,6 +221,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  useEffect(() => {
+    refetchCalendar();
+  }, [refetchCalendar, searchQuery, holidayOn, holidays]);
 
   useEffect(() => {
     if (descRef.current) {
@@ -322,6 +357,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             display: 'block',
           },
         ]);
+        refetchCalendar();
       }
     } else {
       const nowIso = new Date().toISOString();
@@ -330,7 +366,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       setOpen(true);
     }
     setQuickText('');
-  }, [quickText, calendarId]);
+  }, [quickText, calendarId, refetchCalendar]);
 
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
     const res = await fetch(`/api/holidays?year=${year}&country=${cc}`); const json = await res.json();
@@ -476,13 +512,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             display: 'block',
           },
         ]);
+        refetchCalendar();
         try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch {}
         setTodos(p => p.filter(t => t.id !== id));
       } catch {}
     };
     el.addEventListener('dragover', onDragOver as any);
     el.addEventListener('drop', onDrop as any);
-  }, [weather, coords, calendarId]);
+  }, [weather, coords, calendarId, refetchCalendar]);
 
   useEffect(() => {
     const cells = document.querySelectorAll('.fc-daygrid-day');
@@ -584,7 +621,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const updateEventById = useCallback((id: string, patch: Partial<NewEvent>) => {
     setEvents(prev => prev.map(ev => ev.id === id ? { ...ev, start: patch.start ?? (ev.start as string), end: patch.end ?? (ev.end as string | undefined), allDay: patch.allDay ?? (ev.allDay as boolean) } : ev));
-  }, []);
+    refetchCalendar();
+  }, [refetchCalendar]);
 
   const handleEventDrop = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
@@ -614,7 +652,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to update event');
@@ -641,7 +679,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         } : ev)));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to create event');
@@ -669,9 +707,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           display: 'block',
         },
       ]);
+      refetchCalendar();
     }
     setOpen(false); setDraft(null); setEditId(null);
-  }, [draft, editId, calendarId]);
+  }, [draft, editId, calendarId, refetchCalendar]);
 
   useEffect(() => {
     if (!open) return;
@@ -685,8 +724,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const deleteCurrent = useCallback(async () => {
     if (!editId) return; await fetch(`/api/events/${editId}`, { method: 'DELETE' });
-    setEvents(prev => prev.filter(e => e.id !== editId)); setOpen(false); setDraft(null); setEditId(null);
-  }, [editId]);
+    setEvents(prev => prev.filter(e => e.id !== editId));
+    refetchCalendar();
+    setOpen(false); setDraft(null); setEditId(null);
+  }, [editId, refetchCalendar]);
 
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
@@ -719,7 +760,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         display: 'block',
       },
     ]);
-  }, [draft, calendarId]);
+    refetchCalendar();
+  }, [draft, calendarId, refetchCalendar]);
 
   const updateStart = (iso: string) => {
     if (!draft) return;
@@ -782,18 +824,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     }
   };
-
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter(ev => {
-      const title = (ev.title || '').toLowerCase();
-      const desc = ((ev.extendedProps as any)?.description || '').toLowerCase();
-      const crew = ((ev.extendedProps as any)?.crew || '').toLowerCase();
-      return title.includes(q) || desc.includes(q) || crew.includes(q);
-    });
-  }, [events, searchQuery]);
-  const allEvents = useMemo(() => (holidayOn ? [...filtered, ...holidays] : filtered), [filtered, holidays, holidayOn]);
 
   const eventContent = useCallback((arg: EventContentArg) => {
     const frag = document.createElement('div');
@@ -945,7 +975,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventDurationEditable
               select={handleSelect}
               datesSet={handleDatesSet}
-              events={allEvents}
+              events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
               eventResize={handleEventResize}
@@ -992,7 +1022,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventDurationEditable
               select={handleSelect}
               datesSet={handleDatesSet}
-              events={allEvents}
+              events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
               eventResize={handleEventResize}
@@ -1373,6 +1403,14 @@ function SubtasksEditor({ value, onChange }: { value: { id: string; text: string
     </div>
   );
 }
+
+
+
+
+
+
+
+
 
 
 
