@@ -1,4 +1,4 @@
-﻿-- Align Event table to canonical startsAt/endsAt columns
+-- Align Event table to canonical startsAt/endsAt columns
 DO $$
 BEGIN
   -- Drop legacy columns if they still exist
