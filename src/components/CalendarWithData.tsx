@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent, Suspense } from 'react';
 import Link from 'next/link';
@@ -64,14 +64,36 @@ type EventLikeWithLegacyFields = {
   end?: string | Date | null;
   startsAt?: string | Date | null;
   endsAt?: string | Date | null;
+  allDay?: boolean | null;
 };
 
-type NormalizedEvent<T> = T & { start: string | Date; end: string | Date };
+type NormalizedEvent<T> = T & { start: string; end: string };
 
 function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
-  const startValue: string | Date = obj.start ?? obj.startsAt ?? new Date();
-  const endValue: string | Date = obj.end ?? obj.endsAt ?? startValue;
-  return { ...obj, start: startValue, end: endValue } as NormalizedEvent<T>;
+  const startRaw = obj.start ?? obj.startsAt;
+  if (!startRaw) {
+    const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
+    return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>;
+  }
+  const endRaw = obj.end ?? obj.endsAt ?? startRaw;
+  const allDay = Boolean((obj as { allDay?: boolean }).allDay);
+
+  const cast = (value: string | Date | null | undefined, fallback: string): string => {
+    if (typeof value === 'string' && value.trim().length > 0) return value;
+    if (value instanceof Date) {
+      const iso = value.toISOString();
+      return allDay ? iso.slice(0, 10) : iso;
+    }
+    if (value == null) return fallback;
+    const str = String(value);
+    return str.length ? str : fallback;
+  };
+
+  const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
+  const start = cast(startRaw, fallbackStart);
+  const end = cast(endRaw, start);
+
+  return { ...obj, start, end } as NormalizedEvent<T>;
 }
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
@@ -85,43 +107,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const employees = useMemo(() => getEmployees(), []);
 
   const [events, setEvents] = useState<EventInput[]>([]);
-  useEffect(() => {
-    async function load() {
-      const r = await fetch(`/api/calendars/${calendarId}/events`, { cache: 'no-store' });
-      if (!r.ok) return;
-      const rows = await r.json();
-      setEvents(rows.map((row: any) => {
-        // normalize server fields → ISO strings for FullCalendar
-        const { start, end } = normalizeEvent(row);
-        const startIso = new Date(start).toISOString();
-        const rawEndIso = end ? new Date(end).toISOString() : startIso;
-        const endIso = rawEndIso; // server provides correct exclusivity for all-day
-        const { invoice, payment, vendor, payroll, rest } = splitInvoice(row.description ?? '');
-        return {
-          id: row.id,
-          title: row.title,
-          start: startIso,
-          end: endIso,
-          allDay: !!row.allDay,
-          extendedProps: {
-            location: row.location ?? '',
-            description: rest,
-            invoice,
-            payment,
-            vendor,
-            payroll,
-            type: row.type ?? null,
-            shift: row.shift ?? null,
-            checklist: row.checklist ?? null,
-          },
-          className: typeToClass(row.type),
-          display: 'block',
-        } as EventInput;
-      }));
-    }
-    load().catch(() => {});
-  }, [calendarId]);
-
   const [holidayOn, setHolidayOn] = useState(true);
   const [country, setCountry] = useState('US');
   const [holidays, setHolidays] = useState<EventInput[]>([]);
@@ -148,8 +133,75 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [locInput, setLocInput] = useState('');
   const [quickText, setQuickText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const filterEventsForSearch = useCallback((list: EventInput[]) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(ev => {
+      const title = (ev.title || '').toLowerCase();
+      const desc = ((ev.extendedProps as any)?.description || '').toLowerCase();
+      const crew = ((ev.extendedProps as any)?.crew || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || crew.includes(q);
+    });
+  }, [searchQuery]);
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
+  const refetchCalendar = useCallback(() => {
+    const api = calendarRef.current?.getApi();
+    if (api) api.refetchEvents();
+  }, []);
+  const fetchEventsForView = useCallback(
+    async (
+      info: { startStr?: string; endStr?: string; start?: Date; end?: Date },
+      success: (events: EventInput[]) => void,
+      failure?: (error: Error) => void,
+    ) => {
+      try {
+        const base = new URL(`/api/calendars/${calendarId}/events`, window.location.origin);
+        const startParam = info?.startStr ?? (info?.start ? info.start.toISOString() : null);
+        const endParam = info?.endStr ?? (info?.end ? info.end.toISOString() : null);
+        if (startParam) base.searchParams.set('start', startParam);
+        if (endParam) base.searchParams.set('end', endParam);
+        const res = await fetch(base.toString(), { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const payload = await res.json();
+        const rows = Array.isArray(payload?.events) ? payload.events : Array.isArray(payload) ? payload : [];
+        const mapped = rows.map((row: any) => {
+          const normalized = normalizeEvent(row);
+          const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
+          return {
+            id: normalized.id,
+            title: normalized.title,
+            start: normalized.start,
+            end: normalized.end,
+            allDay: !!normalized.allDay,
+            extendedProps: {
+              location: normalized.location ?? '',
+              description: rest,
+              invoice,
+              payment,
+              vendor,
+              payroll,
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
+            },
+            className: typeToClass(normalized.type),
+            display: 'block',
+          } as EventInput;
+        });
+        setEvents(mapped);
+        const filtered = filterEventsForSearch(mapped);
+        const result = holidayOn ? [...filtered, ...holidays] : filtered;
+        success(result);
+      } catch (err) {
+        console.error(err);
+        const error = err instanceof Error ? err : new Error('Failed to load events');
+        if (failure) failure(error);
+      }
+    },
+    [calendarId, filterEventsForSearch, holidayOn, holidays],
+  );
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
   const touchStart = useRef<number | null>(null);
@@ -169,6 +221,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  useEffect(() => {
+    refetchCalendar();
+  }, [refetchCalendar, searchQuery, holidayOn, holidays]);
 
   useEffect(() => {
     if (descRef.current) {
@@ -280,28 +336,28 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       });
       if (r.ok) {
         const c = await r.json();
-        const { start: s, end: eIso } = normalizeEvent(c);
-        const startIso = new Date(s).toISOString();
-        const endIso = new Date(eIso ?? s).toISOString();
+        const normalized = normalizeEvent(c);
         setEvents(p => [
           ...p,
           {
-            id: c.id,
-            title: c.title,
-            start: startIso,
-            end: endIso,
-            allDay: !!c.allDay,
+            id: normalized.id,
+            title: normalized.title,
+            start: normalized.start,
+            end: normalized.end,
+            allDay: !!normalized.allDay,
             extendedProps: {
-              location: c.location ?? '',
-              ...splitInvoiceProps(c.description ?? ''),
-              type: c.type ?? null,
-              shift: c.shift ?? null,
-              checklist: c.checklist ?? null,
+              location: normalized.location ?? '',
+              ...splitInvoiceProps(normalized.description ?? ''),
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
             },
-            className: typeToClass(c.type),
+            className: typeToClass(normalized.type),
             display: 'block',
           },
         ]);
+        refetchCalendar();
       }
     } else {
       const nowIso = new Date().toISOString();
@@ -310,7 +366,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       setOpen(true);
     }
     setQuickText('');
-  }, [quickText, calendarId]);
+  }, [quickText, calendarId, refetchCalendar]);
 
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
     const res = await fetch(`/api/holidays?year=${year}&country=${cc}`); const json = await res.json();
@@ -418,7 +474,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       try {
         const startIso = fromLocalDateTime(dateStr, '00:00');
         const endIso = startIso;
-        const r = await fetch(`/api/calendars/${calendarId}/events`, {
+        const response: Response = await fetch(`/api/calendars/${calendarId}/events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -433,35 +489,37 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             checklist: meta.locate ? { locate: { ...meta.locate }, subtasks: [] } : null,
           }),
         });
-        if (!r.ok) return;
-        const c = await r.json();
-        const { start: s, end: eIso } = normalizeEvent(c);
+        if (!response.ok) return;
+        const c = await response.json();
+        const normalized = normalizeEvent(c);
         setEvents(p => [
           ...p,
           {
-            id: c.id,
-            title: c.title,
-            start: new Date(s).toISOString(),
-            end: new Date((eIso ?? s)).toISOString(),
-            allDay: !!c.allDay,
+            id: normalized.id,
+            title: normalized.title,
+            start: normalized.start,
+            end: normalized.end,
+            allDay: !!normalized.allDay,
             extendedProps: {
-              location: c.location ?? '',
-              ...splitInvoiceProps(c.description ?? ''),
-              type: c.type ?? null,
-              shift: c.shift ?? null,
-              checklist: c.checklist ?? null,
+              location: normalized.location ?? '',
+              ...splitInvoiceProps(normalized.description ?? ''),
+              type: normalized.type ?? null,
+              shift: normalized.shift ?? null,
+              checklist: normalized.checklist ?? null,
+              calendarId: normalized.calendarId ?? '',
             },
-            className: typeToClass(c.type),
+            className: typeToClass(normalized.type),
             display: 'block',
           },
         ]);
+        refetchCalendar();
         try { await fetch(`/api/todos/${id}`, { method: 'DELETE' }); } catch {}
         setTodos(p => p.filter(t => t.id !== id));
       } catch {}
     };
     el.addEventListener('dragover', onDragOver as any);
     el.addEventListener('drop', onDrop as any);
-  }, [weather, coords, calendarId]);
+  }, [weather, coords, calendarId, refetchCalendar]);
 
   useEffect(() => {
     const cells = document.querySelectorAll('.fc-daygrid-day');
@@ -563,11 +621,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const updateEventById = useCallback((id: string, patch: Partial<NewEvent>) => {
     setEvents(prev => prev.map(ev => ev.id === id ? { ...ev, start: patch.start ?? (ev.start as string), end: patch.end ?? (ev.end as string | undefined), allDay: patch.allDay ?? (ev.allDay as boolean) } : ev));
-  }, []);
+    refetchCalendar();
+  }, [refetchCalendar]);
 
   const handleEventDrop = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
-    const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
+    const newStart = e.startStr ?? e.start?.toISOString() ?? null;
+    const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
@@ -578,7 +638,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleEventResize = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
-    const newStart = e.start?.toISOString(); const newEnd = e.end ? e.end.toISOString() : newStart;
+    const newStart = e.startStr ?? e.start?.toISOString() ?? null;
+    const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
     if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
     else {
@@ -591,66 +652,65 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft?.title) return;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to update event');
         return;
       }
       const u = await r.json();
-      const { start: s, end: eIso } = normalizeEvent(u);
-      const startIso = new Date(s).toISOString();
-      const endIso = new Date(eIso ?? s).toISOString();
+      const normalized = normalizeEvent(u);
       setEvents(prev => prev.map(ev => (ev.id === editId ? {
-        id: u.id,
-        title: u.title,
-        start: startIso,
-        end: endIso,
-        allDay: !!u.allDay,
+        id: normalized.id,
+        title: normalized.title,
+        start: normalized.start,
+        end: normalized.end,
+        allDay: !!normalized.allDay,
         extendedProps: {
-          location: u.location ?? '',
-          ...splitInvoiceProps(u.description ?? ''),
-          type: u.type ?? null,
-          shift: u.shift ?? null,
-          checklist: u.checklist ?? null,
+          location: normalized.location ?? '',
+          ...splitInvoiceProps(normalized.description ?? ''),
+          type: normalized.type ?? null,
+          shift: normalized.shift ?? null,
+          checklist: normalized.checklist ?? null,
+          calendarId: normalized.calendarId ?? '',
         },
-        className: typeToClass(u.type),
+        className: typeToClass(normalized.type),
         display: 'block',
         } : ev)));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to create event');
         return;
       }
       const c = await r.json();
-      const { start: s, end: eIso } = normalizeEvent(c);
-      const startIso = new Date(s).toISOString();
-      const endIso = new Date(eIso ?? s).toISOString();
+      const normalized = normalizeEvent(c);
       setEvents(p => [
         ...p,
         {
-          id: c.id,
-          title: c.title,
-          start: startIso,
-          end: endIso,
-          allDay: !!c.allDay,
+          id: normalized.id,
+          title: normalized.title,
+          start: normalized.start,
+          end: normalized.end,
+          allDay: !!normalized.allDay,
           extendedProps: {
-            location: c.location ?? '',
-            ...splitInvoiceProps(c.description ?? ''),
-            type: c.type ?? null,
-            shift: c.shift ?? null,
-            checklist: c.checklist ?? null,
+            location: normalized.location ?? '',
+            ...splitInvoiceProps(normalized.description ?? ''),
+            type: normalized.type ?? null,
+            shift: normalized.shift ?? null,
+            checklist: normalized.checklist ?? null,
+            calendarId: normalized.calendarId ?? '',
           },
-          className: typeToClass(c.type),
+          className: typeToClass(normalized.type),
           display: 'block',
         },
       ]);
+      refetchCalendar();
     }
     setOpen(false); setDraft(null); setEditId(null);
-  }, [draft, editId, calendarId]);
+  }, [draft, editId, calendarId, refetchCalendar]);
 
   useEffect(() => {
     if (!open) return;
@@ -664,8 +724,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const deleteCurrent = useCallback(async () => {
     if (!editId) return; await fetch(`/api/events/${editId}`, { method: 'DELETE' });
-    setEvents(prev => prev.filter(e => e.id !== editId)); setOpen(false); setDraft(null); setEditId(null);
-  }, [editId]);
+    setEvents(prev => prev.filter(e => e.id !== editId));
+    refetchCalendar();
+    setOpen(false); setDraft(null); setEditId(null);
+  }, [editId, refetchCalendar]);
 
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
@@ -677,29 +739,29 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       return;
     }
     const c = await r.json();
-    const { start: s, end: eIso } = normalizeEvent(c);
-    const startIso = new Date(s).toISOString();
-    const endIso = new Date(eIso ?? s).toISOString();
+    const normalized = normalizeEvent(c);
     setEvents(p => [
       ...p,
       {
-        id: c.id,
-        title: c.title,
-        start: startIso,
-        end: endIso,
-        allDay: !!c.allDay,
+        id: normalized.id,
+        title: normalized.title,
+        start: normalized.start,
+        end: normalized.end,
+        allDay: !!normalized.allDay,
         extendedProps: {
-          location: c.location ?? '',
-          ...splitInvoiceProps(c.description ?? ''),
-          type: c.type ?? null,
-          shift: c.shift ?? null,
-          checklist: c.checklist ?? null,
+          location: normalized.location ?? '',
+          ...splitInvoiceProps(normalized.description ?? ''),
+          type: normalized.type ?? null,
+          shift: normalized.shift ?? null,
+          checklist: normalized.checklist ?? null,
+          calendarId: normalized.calendarId ?? '',
         },
-        className: typeToClass(c.type),
+        className: typeToClass(normalized.type),
         display: 'block',
       },
     ]);
-  }, [draft, calendarId]);
+    refetchCalendar();
+  }, [draft, calendarId, refetchCalendar]);
 
   const updateStart = (iso: string) => {
     if (!draft) return;
@@ -762,18 +824,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     }
   };
-
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter(ev => {
-      const title = (ev.title || '').toLowerCase();
-      const desc = ((ev.extendedProps as any)?.description || '').toLowerCase();
-      const crew = ((ev.extendedProps as any)?.crew || '').toLowerCase();
-      return title.includes(q) || desc.includes(q) || crew.includes(q);
-    });
-  }, [events, searchQuery]);
-  const allEvents = useMemo(() => (holidayOn ? [...filtered, ...holidays] : filtered), [filtered, holidays, holidayOn]);
 
   const eventContent = useCallback((arg: EventContentArg) => {
     const frag = document.createElement('div');
@@ -908,6 +958,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -924,7 +975,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventDurationEditable
               select={handleSelect}
               datesSet={handleDatesSet}
-              events={allEvents}
+              events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
               eventResize={handleEventResize}
@@ -954,6 +1005,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -970,7 +1022,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventDurationEditable
               select={handleSelect}
               datesSet={handleDatesSet}
-              events={allEvents}
+              events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
               eventResize={handleEventResize}
@@ -1351,6 +1403,14 @@ function SubtasksEditor({ value, onChange }: { value: { id: string; text: string
     </div>
   );
 }
+
+
+
+
+
+
+
+
 
 
 

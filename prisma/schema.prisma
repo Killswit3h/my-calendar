@@ -33,8 +33,8 @@ model Event {
   description    String?
 
   // Map to existing DB columns
-  start          DateTime  @map("startsAt")
-  end            DateTime  @map("endsAt")
+  startsAt       DateTime
+  endsAt         DateTime
 
   allDay         Boolean   @default(true)
   location       String?
@@ -49,7 +49,7 @@ model Event {
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   // Use model field names in indexes
-  @@index([calendarId, start])
+  @@index([calendarId, startsAt])
   @@map("Event")
 }
 

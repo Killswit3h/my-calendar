@@ -1,15 +1,7 @@
-export const runtime = 'nodejs';
+﻿export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/db';
-
-type DebugSampleRow = {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  allDay: boolean;
-};
 
 export async function GET() {
   try {
@@ -18,17 +10,17 @@ export async function GET() {
     const host = new URL(process.env.DATABASE_URL!).host;
 
     const count = await prisma.event.count();
-    const first: DebugSampleRow[] = await prisma.event.findMany({
-      orderBy: { start: 'asc' },
+    const first: { id: string; title: string; startsAt: Date; endsAt: Date; allDay: boolean }[] = await prisma.event.findMany({
+      orderBy: { startsAt: 'asc' },
       take: 5,
-      select: { id: true, title: true, start: true, end: true, allDay: true },
+      select: { id: true, title: true, startsAt: true, endsAt: true, allDay: true },
     });
 
     const sample = first.map((e) => ({
       id: e.id,
       title: e.title,
-      startsAt: e.start,
-      endsAt: e.end,
+      startsAt: e.startsAt,
+      endsAt: e.endsAt,
       allDay: e.allDay,
     }));
 
@@ -37,3 +29,4 @@ export async function GET() {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
+

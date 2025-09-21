@@ -3,6 +3,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 
@@ -14,6 +15,108 @@ const cors = {
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: cors as any })
+}
+
+type EventInsert = {
+  calendarId: string
+  title: string
+  description: string
+  startsAt: Date
+  endsAt: Date
+  allDay: boolean
+  location: string
+  type: EventType | null
+  shift: WorkShift | null
+  checklist: unknown | null
+}
+
+type PrismaEventRow = {
+  id: string
+  calendarId: string
+  title: string
+  description: string | null
+  startsAt: Date
+  endsAt: Date
+  allDay: boolean
+  location: string | null
+  type: EventType | null
+  shift: WorkShift | null
+  checklist: unknown | null
+  attachmentName: string | null
+  attachmentType: string | null
+}
+
+let legacyColumnsHandled = false
+
+async function ensureLegacyStartColumnsHandled(p: any) {
+  if (legacyColumnsHandled) return
+  legacyColumnsHandled = true
+  const rows = (await p.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Event' AND column_name IN ('start','end')`) as Array<{ column_name: string }>
+  if (!rows.length) return
+  try {
+    await p.$executeRawUnsafe('ALTER TABLE "public"."Event" DROP COLUMN IF EXISTS "start", DROP COLUMN IF EXISTS "end"')
+    return
+  } catch (_) {
+    try {
+      await p.$executeRawUnsafe('ALTER TABLE "public"."Event" ALTER COLUMN "start" DROP NOT NULL, ALTER COLUMN "end" DROP NOT NULL')
+    } catch (_) {
+      // leave legacy columns as-is; fallback insert will handle them
+    }
+  }
+}
+
+async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEventRow> {
+  await ensureLegacyStartColumnsHandled(p)
+  try {
+    return await p.event.create({
+      data,
+      select: {
+        id: true,
+        calendarId: true,
+        title: true,
+        description: true,
+        startsAt: true,
+        endsAt: true,
+        allDay: true,
+        location: true,
+        type: true,
+        shift: true,
+        checklist: true,
+        attachmentName: true,
+        attachmentType: true,
+      },
+    })
+  } catch (error) {
+    const rows = (await p.$queryRawUnsafe(
+      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$4,$5) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","attachmentName","attachmentType"',
+      data.calendarId,
+      data.title,
+      data.description,
+      data.startsAt,
+      data.endsAt,
+      data.allDay,
+      data.location,
+      data.type,
+      data.shift,
+      data.checklist === null ? null : JSON.stringify(data.checklist),
+    )) as Array<Record<string, any>>
+    const row = rows[0]
+    return {
+      id: row.id,
+      calendarId: row.calendarId,
+      title: row.title,
+      description: row.description,
+      startsAt: new Date(row.startsAt),
+      endsAt: new Date(row.endsAt),
+      allDay: row.allDay,
+      location: row.location,
+      type: row.type,
+      shift: row.shift,
+      checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : row.checklist,
+      attachmentName: row.attachmentName ?? null,
+      attachmentType: row.attachmentType ?? null,
+    }
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -90,34 +193,17 @@ export async function POST(req: NextRequest) {
         create: { id: String(b.calendarId), name: 'Default' },
       })
 
-      return p.event.create({
-        data: {
-          calendarId: String(b.calendarId),
-          title: String(b.title),
-          description: (b.description ?? '') || '',
-          startsAt,
-          endsAt,
-          allDay: !!b.allDay,
-          location: (b.location ?? '') || '',
-          type: b.type ?? null,
-          shift: b.shift ?? null,
-          checklist: b.checklist ?? null,
-        },
-        select: {
-          id: true,
-          calendarId: true,
-          title: true,
-          description: true,
-          startsAt: true,
-          endsAt: true,
-          allDay: true,
-          location: true,
-          type: true,
-          shift: true,
-          checklist: true,
-          attachmentName: true,
-          attachmentType: true,
-        },
+      return insertEventCompat(p, {
+        calendarId: String(b.calendarId),
+        title: String(b.title),
+        description: (b.description ?? '') || '',
+        startsAt,
+        endsAt,
+        allDay: !!b.allDay,
+        location: (b.location ?? '') || '',
+        type: (b.type ?? null) as EventType | null,
+        shift: (b.shift ?? null) as WorkShift | null,
+        checklist: b.checklist ?? null,
       })
     }, null as any)
 

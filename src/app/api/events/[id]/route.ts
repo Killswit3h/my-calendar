@@ -1,10 +1,23 @@
-// src/app/api/events/[id]/route.ts
+﻿// src/app/api/events/[id]/route.ts
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
+
+type PatchPayload = {
+  title?: string
+  description?: string | null
+  location?: string | null
+  type?: string | null
+  allDay?: boolean
+  start?: string
+  end?: string
+  startsAt?: string
+  endsAt?: string
+}
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -18,29 +31,36 @@ export function OPTIONS() {
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const b = await req.json().catch(() => null)
-  if (!b) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: cors as any })
+  const body = (await req.json().catch(() => null)) as PatchPayload | null
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: cors as any })
+  }
 
-  const data: any = {}
-  if ('title' in b) data.title = b.title
-  if ('description' in b) data.description = b.description ?? null
-  if ('location' in b) data.location = b.location ?? null
-  if ('type' in b) data.type = b.type ?? null
-  if ('allDay' in b) data.allDay = !!b.allDay
+  const data: Record<string, any> = {}
+  if ('title' in body) data.title = body.title
+  if ('description' in body) data.description = body.description ?? null
+  if ('location' in body) data.location = body.location ?? null
+  if ('type' in body) data.type = body.type ?? null
+  if ('allDay' in body) data.allDay = !!body.allDay
 
-  // accept start|startsAt and end|endsAt
-  if (b.start || b.startsAt) {
-    const d = new Date(b.start ?? b.startsAt)
-    if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid start' }, { status: 400, headers: cors as any })
+  if (body.start || body.startsAt) {
+    const d = new Date(body.start ?? body.startsAt ?? '')
+    if (Number.isNaN(d.getTime())) {
+      return NextResponse.json({ error: 'Invalid startsAt' }, { status: 400, headers: cors as any })
+    }
     data.startsAt = d
   }
-  if (b.end || b.endsAt) {
-    const d = new Date(b.end ?? b.endsAt)
-    if (isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid end' }, { status: 400, headers: cors as any })
+
+  if (body.end || body.endsAt) {
+    const d = new Date(body.end ?? body.endsAt ?? '')
+    if (Number.isNaN(d.getTime())) {
+      return NextResponse.json({ error: 'Invalid endsAt' }, { status: 400, headers: cors as any })
+    }
     data.endsAt = d
   }
+
   if (data.startsAt && data.endsAt && data.endsAt <= data.startsAt) {
-    return NextResponse.json({ error: 'end must be after start' }, { status: 400, headers: cors as any })
+    return NextResponse.json({ error: 'endsAt must be after startsAt' }, { status: 400, headers: cors as any })
   }
 
   if (Object.keys(data).length === 0) {
@@ -63,22 +83,31 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             allDay: true,
             location: true,
             type: true,
+            shift: true,
+            checklist: true,
           },
         }),
       null as any,
     )
 
-    const payload = {
+    if (!updated) {
+      return NextResponse.json({ error: 'database unavailable' }, { status: 503, headers: cors as any })
+    }
+
+    const payload = serializeCalendarEvent({
       id: updated.id,
       calendarId: updated.calendarId,
       title: updated.title,
-      description: updated.description,
-      start: updated.startsAt,
-      end: updated.endsAt,
+      description: updated.description ?? '',
+      startsAt: updated.startsAt,
+      endsAt: updated.endsAt,
       allDay: updated.allDay,
-      location: updated.location,
-      type: updated.type,
-    }
+      location: updated.location ?? '',
+      type: updated.type ?? null,
+      shift: updated.shift ?? null,
+      checklist: updated.checklist ?? null,
+    })
+
     return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {
     const msg = String(e?.message ?? '')
