@@ -2,54 +2,85 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
-import { serializeCalendarEvent, serializeCalendarEvents } from '@/lib/events/serializer'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
 import type { EventRowLike } from '@/lib/events/serializer'
 
+const DAY_IN_MS = 86_400_000
+
 type DebugEventRow = EventRowLike & {
-  start: Date
-  end: Date
-  allDay: boolean
+  id: string
+  calendarId: string
+  title: string
   description: string | null
+  startsAt: Date
+  endsAt: Date
+  allDay: boolean
   location: string | null
-  type: 'GUARDRAIL' | 'FENCE' | 'TEMP_FENCE' | 'HANDRAIL' | 'ATTENUATOR' | null
-  shift: 'DAY' | 'NIGHT' | null
+  type: string | null
+  shift: string | null
   checklist: unknown | null
 }
 
-function parseTake(v: string | null): number {
-  const n = Number.parseInt(v ?? '', 10)
-  if (!Number.isFinite(n) || n <= 0) return 5
-  return Math.min(50, n)
+const ymdUTC = (date: Date): string => {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const toDebugSample = (row: DebugEventRow) => {
+  if (row.allDay) {
+    const start = new Date(row.startsAt)
+    const exclusiveEnd = new Date(row.endsAt)
+    const inclusiveEnd = new Date(exclusiveEnd.getTime() - DAY_IN_MS)
+    return {
+      id: row.id,
+      calendarId: row.calendarId,
+      title: row.title,
+      description: row.description ?? '',
+      startsAt: ymdUTC(start),
+      endsAt: ymdUTC(inclusiveEnd),
+      allDay: true,
+    }
+  }
+  return {
+    id: row.id,
+    calendarId: row.calendarId,
+    title: row.title,
+    description: row.description ?? '',
+    startsAt: row.startsAt.toISOString(),
+    endsAt: row.endsAt.toISOString(),
+    allDay: false,
+  }
 }
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const calendarId = url.searchParams.get('calendarId')
-  const take = parseTake(url.searchParams.get('take'))
+  const take = Math.min(50, Math.max(1, Number.parseInt(url.searchParams.get('take') ?? '5', 10) || 5))
 
   const rows = await tryPrisma<DebugEventRow[]>(
     async (p) => {
       const where: Record<string, any> = {}
       if (calendarId) where.calendarId = calendarId
-      const out = await p.event.findMany({
+      return (await p.event.findMany({
         where,
-        orderBy: { start: 'asc' },
+        orderBy: { startsAt: 'asc' },
         take,
         select: {
           id: true,
           calendarId: true,
           title: true,
           description: true,
-          start: true,
-          end: true,
+          startsAt: true,
+          endsAt: true,
           allDay: true,
           location: true,
           type: true,
           shift: true,
           checklist: true,
         },
-      })
-      return out as DebugEventRow[]
+      })) as DebugEventRow[]
     },
     [] as DebugEventRow[],
   )
@@ -57,7 +88,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     calendarId: calendarId ?? null,
     count: rows.length,
-    events: serializeCalendarEvents(rows),
-    sampleSingle: rows.length ? serializeCalendarEvent(rows[0]) : null,
+    events: rows.map(row => serializeCalendarEvent(row)),
+    sampleSingle: rows.length ? toDebugSample(rows[0]) : null,
   })
 }
