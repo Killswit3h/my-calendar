@@ -1,5 +1,6 @@
 // src/server/reports/queries.ts
 import { getPrisma } from "@/lib/db"
+import { getEmployees } from "@/employees"
 
 export type ReportRow = {
   project: string
@@ -10,6 +11,7 @@ export type ReportRow = {
   payment: string // Daily | Adjusted
   vendor: string | null
   timeUnit: string // Day | Hour | Lump Sum
+  shift: string // Day | Night | ''
   notes: string
 }
 
@@ -23,29 +25,30 @@ function getTz(): string {
   return process.env.REPORT_TIMEZONE || "America/New_York"
 }
 
-function toTzDate(d: Date, tz: string): Date {
-  const fmt = new Intl.DateTimeFormat("en-US", {
+function tzOffsetMs(at: Date, tz: string): number {
+  const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
   })
-  const parts = fmt.formatToParts(d)
-  const get = (t: string) => Number(parts.find(p => p.type === t)?.value || "0")
-  return new Date(Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")))
+  const parts = fmt.formatToParts(at)
+  const get = (t: string) => Number(parts.find(p => p.type === t)?.value || '0')
+  const asUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+  return asUTC - at.getTime()
+}
+
+function fromZonedYmdToUtc(y: number, m: number, d: number, tz: string): Date {
+  // Pretend local time (in tz) is UTC, then subtract the zone offset at that instant
+  const pretend = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
+  const offset = tzOffsetMs(pretend, tz)
+  return new Date(pretend.getTime() - offset)
 }
 
 function dayStartEnd(date: string, tz = getTz()): { start: Date; end: Date } {
-  const [y, m, d] = date.split("-").map(Number)
-  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
-  const end = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999))
-  const s = toTzDate(start, tz)
-  const e = toTzDate(end, tz)
-  return { start: s, end: e }
+  const [y, m, d] = date.split('-').map(Number)
+  const start = fromZonedYmdToUtc(y, m, d, tz)
+  const next = fromZonedYmdToUtc(y, m, d + 1, tz)
+  return { start, end: next }
 }
 
 function parseMeta(description: string): {
@@ -103,15 +106,20 @@ export async function getEventsForDay(dateYmd: string, vendor?: string | null): 
   const rowsDb = await p.event.findMany({
     where: { OR: [{ startsAt: { lte: end }, endsAt: { gte: start } }] },
     orderBy: [{ title: "asc" }, { startsAt: "asc" }],
-    select: { title: true, description: true, type: true, checklist: true },
+    select: { title: true, description: true, type: true, checklist: true, shift: true },
   })
 
-  type Row = { title: string | null; description: string | null; type: string | null; checklist: unknown }
+  type Row = { title: string | null; description: string | null; type: string | null; checklist: unknown; shift?: string | null }
+
+  // Map employee id -> display name for crew listing
+  const employees = getEmployees()
+  const nameById = new Map<string, string>(employees.map(e => [e.id, `${e.firstName} ${e.lastName}`]))
 
   const all: ReportRow[] = (rowsDb as Row[]).map((e: Row) => {
     const meta = parseMeta(e.description || "")
     const cl: any = e.checklist as any
-    const crew: string[] = Array.isArray(cl?.employees) ? (cl.employees as string[]) : []
+    const crewIds: string[] = Array.isArray(cl?.employees) ? (cl.employees as string[]) : []
+    const crew: string[] = crewIds.map(id => nameById.get(id) || id)
     const work = workFromType(e.type ?? null, meta.notes)
     const timeUnit = /adjusted/i.test(meta.payment) ? "Hour" : "Day"
     return {
@@ -123,6 +131,7 @@ export async function getEventsForDay(dateYmd: string, vendor?: string | null): 
       payment: meta.payment || "",
       vendor: meta.vendor ? meta.vendor.toUpperCase() : null,
       timeUnit,
+      shift: (e.shift || '').toString().toUpperCase() === 'NIGHT' ? 'Night' : 'Day',
       notes: meta.notes,
     }
   })

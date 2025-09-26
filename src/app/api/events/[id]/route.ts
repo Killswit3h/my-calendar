@@ -17,6 +17,7 @@ type PatchPayload = {
   end?: string
   startsAt?: string
   endsAt?: string
+  checklist?: unknown | null
 }
 
 const cors = {
@@ -42,6 +43,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ('location' in body) data.location = body.location ?? null
   if ('type' in body) data.type = body.type ?? null
   if ('allDay' in body) data.allDay = !!body.allDay
+  if ('checklist' in body) data.checklist = body.checklist ?? null
 
   if (body.start || body.startsAt) {
     const d = new Date(body.start ?? body.startsAt ?? '')
