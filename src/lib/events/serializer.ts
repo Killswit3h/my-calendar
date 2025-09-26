@@ -80,6 +80,15 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
   let startDate = toDate(row.start ?? row.startsAt)
   let endDate = toDate(row.end ?? row.endsAt)
 
+  // Normalize checklist: accept object or JSON string; always return object/null
+  const parsedChecklist = (() => {
+    const v = (row as any).checklist as unknown
+    if (typeof v === 'string') {
+      try { return JSON.parse(v) } catch { return v }
+    }
+    return v ?? null
+  })()
+
   if (!startDate) {
     if (allDay && endDate) {
       startDate = new Date(endDate.getTime() - DAY_IN_MS)
@@ -112,7 +121,7 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
       location: row.location ?? '',
       type: row.type ?? null,
       shift: row.shift ?? null,
-      checklist: row.checklist ?? null,
+      checklist: parsedChecklist,
     }
   }
 
@@ -131,7 +140,7 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
     location: row.location ?? '',
     type: row.type ?? null,
     shift: row.shift ?? null,
-    checklist: row.checklist ?? null,
+    checklist: parsedChecklist,
   }
 }
 

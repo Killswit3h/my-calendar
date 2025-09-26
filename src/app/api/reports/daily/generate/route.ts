@@ -12,12 +12,23 @@ import { storeFile } from '@/server/blob'
 
 function okRole(): boolean { return true } // TODO: replace with real auth
 
+function normalizeYmd(input: string | null | undefined): string | null {
+  const s = (input || '').trim()
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return null
+  const y = m[1]
+  const mm = String(Number(m[2])).padStart(2, '0')
+  const dd = String(Number(m[3])).padStart(2, '0')
+  return `${y}-${mm}-${dd}`
+}
+
 export async function POST(req: NextRequest) {
   if (!okRole()) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
-  const body = (await req.json().catch(() => null)) as { date?: string; vendor?: string | null } | null
-  const date = (body?.date || '').trim()
+  const body = (await req.json().catch(() => null)) as { date?: string; vendor?: string | null; force?: boolean } | null
+  const date = normalizeYmd(body?.date || '') || ''
   const vendor = (body?.vendor ?? null) as string | null
+  const force = !!body?.force
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: 'date_required' }, { status: 400 })
 
   const p = await getPrisma()
@@ -25,18 +36,21 @@ export async function POST(req: NextRequest) {
   try {
     // Debounce duplicates: reuse within 24h
     const reportDate = new Date(date)
-    const existing = await p.reportFile.findFirst({
-      where: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true, blobUrl: true },
-    })
-    if (existing && Date.now() - new Date(existing.createdAt).getTime() < 24 * 60 * 60 * 1000) {
-      const x = await p.reportFile.findFirst({
-        where: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null },
+    const devNoBlob = !process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'production'
+    if (!force && !devNoBlob) {
+      const existing = await p.reportFile.findFirst({
+        where: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null },
         orderBy: { createdAt: 'desc' },
-        select: { blobUrl: true },
+        select: { createdAt: true, blobUrl: true },
       })
-      return NextResponse.json({ pdfUrl: existing.blobUrl, xlsxUrl: x?.blobUrl ?? null })
+      if (existing && Date.now() - new Date(existing.createdAt).getTime() < 60 * 60 * 1000) {
+        const x = await p.reportFile.findFirst({
+          where: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null },
+          orderBy: { createdAt: 'desc' },
+          select: { blobUrl: true },
+        })
+        return NextResponse.json({ pdfUrl: existing.blobUrl, xlsxUrl: x?.blobUrl ?? null })
+      }
     }
 
     const snapshot = await getEventsForDay(date, vendor ?? null)

@@ -849,6 +849,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [highlightText, searchQuery]);
 
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  const [reportDate, setReportDate] = useState<string>('');
   const reloadTodos = useCallback(async () => {
     try {
       const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
@@ -933,15 +935,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
           <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
           <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
-          <button className="btn" onClick={async () => {
+          <button className="btn" onClick={() => {
             const mid = visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2) : new Date();
-            const ymd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
-            try {
-              const r = await fetch('/api/reports/daily/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: ymd, vendor: null }) });
-              const j = await r.json();
-              if (r.ok && j.pdfUrl) window.open(j.pdfUrl, '_blank'); else alert(j.error || 'Failed to generate');
-            } catch { alert('Failed to generate'); }
-          }}>Generate Today’s Report</button>
+            const defaultYmd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
+            setReportDate(defaultYmd);
+            setReportPickerOpen(true);
+          }}>Generate Daily Report</button>
           <Link href="/customers" className="btn">Customers</Link>
           <Suspense fallback={<span className="btn">Employees</span>}>
             <EmployeesLink />
@@ -1032,6 +1031,33 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           />
         </div>
       )}
+
+      {/* daily report date picker */}
+      {reportPickerOpen ? (
+        <div className="modal-root">
+          <div className="modal-card" style={{ maxWidth: '360px' }}>
+            <h3 className="modal-title">Generate Daily Report</h3>
+            <div className="form-grid form-compact">
+              <label><div className="label">Date</div>
+                <input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setReportPickerOpen(false)}>Cancel</button>
+              <button className="btn primary" onClick={async () => {
+                const ymd = reportDate.trim();
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) { alert('Invalid date'); return; }
+                try {
+                  const r = await fetch('/api/reports/daily/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: ymd, vendor: null, force: true }) });
+                  const j = await r.json();
+                  if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); setReportPickerOpen(false); }
+                  else alert(j.error || 'Failed to generate');
+                } catch { alert('Failed to generate'); }
+              }}>Generate</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* modal */}
       {open && draft ? (
