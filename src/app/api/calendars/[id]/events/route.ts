@@ -106,7 +106,8 @@ const parseDateOnlyUTC = (value: unknown): Date | null => {
 
 const toExclusiveEnd = (startOfDay: Date): Date => new Date(startOfDay.getTime() + DAY_IN_MS)
 
-const serialize = (row: PrismaEventRow) => serializeCalendarEvent(row)
+// For calendar UI, serialize all-day dates in UTC to avoid client timezone shifts.
+const serialize = (row: PrismaEventRow) => serializeCalendarEvent(row, { timezone: 'UTC' })
 
 function toBool(v: unknown, def = true): boolean {
   if (typeof v === 'boolean') return v
@@ -285,12 +286,16 @@ export async function POST(
     if (!startDay) {
       return NextResponse.json({ error: 'valid startsAt required for all-day event' }, { status: 400 })
     }
-    let endDay = endInput ? parseDateOnlyUTC(endInput) : null
-    if (!endDay || endDay < startDay) {
-      endDay = startDay
-    }
+    // Treat provided all-day end as EXCLUSIVE. If omitted or invalid/<= start, default to +1 day.
+    const endDay = endInput ? parseDateOnlyUTC(endInput) : null
     startsAt = startDay
-    endsAt = toExclusiveEnd(endDay)
+    if (endDay && endDay.getTime() > startDay.getTime()) {
+      // endDay is already exclusive
+      endsAt = endDay
+    } else {
+      // ensure at least one-day duration
+      endsAt = toExclusiveEnd(startDay)
+    }
   } else {
     const startDate = parseDateTime(startInput)
     const endDate = parseDateTime(endInput)
