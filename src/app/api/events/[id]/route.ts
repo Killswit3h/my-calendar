@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       type: updated.type ?? null,
       shift: updated.shift ?? null,
       checklist: updated.checklist ?? null,
-    })
+    }, { timezone: 'UTC' })
 
     return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {
