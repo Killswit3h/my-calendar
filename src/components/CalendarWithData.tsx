@@ -12,6 +12,7 @@ import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
+import UnassignedSidebar from '@/components/UnassignedSidebar';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -145,6 +146,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [searchQuery]);
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
+  const [visibleDate, setVisibleDate] = useState<Date | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const refetchCalendar = useCallback(() => {
     const api = calendarRef.current?.getApi();
     if (api) api.refetchEvents();
@@ -410,6 +413,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setVisibleRange({ start: arg.start, end: arg.end });
     setCurrentView(arg.view.type);
     const mid = new Date((arg.start.getTime() + arg.end.getTime()) / 2);
+    setVisibleDate(mid);
     const y = mid.getUTCFullYear();
     fetchHolidays(y, country);
     if (coords) fetchWeather(arg.start, arg.end, coords);
@@ -451,6 +455,42 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       dayNum.parentNode.insertBefore(a, dayNum);
     } else {
       top.insertBefore(a, top.firstChild);
+    }
+
+    // Add a small plus button at bottom-right for creating an event
+    const frame = cell.querySelector('.fc-daygrid-day-frame') as HTMLElement | null;
+    if (frame) {
+      const prev = frame.querySelector('.day-add-btn');
+      if (prev) prev.remove();
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day-add-btn';
+      btn.title = 'Add event';
+      btn.setAttribute('aria-label', `Add event on ${ymd}`);
+      btn.textContent = '+';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const parts = ymd.split('-').map(n => parseInt(n, 10));
+        const d = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0, 0);
+        const startLocal = dateToLocalInput(d);
+        setEditId(null);
+        setDraft({
+          title: 'Event',
+          start: fromLocalInput(startLocal),
+          end: fromLocalInput(startLocal),
+          allDay: true,
+          location: '',
+          description: '',
+          type: 'FENCE',
+          payment: 'DAILY',
+          vendor: 'JORGE',
+          payroll: false,
+          shift: 'DAY',
+          checklist: defaultChecklist(),
+        });
+        setOpen(true);
+      });
+      frame.appendChild(btn);
     }
   };
 
@@ -526,6 +566,50 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     cells.forEach(injectBadgeIntoCell);
   }, [weather, coords]);
 
+  const handleDateClick = useCallback((arg: { date: Date }) => {
+    setSelectedDay(new Date(arg.date.getFullYear(), arg.date.getMonth(), arg.date.getDate()));
+  }, []);
+
+  const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
+    // Prefill an all-day event on the selected local day with the chosen employee
+    const startLocal = dateToLocalInput(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
+    setDraft({
+      title: 'Event',
+      start: startLocal,
+      end: startLocal,
+      allDay: true,
+      location: '',
+      description: '',
+      type: 'FENCE',
+      payment: 'DAILY',
+      vendor: 'JORGE',
+      payroll: false,
+      checklist: { ...(defaultChecklist()), employees: [employeeId] },
+    });
+    setEditId(null);
+    setOpen(true);
+  }, []);
+
+  const handleSidebarSetYard = useCallback((employeeId: string, day: Date) => {
+    // Prefill an all-day Yard/Shop event for the selected day and employee
+    const startLocal = dateToLocalInput(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
+    setDraft({
+      title: 'Yard/Shop',
+      start: startLocal,
+      end: startLocal,
+      allDay: true,
+      location: 'Yard/Shop',
+      description: '',
+      type: 'FENCE',
+      payment: 'DAILY',
+      vendor: 'JORGE',
+      payroll: false,
+      checklist: { ...(defaultChecklist()), employees: [employeeId] },
+    });
+    setEditId(null);
+    setOpen(true);
+  }, []);
+
   async function geocode(q: string): Promise<{ lat: number; lon: number } | null> {
     const m = q.split(',').map(x => x.trim());
     if (m.length === 2 && !isNaN(Number(m[0])) && !isNaN(Number(m[1]))) {
@@ -560,7 +644,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       shift: 'DAY',
       checklist: defaultChecklist(),
     });
-
+    if (sel.start) setSelectedDay(new Date(sel.start.getFullYear(), sel.start.getMonth(), sel.start.getDate()));
     setOpen(true);
   }, []);
 
@@ -967,13 +1051,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               windowResizeDelay={100}
               dayMaxEventRows
               fixedWeekCount={false}
-              selectable
-              selectMirror
+              
               editable
               eventStartEditable
               eventDurationEditable
-              select={handleSelect}
+              
               datesSet={handleDatesSet}
+              dateClick={handleDateClick}
               events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
@@ -984,6 +1068,19 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             />
           </div>
           <div className="details-pane surface" style={{ padding: '1rem' }}>
+            {selectedDay ? (
+              <UnassignedSidebar
+                employees={employees}
+                events={events}
+                selectedDate={selectedDay}
+                weekStartsOn={1}
+                onQuickAdd={handleSidebarQuickAdd}
+                onSetYard={handleSidebarSetYard}
+              />
+            ) : (
+              <div className="muted-sm">Click a day to see unassigned employees</div>
+            )}
+            <div style={{ height: '1rem' }} />
             {selectedEvent ? (
               <div>
                 <h3 dangerouslySetInnerHTML={{ __html: highlightText(selectedEvent.title || '', searchQuery) }} />
@@ -998,7 +1095,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
         </div>
       ) : (
-        <div className="surface p-2 calendar-bleed" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <div className="tablet-split calendar-bleed" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className="calendar-pane surface p-2">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
@@ -1014,13 +1112,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               windowResizeDelay={100}
               dayMaxEventRows
               fixedWeekCount={false}
-              selectable
-              selectMirror
+              
               editable
               eventStartEditable
               eventDurationEditable
-              select={handleSelect}
+              
               datesSet={handleDatesSet}
+              dateClick={handleDateClick}
               events={fetchEventsForView}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
@@ -1028,7 +1126,22 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
               buttonText={{ today: 'Today' }}
               eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
-          />
+            />
+          </div>
+          <div className="details-pane surface" style={{ padding: '1rem' }}>
+            {selectedDay ? (
+              <UnassignedSidebar
+                employees={employees}
+                events={events}
+                selectedDate={selectedDay}
+                weekStartsOn={1}
+                onQuickAdd={handleSidebarQuickAdd}
+                onSetYard={handleSidebarSetYard}
+              />
+            ) : (
+              <div className="muted-sm">Click a day to see unassigned employees</div>
+            )}
+          </div>
         </div>
       )}
 

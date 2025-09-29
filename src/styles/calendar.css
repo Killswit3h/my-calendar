@@ -52,8 +52,34 @@
 .fc .fc-daygrid-day.fc-day-today { background: transparent; }
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: var(--primary); color: #fff; border-radius: 999px; padding: 2px 8px; }
 .fc-daygrid-day-frame, .fc-daygrid-day-events { min-height: 3.25rem; }
+/* Reserve room at bottom so events never sit under the + button */
+.fc-daygrid-day-events { padding-bottom: 26px; }
 .fc-more-link { font-size: 0.75rem; color: var(--text); }
 .holiday-bg { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* Ensure day frame can position absolute children (for + button) */
+.fc-daygrid-day-frame { position: relative; }
+.day-add-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  opacity: 0.9;
+  z-index: 3; /* keep above day events */
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.day-add-btn:hover { filter: brightness(1.1); }
+.day-add-btn:focus { outline: none; box-shadow: var(--ring); }
 
 /* === Force event colors (works in all views) === */
 .fc .fc-event.evt-guardrail {
@@ -167,8 +193,9 @@
 #quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; max-width: 36rem; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
-.calendar-pane { flex: 1 1 60%; }
-.details-pane { flex: 1 1 40%; overflow: auto; }
+/* Prioritize calendar: 75% calendar, 25% sidebar */
+.calendar-pane { flex: 1 1 75%; }
+.details-pane { flex: 1 1 25%; overflow: auto; min-width: 240px; }
 mark { background: var(--primary); color: var(--primary-contrast); }
 
 /* ===== TODO BOARD ===== */
