@@ -217,6 +217,29 @@ mark { background: var(--primary); color: var(--primary-contrast); }
 /* Add icon for Employees link rendered via EmployeesLink (btn class inside menu) */
 .menu-card a[href^="/employees"], .menu-card .btn[href^="/employees"] { display: flex; align-items: center; gap: 10px; }
 .menu-card a[href^="/employees"]::before, .menu-card .btn[href^="/employees"]::before { content: '👥'; width: 18px; text-align: center; opacity: .9; }
+/* ===== Mobile drawer for Unassigned ===== */
+@media (max-width: 767px) {
+  .details-pane { display: none; }
+  .calendar-pane { flex: 1 1 100%; }
+}
+.fab-people {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: var(--primary-contrast);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  z-index: 70;
+}
+.fab-people:hover { filter: brightness(1.05); }
+
+.drawer-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); z-index: 80; display: flex; justify-content: flex-end; }
+.drawer-panel { width: min(92vw, 360px); height: 100%; background: var(--card); border-left: 1px solid var(--border); padding: 12px; overflow: auto; }
+.drawer-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 8px; }
 
 /* ===== TODO BOARD ===== */
 .todo-section { margin-top: 1rem; }
