@@ -207,6 +207,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   );
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   const touchStart = useRef<number | null>(null);
 
@@ -1133,20 +1134,56 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
             />
           </div>
+          {/* Hide sidebar on mobile; drawer handles it */}
           <div className="details-pane surface" style={{ padding: '1rem' }}>
-            {selectedDay ? (
-              <UnassignedSidebar
-                employees={employees}
-                events={events}
-                selectedDate={selectedDay}
-                weekStartsOn={1}
-                onQuickAdd={handleSidebarQuickAdd}
-              />
-            ) : (
-              <div className="muted-sm">Click a day to see unassigned employees</div>
-            )}
+            {!isMobile ? (
+              selectedDay ? (
+                <UnassignedSidebar
+                  employees={employees}
+                  events={events}
+                  selectedDate={selectedDay}
+                  weekStartsOn={1}
+                  onQuickAdd={handleSidebarQuickAdd}
+                />
+              ) : (
+                <div className="muted-sm">Click a day to see unassigned employees</div>
+              )
+            ) : null}
           </div>
         </div>
+      )}
+
+      {/* Mobile drawer + FAB for Unassigned */}
+      {isMobile && (
+        <>
+          <button
+            className="fab-people"
+            aria-label="Show unassigned employees"
+            onClick={() => setMobileSidebarOpen(true)}
+            title="Unassigned employees"
+          >👥</button>
+          {mobileSidebarOpen ? (
+            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) setMobileSidebarOpen(false); }}>
+              <div className="drawer-panel" role="dialog" aria-modal="true">
+                <div className="drawer-header">
+                  <div>Unassigned</div>
+                  <button className="icon-btn" aria-label="Close" onClick={() => setMobileSidebarOpen(false)}>✕</button>
+                </div>
+                {selectedDay ? (
+                  <UnassignedSidebar
+                    employees={employees}
+                    events={events}
+                    selectedDate={selectedDay}
+                    weekStartsOn={1}
+                    onQuickAdd={handleSidebarQuickAdd}
+                  />
+                ) : (
+                  <div className="muted-sm">Tap a day to see unassigned employees</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* daily report date picker */}
