@@ -236,6 +236,7 @@ mark { background: var(--primary); color: var(--primary-contrast); }
   z-index: 70;
 }
 .fab-people:hover { filter: brightness(1.05); }
+.fab-people .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 11px; line-height: 18px; text-align: center; border: 1px solid rgba(0,0,0,.3); }
 
 .drawer-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); z-index: 80; display: flex; justify-content: flex-end; }
 .drawer-panel { width: min(92vw, 360px); height: 100%; background: var(--card); border-left: 1px solid var(--border); padding: 12px; overflow: auto; }

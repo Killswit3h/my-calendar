@@ -133,7 +133,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           return (
                             <div key={id} className="yard-row" role="listitem">
                               <div className="emp-name">{label}</div>
-                              <button className="btn tiny" onClick={() => { removeYard(key, id); bump(); }} aria-label={`Remove ${label} from Yard/Shop`}>
+                              <button className="btn tiny" onClick={() => { removeYard(key, id); bump(); try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {} }} aria-label={`Remove ${label} from Yard/Shop`}>
                                 Remove
                               </button>
                             </div>
@@ -159,6 +159,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           addYard(key, val);
                           sel!.value = '';
                           bump();
+                          try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {}
                         }}
                       >Add</button>
                     </div>
