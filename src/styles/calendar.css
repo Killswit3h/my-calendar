@@ -198,6 +198,26 @@
 .details-pane { flex: 1 1 25%; overflow: auto; min-width: 240px; }
 mark { background: var(--primary); color: var(--primary-contrast); }
 
+/* ===== Options dropdown ===== */
+.options-wrap { position: relative; display: inline-block; }
+.cal-controls .options-wrap:first-of-type { position: absolute; left: 8px; top: 6px; z-index: 60; }
+.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px; z-index: 50; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.menu-item, .menu-card .btn, .menu-row, .menu-card a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent !important; color: var(--text) !important; border: 0 !important; padding: 10px 12px; border-radius: 10px; text-decoration: none; font-size: 0.95rem; line-height: 1.2; }
+.menu-item:hover, .menu-card .btn:hover, .menu-row:hover, .menu-card a:hover { background: var(--elev-2) !important; filter: none !important; }
+.menu-ico { width: 18px; display: inline-block; text-align: center; opacity: .9; }
+.menu-text { flex: 1 1 auto; }
+
+/* Discrete icon button for top-left options */
+.icon-btn { min-width: 32px; min-height: 32px; width: 32px; height: 32px; border-radius: 999px; padding: 0; border: 1px solid var(--border); background: var(--elev-2); color: var(--text-dim); line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn:hover { filter: brightness(1.1); color: var(--text); }
+
+/* Hide legacy options block in the second control row */
+.cal-controls > div:nth-of-type(2) .options-wrap { display: none; }
+
+/* Add icon for Employees link rendered via EmployeesLink (btn class inside menu) */
+.menu-card a[href^="/employees"], .menu-card .btn[href^="/employees"] { display: flex; align-items: center; gap: 10px; }
+.menu-card a[href^="/employees"]::before, .menu-card .btn[href^="/employees"]::before { content: '👥'; width: 18px; text-align: center; opacity: .9; }
+
 /* ===== TODO BOARD ===== */
 .todo-section { margin-top: 1rem; }
 .todo-title { font-size: 1.125rem; font-weight: 600; margin: 0.25rem 0 0.75rem; color: var(--text); text-align: center; }
@@ -213,7 +233,7 @@ mark { background: var(--primary); color: var(--primary-contrast); }
 @media (min-width: 1536px) { .todo-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
 .todo-section * { box-sizing: border-box; min-width: 0; }
-.todo-col { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem; min-height: 140px; overflow: hidden; display: flex; flex-direction: column; }
+.todo-col { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem; min-height: 140px; overflow: visible; display: flex; flex-direction: column; }
 .todo-col-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); padding-left: 6px; }
 .todo-count { font-size: 0.75rem; background: #1e293b; color: #93c5fd; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); }
 

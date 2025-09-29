@@ -207,6 +207,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   );
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
+  const [optsOpen, setOptsOpen] = useState(false);
   const touchStart = useRef<number | null>(null);
 
   useEffect(() => {
@@ -590,25 +591,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setOpen(true);
   }, []);
 
-  const handleSidebarSetYard = useCallback((employeeId: string, day: Date) => {
-    // Prefill an all-day Yard/Shop event for the selected day and employee
-    const startLocal = dateToLocalInput(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
-    setDraft({
-      title: 'Yard/Shop',
-      start: startLocal,
-      end: startLocal,
-      allDay: true,
-      location: 'Yard/Shop',
-      description: '',
-      type: 'FENCE',
-      payment: 'DAILY',
-      vendor: 'JORGE',
-      payroll: false,
-      checklist: { ...(defaultChecklist()), employees: [employeeId] },
-    });
-    setEditId(null);
-    setOpen(true);
-  }, []);
 
   async function geocode(q: string): Promise<{ lat: number; lon: number } | null> {
     const m = q.split(',').map(x => x.trim());
@@ -994,6 +976,17 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
         <div className="flex gap-2 items-center flex-wrap">
+          <div className="options-wrap">
+            <button type="button" className="icon-btn" aria-label="Open menu" aria-haspopup="menu" aria-expanded={optsOpen} onClick={() => setOptsOpen(v => !v)}>⋮</button>
+            {optsOpen ? (
+              <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
+                <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
+                <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
+                <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
+                <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
+              </div>
+            ) : null}
+          </div>
           <form id="quick-add-form" onSubmit={handleQuickAdd} className="quick-add-form">
             <input
               type="text"
@@ -1013,22 +1006,35 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
+          <div className="options-wrap">
+            <button
+              type="button"
+              className="btn"
+              aria-haspopup="menu"
+              aria-expanded={optsOpen}
+              onClick={() => setOptsOpen(v => !v)}
+            >Options ▾</button>
+            {optsOpen ? (
+              <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
+                <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
+                <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
+                <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
+                <Suspense fallback={<span className="menu-item" aria-disabled>Employees</span>}>
+                  <EmployeesLink />
+                </Suspense>
+              </div>
+            ) : null}
+          </div>
           <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
             <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
             <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
           </div>
-          <button className="btn" onClick={() => setHolidayDialog(true)}>Holidays</button>
-          <button className="btn" onClick={() => setWeatherDialog(true)}>Weather</button>
           <button className="btn" onClick={() => {
             const mid = visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2) : new Date();
             const defaultYmd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
             setReportDate(defaultYmd);
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
-          <Link href="/customers" className="btn">Customers</Link>
-          <Suspense fallback={<span className="btn">Employees</span>}>
-            <EmployeesLink />
-          </Suspense>
         </div>
       </div>
 
@@ -1075,7 +1081,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 selectedDate={selectedDay}
                 weekStartsOn={1}
                 onQuickAdd={handleSidebarQuickAdd}
-                onSetYard={handleSidebarSetYard}
               />
             ) : (
               <div className="muted-sm">Click a day to see unassigned employees</div>
@@ -1136,7 +1141,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 selectedDate={selectedDay}
                 weekStartsOn={1}
                 onQuickAdd={handleSidebarQuickAdd}
-                onSetYard={handleSidebarSetYard}
               />
             ) : (
               <div className="muted-sm">Click a day to see unassigned employees</div>
@@ -1395,7 +1399,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(typ => (
               <div key={typ} className="todo-col" onDragOver={e => e.preventDefault()} onDrop={e => onDropToColumn(e, typ)}>
                 <header className="todo-col-header"><span>{TYPE_LABEL[typ]}</span><span className="todo-count">{byType(typ).length}</span></header>
-                <TodoAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
+                <TodoCustomerAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
                 <div className="todo-list">
                   {byType(typ).map(t => (
                     <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t)}>
@@ -1464,6 +1468,19 @@ function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return '
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
+}
+
+function TodoCustomerAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
+  const [val, setVal] = useState('');
+  const submit = () => { const t = val.trim(); if (t) { onAdd(t); setVal(''); } };
+  return (
+    <div className="todo-adder">
+      <div>
+        <CustomerCombobox value={val} onChange={setVal} />
+      </div>
+      <button className="btn primary todo-add-btn" onClick={submit}>Add</button>
+    </div>
+  );
 }
 
 function splitInvoice(desc: string): { invoice: string; payment: PaymentType | ''; vendor: Vendor | ''; payroll: boolean | null; rest: string } {
