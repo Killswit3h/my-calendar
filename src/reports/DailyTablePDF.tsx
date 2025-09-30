@@ -43,20 +43,18 @@ const styles = StyleSheet.create({
   page: {
     padding: 24,
     fontFamily: 'Helvetica',
-    fontSize: 10,
+    fontSize: 9.5,
     color: '#000',
   },
   headerWrap: {
-    position: 'fixed',
-    top: 24, // inside page padding area
-    left: 24,
-    right: 24,
+    marginBottom: 8,
   },
   title: {
     textAlign: 'center',
     fontSize: 12,
     fontWeight: 700,
   },
+  topBar: { height: 2, backgroundColor: '#5A6EE1', marginTop: 2, marginBottom: 2 },
   rule: {
     height: 1,
     backgroundColor: '#000',
@@ -65,7 +63,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    borderTopWidth: 0.8,
+    borderTopWidth: 2,
     borderLeftWidth: 0.8,
     borderColor: '#000',
   },
@@ -73,8 +71,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 0.8,
     borderBottomWidth: 0.8,
     borderColor: '#000',
-    backgroundColor: '#e9e9e9',
-    padding: 6,
+    backgroundColor: '#d9d9d9',
+    paddingTop: 6,
+    paddingBottom: 6,
+    paddingLeft: 6,
+    paddingRight: 6,
   },
   headerText: {
     fontSize: 9,
@@ -83,32 +84,35 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     textAlign: 'center',
   },
-  body: {
-    marginTop: 80, // leave room for title + rule + header row
-  },
+  body: {},
   row: {
     flexDirection: 'row',
   },
-  rowAlt: {
-    backgroundColor: '#f7f7f7',
-  },
+  // Keep rows white to match the sample
+  rowAlt: {},
   cell: {
     borderRightWidth: 0.8,
-    borderBottomWidth: 0.8,
+    borderBottomWidth: 1.2,
     borderColor: '#000',
-    padding: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingLeft: 6,
+    paddingRight: 6,
     justifyContent: 'center', // vertical middle
   },
-  // Column widths via fixed flexBasis percentages
-  colProject: { flexGrow: 0, flexShrink: 0, flexBasis: '34%' },
-  colInvoice: { flexGrow: 0, flexShrink: 0, flexBasis: '10%' },
-  colCrew: { flexGrow: 0, flexShrink: 0, flexBasis: '24%' },
-  colWork: { flexGrow: 0, flexShrink: 0, flexBasis: '6%' },
-  colPayroll: { flexGrow: 0, flexShrink: 0, flexBasis: '6%' },
-  colPayment: { flexGrow: 0, flexShrink: 0, flexBasis: '10%' },
-  colVendor: { flexGrow: 0, flexShrink: 0, flexBasis: '5%' },
-  colTime: { flexGrow: 0, flexShrink: 0, flexBasis: '5%' },
+  // Column widths via flexGrow ratios (sum = 100)
+  colStatus: { flexGrow: 5, flexShrink: 0, flexBasis: 0 },
+  colProject: { flexGrow: 34, flexShrink: 0, flexBasis: 0 },
+  colInvoice: { flexGrow: 10, flexShrink: 0, flexBasis: 0 },
+  colCrew: { flexGrow: 28, flexShrink: 0, flexBasis: 0 },
+  colWork: { flexGrow: 5, flexShrink: 0, flexBasis: 0 },
+  colPayroll: { flexGrow: 5, flexShrink: 0, flexBasis: 0 },
+  colPayment: { flexGrow: 8, flexShrink: 0, flexBasis: 0 },
+  colVendor: { flexGrow: 3, flexShrink: 0, flexBasis: 0 },
+  colTime: { flexGrow: 2, flexShrink: 0, flexBasis: 0 },
   center: { textAlign: 'center' },
+  bold: { fontWeight: 700 },
+  upper: { textTransform: 'uppercase' as any },
 })
 
 function formatTitle(iso: string): string {
@@ -129,12 +133,27 @@ function vendorColor(vendor: string): string | undefined {
   return undefined
 }
 
+function isReactElement(x: any): boolean {
+  return !!(x && typeof x === 'object' && '$$typeof' in x && 'type' in x && 'props' in x)
+}
+
+function toText(x: any): string {
+  if (x == null) return '-'
+  if (typeof x === 'string') return x
+  if (typeof x === 'number' || typeof x === 'boolean') return String(x)
+  if (Array.isArray(x)) return x.map((v) => toText(v)).join('\n')
+  if (isReactElement(x)) return '-'
+  try { return String(x) } catch { return '-' }
+}
+
 function Header({ date }: { date: string }) {
   return (
-    <View style={styles.headerWrap} fixed>
+    <View style={styles.headerWrap}>
+      <View style={styles.topBar} />
       <Text style={styles.title}>{formatTitle(date)}</Text>
       <View style={styles.rule} />
       <View style={styles.headerRow}>
+        <View style={[styles.headerCell, styles.colStatus]}><Text style={styles.headerText}>Status</Text></View>
         <View style={[styles.headerCell, styles.colProject]}><Text style={styles.headerText}>Project/Company</Text></View>
         <View style={[styles.headerCell, styles.colInvoice]}><Text style={styles.headerText}>Invoice</Text></View>
         <View style={[styles.headerCell, styles.colCrew]}><Text style={styles.headerText}>Crew Members</Text></View>
@@ -150,16 +169,21 @@ function Header({ date }: { date: string }) {
 
 function BodyRow({ r, index }: { r: JobRow; index: number }) {
   const bg = vendorColor(r.vendor)
+  const rowStyle = index % 2 === 1 ? [styles.row, styles.rowAlt] : [styles.row]
+  const vendorCellStyle: any[] = [styles.cell, styles.colVendor, styles.center]
+  if (bg) vendorCellStyle.push({ backgroundColor: bg })
+  const vendorTextStyle = bg ? { color: '#fff' } : undefined
   return (
-    <View style={[styles.row, index % 2 === 1 ? styles.rowAlt : null]} wrap={false}>
-      <View style={[styles.cell, styles.colProject]}><Text>{r.projectCompany || '—'}</Text></View>
-      <View style={[styles.cell, styles.colInvoice, styles.center]}><Text>{r.invoice || '—'}</Text></View>
-      <View style={[styles.cell, styles.colCrew]}><Text>{(r.crewMembers && r.crewMembers.length) ? r.crewMembers.join('\n') : '—'}</Text></View>
-      <View style={[styles.cell, styles.colWork, styles.center]}><Text>{r.work || '—'}</Text></View>
+    <View style={rowStyle}>
+      <View style={[styles.cell, styles.colStatus]}><Text>{''}</Text></View>
+      <View style={[styles.cell, styles.colProject, styles.center]}><Text style={[styles.bold, styles.upper]}>{toText(r.projectCompany)}</Text></View>
+      <View style={[styles.cell, styles.colInvoice, styles.center]}><Text style={styles.bold}>{toText(r.invoice)}</Text></View>
+      <View style={[styles.cell, styles.colCrew, styles.center]}><Text>{toText(r.crewMembers)}</Text></View>
+      <View style={[styles.cell, styles.colWork, styles.center]}><Text>{toText(r.work)}</Text></View>
       <View style={[styles.cell, styles.colPayroll, styles.center]}><Text>{r.payroll ? 'Yes' : 'No'}</Text></View>
-      <View style={[styles.cell, styles.colPayment, styles.center]}><Text>{r.payment || '—'}</Text></View>
-      <View style={[styles.cell, styles.colVendor, styles.center, bg ? { backgroundColor: bg } : null]}><Text style={bg ? { color: '#fff' } : undefined}>{r.vendor || '—'}</Text></View>
-      <View style={[styles.cell, styles.colTime, styles.center]}><Text>{r.time || '—'}</Text></View>
+      <View style={[styles.cell, styles.colPayment, styles.center]}><Text style={styles.bold}>{toText(r.payment)}</Text></View>
+      <View style={vendorCellStyle}><Text style={vendorTextStyle}>{toText(r.vendor)}</Text></View>
+      <View style={[styles.cell, styles.colTime, styles.center]}><Text>{toText(r.time)}</Text></View>
     </View>
   )
 }
