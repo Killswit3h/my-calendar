@@ -2,17 +2,19 @@
     "name":  "my-cal-starter",
     "version":  "1.0.0",
     "private":  true,
-    "scripts":  {
-                    "dev":  "next dev",
-                    "build":  "node scripts/prebuild.js \u0026\u0026 prisma generate \u0026\u0026 npm --prefix my-calendar-main exec prisma generate \u0026\u0026 next build",
-                    "build:edge":  "prisma migrate deploy || echo skip-migrate \u0026\u0026 prisma generate --no-engine \u0026\u0026 npm --prefix my-calendar-main exec prisma generate \u0026\u0026 npx --yes @cloudflare/next-on-pages@1.13.16",
-                    "start":  "next start",
-                    "postinstall":  "prisma generate \u0026\u0026 npm --prefix my-calendar-main exec prisma generate",
-                    "generate:edge":  "prisma generate --no-engine",
-                    "generate:node":  "prisma generate",
-                    "test":  "echo \"No tests\"",
-                    "cf:build":  "npm run build:edge"
-                },
+  "scripts": {
+      "dev": "next dev",
+      "build": "node scripts/prebuild.js && prisma generate && npm --prefix my-calendar-main exec prisma generate && next build",
+      "build:edge": "prisma migrate deploy || echo skip-migrate && prisma generate --no-engine && npm --prefix my-calendar-main exec prisma generate && npx --yes @cloudflare/next-on-pages@1.13.16",
+      "start": "next start",
+      "postinstall": "prisma generate && npm --prefix my-calendar-main exec prisma generate",
+      "generate:edge": "prisma generate --no-engine",
+      "generate:node": "prisma generate",
+      "test": "echo \"No tests\"",
+      "check:design": "node scripts/check-design.mjs",
+      "cf:build": "npm run build:edge",
+      "pdf:job-by-job": "tsx scripts/render-job-by-job.ts"
+    },
     "dependencies":  {
                          "@aws-sdk/client-s3":  "3.883.0",
                          "@emotion/react":  "^11.14.0",
@@ -63,3 +65,4 @@
                       "rimraf":  "^5.0.5"
                   }
 }
+
