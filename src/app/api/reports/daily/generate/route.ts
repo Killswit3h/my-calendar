@@ -6,7 +6,7 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
-import { snapshotsToPdfPuppeteer } from '@/server/reports/pdfPuppeteer'
+import { renderDailyTablePDF } from '@/reports'
 import { daySnapshotToXlsxEdge } from '@/server/reports/xlsxEdge'
 import { storeFile } from '@/server/blob'
 
@@ -56,7 +56,32 @@ export async function POST(req: NextRequest) {
     const snapshot = await getEventsForDay(date, vendor ?? null)
     const tz = process.env.REPORT_TIMEZONE || 'America/New_York'
 
-    const pdfBuf = Buffer.from(await snapshotsToPdfPuppeteer([snapshot]))
+    // Map to DailyTablePDF contract
+    const dailyData = {
+      date: snapshot.dateYmd,
+      rows: snapshot.rows.map((r) => {
+        const w = (r.work || '').toUpperCase()
+        const work = w.includes('TEMP') ? 'TF'
+          : w.includes('GUARDRAIL') ? 'G'
+          : w.includes('HANDRAIL') ? 'H'
+          : w.includes('ATTENUATOR') ? 'A'
+          : w.includes('FENCE') ? 'F'
+          : w.includes('SHOP') ? 'S'
+          : w.includes('NO WORK') ? ''
+          : (r.work || '')
+        return {
+          projectCompany: r.project || '',
+          invoice: r.invoice || '',
+          crewMembers: Array.isArray(r.crew) ? r.crew : [],
+          work,
+          payroll: !!(r.payroll && r.payroll.length),
+          payment: r.payment || '',
+          vendor: r.vendor || '',
+          time: r.timeUnit || r.shift || '',
+        }
+      }),
+    }
+    const pdfBuf = await renderDailyTablePDF(dailyData)
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
 
     const suffix = vendor ? `-${vendor.toLowerCase()}` : ''

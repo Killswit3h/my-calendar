@@ -25,7 +25,7 @@ function htmlShell(body: string, styles: string, headerRight: string): { html: s
 
   // Puppeteer header/footer templates:
   const header = `<div class="pdf-header"><div class="right">${headerRight}</div></div>`
-  const footer = `<div class="pdf-footer"><span class="pageNumber"></span> / <span class="totalPages"></span></div>`
+  const footer = `<div class="pdf-footer">Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>`
   return { html, header, footer }
 }
 
