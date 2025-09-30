@@ -20,11 +20,13 @@ export default function CustomerCombobox({
   onChange,
   labelId,
   inputId,
+  allowCreateOption = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   labelId?: string;
   inputId?: string;
+  allowCreateOption?: boolean;
 }) {
   const [query, setQuery] = useState<string>(value || "");
   const [open, setOpen] = useState(false);
@@ -82,15 +84,27 @@ export default function CustomerCombobox({
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (active === -1) {
-        commit(query);
-        setOpen(false);
+        // Do not commit arbitrary free text; require selecting an existing option
+        // Prefer exact match if present, otherwise select the first item if available
+        if (existingMatch) {
+          setSelected(existingMatch);
+          commit(existingMatch.name);
+          setOpen(false);
+        } else if (items.length > 0) {
+          const first = items[0];
+          setSelected(first);
+          commit(first.name);
+          setOpen(false);
+        }
         return;
       }
-      const createOptionIndex = items.length;
-      if (!existingMatch && active === createOptionIndex) {
-        createAndSelect(query).catch(() => {});
-        setOpen(false);
-        return;
+      if (allowCreateOption) {
+        const createOptionIndex = items.length;
+        if (!existingMatch && active === createOptionIndex) {
+          createAndSelect(query).catch(() => {});
+          setOpen(false);
+          return;
+        }
       }
       const opt = items[active];
       if (opt) {
@@ -149,7 +163,7 @@ export default function CustomerCombobox({
               {it.name}
             </li>
           ))}
-          {!existingMatch && query.trim() ? (
+          {allowCreateOption && !existingMatch && query.trim() ? (
             <li
               role="option"
               aria-selected={active === items.length}
@@ -160,7 +174,7 @@ export default function CustomerCombobox({
               }}
               className={`px-3 py-2 cursor-pointer ${active === items.length ? "bg-[var(--elev-2)]" : ""}`}
             >
-              {`Create “${query.trim()}”`}
+              {`Create "${query.trim()}"`}
             </li>
           ) : null}
           {items.length === 0 && query.trim() ? (
@@ -168,7 +182,7 @@ export default function CustomerCombobox({
           ) : null}
         </ul>
       ) : null}
-      <div className="muted-sm mt-1">Select existing or press Enter to use your text.</div>
+      <div className="muted-sm mt-1">Select an existing customer from the list.</div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
-import { snapshotsToPdf } from '@/server/reports/pdfEdge'
+import { snapshotsToPdfPuppeteer } from '@/server/reports/pdfPuppeteer'
 import { daySnapshotToXlsxEdge } from '@/server/reports/xlsxEdge'
 import { storeFile } from '@/server/blob'
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const snapshot = await getEventsForDay(date, vendor ?? null)
     const tz = process.env.REPORT_TIMEZONE || 'America/New_York'
 
-    const pdfBuf = Buffer.from(await snapshotsToPdf([snapshot], vendor ?? null, tz))
+    const pdfBuf = Buffer.from(await snapshotsToPdfPuppeteer([snapshot]))
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
 
     const suffix = vendor ? `-${vendor.toLowerCase()}` : ''

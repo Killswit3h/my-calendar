@@ -395,7 +395,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const startDate = fmtLocal(start);
     const endAdj = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
     const endDate = fmtLocal(endAdj);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit`;
     try {
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) return;
@@ -456,6 +456,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
     const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
     a.appendChild(ico); a.appendChild(txt);
+    // Override with explicit Fahrenheit unit for display
+    try { txt.textContent = `${Math.round(data.tmax)}\u00B0F ${Math.round(data.pop)}%`; } catch {}
     a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer';
     ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
@@ -1056,9 +1058,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
           </div>
           <button className="btn" onClick={() => {
-            const mid = visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2) : new Date();
-            const defaultYmd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
-            setReportDate(defaultYmd);
+            // Default to today's local date regardless of current view
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            setReportDate(`${y}-${m}-${d}`);
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
         </div>

@@ -1,3 +1,5 @@
+import path from 'path'
+
 const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: [
@@ -13,6 +15,8 @@ const nextConfig = {
     "@vercel/blob",
     "pdf-lib",
   ],
+  // Ensure Next uses this project as the tracing root (monorepo safe)
+  outputFileTracingRoot: path.join(__dirname),
 };
 
 export default nextConfig;
