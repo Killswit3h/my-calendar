@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
 import { renderDailyTablePDF } from '@/reports'
+import { snapshotsToPdfPuppeteer } from '@/server/reports/pdfPuppeteer'
 import { daySnapshotToXlsxEdge } from '@/server/reports/xlsxEdge'
 import { storeFile } from '@/server/blob'
 
@@ -81,7 +82,53 @@ export async function POST(req: NextRequest) {
         }
       }),
     }
-    const pdfBuf = await renderDailyTablePDF(dailyData)
+    let pdfBuf: Buffer
+    try {
+      pdfBuf = await renderDailyTablePDF(dailyData)
+    } catch (err: any) {
+      // Try to isolate the offending row for easier debugging
+      for (let i = 0; i < dailyData.rows.length; i++) {
+        try {
+          await renderDailyTablePDF({ date: dailyData.date, rows: dailyData.rows.slice(0, i + 1) })
+        } catch (inner: any) {
+          const bad = dailyData.rows[i]
+          const types = Object.fromEntries(Object.entries(bad as any).map(([k, v]) => [k, typeof v]))
+          const summary = `pdf_render_failed: row ${i + 1} ${bad?.projectCompany ? `(${bad.projectCompany})` : ''}`.trim()
+          // Field-by-field probe
+          const base = { projectCompany: '-', invoice: '-', crewMembers: ['-'], work: '-', payroll: false, payment: '-', vendor: '-', time: '-' }
+          const keys: Array<keyof typeof base> = ['projectCompany','invoice','crewMembers','work','payroll','payment','vendor','time']
+          const fieldFindings: Record<string, string> = {}
+          for (const k of keys) {
+            const testRow = { ...base, [k]: (bad as any)[k] }
+            try {
+              await renderDailyTablePDF({ date: dailyData.date, rows: [testRow] })
+              fieldFindings[String(k)] = 'ok'
+            } catch (e: any) {
+              fieldFindings[String(k)] = String(e?.message || 'failed')
+            }
+          }
+          // Fallback to Puppeteer so the user still gets a PDF
+          try {
+            const fallback = await snapshotsToPdfPuppeteer([snapshot])
+            const suffix = vendor ? `-${vendor.toLowerCase()}` : ''
+            const pdfName = `daily-${date}${suffix}.pdf`
+            const storedPdf = await storeFile('DAILY_PDF', pdfName, 'application/pdf', Buffer.from(fallback))
+            return NextResponse.json({ pdfUrl: storedPdf.url, note: `${summary}`, details: { index: i, types, fieldFindings } }, { status: 200 })
+          } catch (fbErr: any) {
+            return NextResponse.json({ error: `${summary}: ${String(inner?.message || 'failed')}`, index: i, row: bad, types, fieldFindings }, { status: 500 })
+          }
+        }
+      }
+      try {
+        const fallback = await snapshotsToPdfPuppeteer([snapshot])
+        const suffix = vendor ? `-${vendor.toLowerCase()}` : ''
+        const pdfName = `daily-${date}${suffix}.pdf`
+        const storedPdf = await storeFile('DAILY_PDF', pdfName, 'application/pdf', Buffer.from(fallback))
+        return NextResponse.json({ pdfUrl: storedPdf.url, note: 'fallback_puppeteer' }, { status: 200 })
+      } catch (fbErr: any) {
+        return NextResponse.json({ error: 'pdf_render_failed', message: String(err?.message || 'failed') }, { status: 500 })
+      }
+    }
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
 
     const suffix = vendor ? `-${vendor.toLowerCase()}` : ''
