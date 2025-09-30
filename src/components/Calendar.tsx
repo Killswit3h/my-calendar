@@ -84,7 +84,7 @@ export default function Calendar({ initialDate }: Props) {
     // FullCalendar provides an exclusive end; move back one day using local calendar math
     const endAdj = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
     const endDate = fmtLocal(endAdj);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit`;
     try {
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) return;
@@ -134,7 +134,7 @@ export default function Calendar({ initialDate }: Props) {
     const a = document.createElement('a');
     a.className = 'day-weather';
     const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
-    const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
+    const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}\u00B0F ${Math.round(data.pop)}%`;
     a.appendChild(ico); a.appendChild(txt);
     a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer';

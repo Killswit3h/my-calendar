@@ -12,6 +12,8 @@ import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
+import { eventOverlapsLocalDay, ymdLocal } from '@/lib/dateUtils';
+import { getYardForDate } from '@/lib/yard';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
@@ -207,6 +209,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   );
   const [isTablet, setIsTablet] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventInput | null>(null);
+  const [yardTick, setYardTick] = useState(0);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   const touchStart = useRef<number | null>(null);
 
@@ -216,6 +220,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     handler();
     m.addEventListener('change', handler);
     return () => m.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    const onYard = () => setYardTick(v => v + 1);
+    window.addEventListener('yard-changed' as any, onYard);
+    return () => window.removeEventListener('yard-changed' as any, onYard);
   }, []);
 
   useEffect(() => {
@@ -385,7 +395,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const startDate = fmtLocal(start);
     const endAdj = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
     const endDate = fmtLocal(endAdj);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit`;
     try {
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) return;
@@ -446,6 +456,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
     const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
     a.appendChild(ico); a.appendChild(txt);
+    // Override with explicit Fahrenheit unit for display
+    try { txt.textContent = `${Math.round(data.tmax)}\u00B0F ${Math.round(data.pop)}%`; } catch {}
     a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer';
     ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
@@ -570,6 +582,22 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const handleDateClick = useCallback((arg: { date: Date }) => {
     setSelectedDay(new Date(arg.date.getFullYear(), arg.date.getMonth(), arg.date.getDate()));
   }, []);
+
+  const freeCount = useMemo(() => {
+    if (!selectedDay) return 0;
+    const day = selectedDay;
+    const key = ymdLocal(day);
+    const assigned = new Set<string>(getYardForDate(key));
+    for (const ev of events) {
+      const ex: any = ev.extendedProps ?? {};
+      const ids: string[] = Array.isArray(ex?.checklist?.employees) ? ex.checklist.employees : [];
+      if (!ids.length) continue;
+      if (eventOverlapsLocalDay({ start: ev.start as any, end: ev.end as any, allDay: !!ev.allDay }, day)) {
+        ids.forEach(id => assigned.add(id));
+      }
+    }
+    return employees.filter(e => !assigned.has(e.id)).length;
+  }, [selectedDay, events, employees, yardTick]);
 
   const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
     // Prefill an all-day event on the selected local day with the chosen employee
@@ -1030,9 +1058,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
           </div>
           <button className="btn" onClick={() => {
-            const mid = visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2) : new Date();
-            const defaultYmd = new Date(Date.UTC(mid.getUTCFullYear(), mid.getUTCMonth(), mid.getUTCDate())).toISOString().slice(0,10);
-            setReportDate(defaultYmd);
+            // Default to today's local date regardless of current view
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            setReportDate(`${y}-${m}-${d}`);
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
         </div>
@@ -1133,20 +1164,59 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventClassNames={arg => (arg.event.display === 'background' ? ['holiday-bg'] : [])}
             />
           </div>
+          {/* Hide sidebar on mobile; drawer handles it */}
           <div className="details-pane surface" style={{ padding: '1rem' }}>
-            {selectedDay ? (
-              <UnassignedSidebar
-                employees={employees}
-                events={events}
-                selectedDate={selectedDay}
-                weekStartsOn={1}
-                onQuickAdd={handleSidebarQuickAdd}
-              />
-            ) : (
-              <div className="muted-sm">Click a day to see unassigned employees</div>
-            )}
+            {!isMobile ? (
+              selectedDay ? (
+                <UnassignedSidebar
+                  employees={employees}
+                  events={events}
+                  selectedDate={selectedDay}
+                  weekStartsOn={1}
+                  onQuickAdd={handleSidebarQuickAdd}
+                />
+              ) : (
+                <div className="muted-sm">Click a day to see unassigned employees</div>
+              )
+            ) : null}
           </div>
         </div>
+      )}
+
+      {/* Mobile drawer + FAB for Unassigned */}
+      {isMobile && (
+        <>
+          <button
+            className="fab-people"
+            aria-label="Show unassigned employees"
+            onClick={() => setMobileSidebarOpen(true)}
+            title="Unassigned employees"
+          >
+            👥
+            {freeCount > 0 ? <span className="fab-badge" aria-hidden>{freeCount}</span> : null}
+          </button>
+          {mobileSidebarOpen ? (
+            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) setMobileSidebarOpen(false); }}>
+              <div className="drawer-panel" role="dialog" aria-modal="true">
+                <div className="drawer-header">
+                  <div>Unassigned</div>
+                  <button className="icon-btn" aria-label="Close" onClick={() => setMobileSidebarOpen(false)}>✕</button>
+                </div>
+                {selectedDay ? (
+                  <UnassignedSidebar
+                    employees={employees}
+                    events={events}
+                    selectedDate={selectedDay}
+                    weekStartsOn={1}
+                    onQuickAdd={handleSidebarQuickAdd}
+                  />
+                ) : (
+                  <div className="muted-sm">Tap a day to see unassigned employees</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* daily report date picker */}

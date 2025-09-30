@@ -28,7 +28,7 @@
 
 /* Container shell */
 .cal-shell { max-width: 1200px; margin-inline: auto; padding-inline: 0.5rem; }
-.surface { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; }
+.surface { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
 .muted-sm { color: var(--muted); font-size: 0.875rem; }
 .country-input { width: 4.5rem; padding: 0.25rem 0.5rem; border-radius: 0.375rem; border: 1px solid var(--border); background: var(--elev-1); color: var(--text); }
 
@@ -50,7 +50,7 @@
 .fc .fc-daygrid-day-number { color: var(--text-dim); font-size: clamp(11px, 1vw, 13px); position: relative; z-index: 1; }
 .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number { opacity: .55; }
 .fc .fc-daygrid-day.fc-day-today { background: transparent; }
-.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: var(--primary); color: #fff; border-radius: 999px; padding: 2px 8px; }
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { color: var(--text); background: transparent; border-radius: 999px; padding: 2px 8px; box-shadow: 0 0 0 2px var(--accent-500) inset; }
 .fc-daygrid-day-frame, .fc-daygrid-day-events { min-height: 3.25rem; }
 /* Reserve room at bottom so events never sit under the + button */
 .fc-daygrid-day-events { padding-bottom: 26px; }
@@ -80,6 +80,10 @@
 }
 .day-add-btn:hover { filter: brightness(1.1); }
 .day-add-btn:focus { outline: none; box-shadow: var(--ring); }
+
+/* Drag-and-drop highlights */
+.drop-target-day { outline: 2px dashed var(--primary); outline-offset: -2px; }
+.drop-target-event { box-shadow: 0 0 0 3px rgba(27, 94, 32, .35) inset; }
 
 /* === Force event colors (works in all views) === */
 .fc .fc-event.evt-guardrail {
@@ -114,8 +118,8 @@
 .fc .fc-event.evt-handrail .fc-event-main { color: inherit; }
 
 /* ===== Modal: Add event ===== */
-.modal-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 1rem; backdrop-filter: saturate(120%) blur(8px); }
-.modal-card { width: min(720px, 96vw); max-height: 90vh; overflow: auto; background: linear-gradient(180deg, #2b2b2d, #1f1f21); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.45); padding: 1rem 1.25rem; }
+.modal-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 1rem; backdrop-filter: blur(var(--glass-blur-16)); }
+.modal-card { width: min(720px, 96vw); max-height: 90vh; overflow: auto; background: var(--elevated); color: var(--text); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); padding: 1rem 1.25rem; backdrop-filter: blur(var(--glass-blur-16)); -webkit-backdrop-filter: blur(var(--glass-blur-16)); }
 .modal-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
 .form-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; align-items: start; }
 .form-grid * { box-sizing: border-box; min-width: 0; }
@@ -201,7 +205,7 @@ mark { background: var(--primary); color: var(--primary-contrast); }
 /* ===== Options dropdown ===== */
 .options-wrap { position: relative; display: inline-block; }
 .cal-controls .options-wrap:first-of-type { position: absolute; left: 8px; top: 6px; z-index: 60; }
-.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px; z-index: 50; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--elevated); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,.35); backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); }
 .menu-item, .menu-card .btn, .menu-row, .menu-card a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent !important; color: var(--text) !important; border: 0 !important; padding: 10px 12px; border-radius: 10px; text-decoration: none; font-size: 0.95rem; line-height: 1.2; }
 .menu-item:hover, .menu-card .btn:hover, .menu-row:hover, .menu-card a:hover { background: var(--elev-2) !important; filter: none !important; }
 .menu-ico { width: 18px; display: inline-block; text-align: center; opacity: .9; }
@@ -217,6 +221,30 @@ mark { background: var(--primary); color: var(--primary-contrast); }
 /* Add icon for Employees link rendered via EmployeesLink (btn class inside menu) */
 .menu-card a[href^="/employees"], .menu-card .btn[href^="/employees"] { display: flex; align-items: center; gap: 10px; }
 .menu-card a[href^="/employees"]::before, .menu-card .btn[href^="/employees"]::before { content: '👥'; width: 18px; text-align: center; opacity: .9; }
+/* ===== Mobile drawer for Unassigned ===== */
+@media (max-width: 767px) {
+  .details-pane { display: none; }
+  .calendar-pane { flex: 1 1 100%; }
+}
+.fab-people {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: var(--primary-contrast);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  z-index: 70;
+}
+.fab-people:hover { filter: brightness(1.05); }
+.fab-people .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 11px; line-height: 18px; text-align: center; border: 1px solid rgba(0,0,0,.3); }
+
+.drawer-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); z-index: 80; display: flex; justify-content: flex-end; }
+.drawer-panel { width: min(92vw, 360px); height: 100%; background: var(--elevated); border-left: 1px solid var(--border); padding: 12px; overflow: auto; backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); }
+.drawer-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 8px; }
 
 /* ===== TODO BOARD ===== */
 .todo-section { margin-top: 1rem; }
