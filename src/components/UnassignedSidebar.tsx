@@ -5,6 +5,8 @@ import type { Employee } from "@/employees";
 import type { EventInput } from "@fullcalendar/core";
 import { weekDates, ymdLocal, eventOverlapsLocalDay } from "@/lib/dateUtils";
 import { getYardForDate, addYard, removeYard } from "@/lib/yard";
+import { getAbsentForDate, addAbsent, removeAbsent } from "@/lib/absent";
+import { EMPLOYEE_MIME, buildEmployeePayload } from "@/lib/dragAssign";
 
 type Props = {
   employees: Employee[];
@@ -46,10 +48,16 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
     for (const d of daysToShow) {
       const k = ymdLocal(d);
       const yardIds = getYardForDate(k);
+      const absentIds = getAbsentForDate(k);
       if (yardIds.length) {
         let s = map.get(k);
         if (!s) { s = new Set<string>(); map.set(k, s); }
         yardIds.forEach((id) => s!.add(id));
+      }
+      if (absentIds.length) {
+        let s = map.get(k);
+        if (!s) { s = new Set<string>(); map.set(k, s); }
+        absentIds.forEach((id) => s!.add(id));
       }
     }
 
@@ -112,7 +120,34 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                   {free.length ? (
                     <div className="emp-list" role="list">
                       {free.map((e) => (
-                        <div key={e.id} className="free-row" role="listitem">
+                        <div
+                          key={e.id}
+                          className="free-row"
+                          role="listitem"
+                          tabIndex={0}
+                          aria-label={`Drag ${e.firstName} ${e.lastName} to assign`}
+                          draggable
+                          data-employee-id={e.id}
+                          data-employee-name={`${e.firstName} ${e.lastName}`}
+                          onDragStart={(ev) => {
+                            const id = e.id;
+                            const name = `${e.firstName} ${e.lastName}`;
+                            ev.dataTransfer.setData('text/plain', id);
+                            try { ev.dataTransfer.setData(EMPLOYEE_MIME, buildEmployeePayload(id, name)); } catch {}
+                            (ev.currentTarget as HTMLElement).setAttribute('aria-grabbed', 'true');
+                          }}
+                          onDragEnd={(ev) => {
+                            (ev.currentTarget as HTMLElement).setAttribute('aria-grabbed', 'false');
+                          }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === 'Enter' || ev.key === ' ') {
+                              ev.preventDefault();
+                              if (selectedDate) {
+                                handleAdd(e.id, selectedDate);
+                              }
+                            }
+                          }}
+                        >
                           <div className="emp-name">{e.firstName} {e.lastName}</div>
                         </div>
                       ))}
@@ -133,7 +168,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           return (
                             <div key={id} className="yard-row" role="listitem">
                               <div className="emp-name">{label}</div>
-                              <button className="btn tiny" onClick={() => { removeYard(key, id); bump(); }} aria-label={`Remove ${label} from Yard/Shop`}>
+                              <button className="btn tiny" onClick={() => { removeYard(key, id); bump(); try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {} }} aria-label={`Remove ${label} from Yard/Shop`}>
                                 Remove
                               </button>
                             </div>
@@ -159,6 +194,52 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           addYard(key, val);
                           sel!.value = '';
                           bump();
+                          try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {}
+                        }}
+                      >Add</button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* No Work (Absent) table (per-day, stored locally) */}
+                {selectedDate ? (
+                  <div className="section-card yard-card">
+                    <div className="yard-title">No Work</div>
+                    <div className="yard-list" role="list">
+                      {getAbsentForDate(key).length ? (
+                        getAbsentForDate(key).map((id) => {
+                          const emp = employees.find(e => e.id === id);
+                          const label = emp ? `${emp.firstName} ${emp.lastName}` : id;
+                          return (
+                            <div key={id} className="yard-row" role="listitem">
+                              <div className="emp-name">{label}</div>
+                              <button className="btn tiny" onClick={() => { removeAbsent(key, id); bump(); try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {} }} aria-label={`Remove ${label} from No Work`}>
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="muted-xs">No one marked absent</div>
+                      )}
+                    </div>
+                    <div className="yard-row">
+                      <select aria-label={`Add No Work employee for ${key}`} className="yard-select" defaultValue="">
+                        <option value="" disabled>Select employee</option>
+                        {free.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn tiny"
+                        onClick={(e) => {
+                          const sel = (e.currentTarget.previousSibling as HTMLSelectElement | null);
+                          const val = sel?.value || '';
+                          if (!val) return;
+                          addAbsent(key, val);
+                          sel!.value = '';
+                          bump();
+                          try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {}
                         }}
                       >Add</button>
                     </div>

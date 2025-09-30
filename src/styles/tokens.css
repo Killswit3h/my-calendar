@@ -1,0 +1,99 @@
+/* Design tokens mapped to CSS custom properties (dark by default) */
+:root {
+  /* Canvas & text (dark) */
+  --bg: #0b0e14;
+  --fg: #eef1f6;
+  --fg-muted: #9aa3b2;
+
+  /* Glass base tokens */
+  --glass-surface: rgba(21, 24, 33, 0.94); /* ~94% opaque */
+  --glass-elevated: rgba(27, 31, 43, 0.96);
+  --glass-hairline: rgba(255, 255, 255, 0.08);
+  --glass-hairline-strong: rgba(255, 255, 255, 0.12);
+  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+  --glass-blur-8: 8px;
+  --glass-blur-12: 12px;
+  --glass-blur-16: 16px;
+
+  /* Surfaces */
+  --surface: var(--glass-surface);
+  --elevated: var(--glass-elevated);
+  --border: var(--glass-hairline-strong);
+  --border-subtle: var(--glass-hairline);
+
+  /* Accent scale */
+  --accent-400: #5cd67d;
+  --accent-500: #35c062;
+  --accent-600: #27934b;
+  --vibrancy-tint: color-mix(in srgb, var(--accent-500) 8%, transparent);
+
+  /* Status */
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --success: #22c55e;
+
+  /* Focus ring (outer 2px) */
+  --ring-outline: 0 0 0 3px color-mix(in srgb, var(--accent-400) 40%, transparent);
+}
+
+/* Light theme (opt-in via .light class on html or body) */
+.light {
+  --bg: #f7f8fb;
+  --fg: #0e1530;
+  --fg-muted: #51607d;
+
+  --glass-surface: rgba(255, 255, 255, 0.88);
+  --glass-elevated: rgba(255, 255, 255, 0.92);
+  --glass-hairline: rgba(13, 20, 40, 0.12);
+  --glass-hairline-strong: rgba(13, 20, 40, 0.18);
+  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+
+  --surface: var(--glass-surface);
+  --elevated: var(--glass-elevated);
+  --border: var(--glass-hairline-strong);
+  --border-subtle: var(--glass-hairline);
+
+  --accent-400: #4fb86b;
+  --accent-500: #2ea357;
+  --accent-600: #1f7b40;
+
+  --danger: #dc2626;
+  --warn: #d97706;
+  --success: #16a34a;
+
+  --ring-outline: 0 0 0 3px color-mix(in srgb, var(--accent-400) 40%, transparent);
+}
+
+/* Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-ms: 0ms; }
+}
+
+/* Utility classes for glass surfaces */
+.glass-surface {
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur-12));
+  -webkit-backdrop-filter: blur(var(--glass-blur-12));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  position: relative;
+}
+.glass-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  border-radius: inherit;
+}
+.glass-elevated {
+  background: var(--elevated);
+  backdrop-filter: blur(var(--glass-blur-12));
+  -webkit-backdrop-filter: blur(var(--glass-blur-12));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.35);
+}
+.hairline { border: 1px solid var(--border); }
+.vibrancy { background: var(--vibrancy-tint); }
