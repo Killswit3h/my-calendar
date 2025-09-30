@@ -1,0 +1,2 @@
+export { renderDailyTablePDF } from './DailyTablePDF'
+
