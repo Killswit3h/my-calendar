@@ -49,11 +49,11 @@ export async function GET(req: NextRequest) {
     where: { startsAt: { lt: end }, endsAt: { gt: start } },
     orderBy: [{ startsAt: 'asc' }],
     select: { id: true, title: true, startsAt: true, endsAt: true, description: true },
-  })
+  }) as Array<{ id: string; title: string | null; startsAt: Date; endsAt: Date; description: string | null }>
 
   const items = rows
-    .filter(r => !q || (r.title || '').toLowerCase().includes(q))
-    .map(r => {
+    .filter((r: { id: string; title: string | null; startsAt: Date; endsAt: Date }) => !q || (r.title || '').toLowerCase().includes(q))
+    .map((r: { id: string; title: string | null; startsAt: Date; endsAt: Date }) => {
       const startsOnDate = r.startsAt >= start && r.startsAt < end
       const endsOnDate = r.endsAt > start && r.endsAt <= end
       return {
