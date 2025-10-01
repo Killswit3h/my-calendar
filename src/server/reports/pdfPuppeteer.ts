@@ -114,10 +114,10 @@ export async function snapshotsToPdfPuppeteer(days: DaySnapshot[], options?: { n
   const body = days.map((d) => dayHtml(d, options?.notes)).join('\n')
   const html = htmlShell(body, styles)
 
-  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION || process.env.NODE_ENV === 'production'
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION
   const browser = isServerless
     ? await puppeteerCore.launch({
-        args: chromium.args,
+        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
         executablePath: await chromium.executablePath(),
         headless: true,
         defaultViewport: chromium.defaultViewport,
