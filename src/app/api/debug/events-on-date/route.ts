@@ -51,10 +51,20 @@ export async function GET(req: NextRequest) {
     where: { startsAt: { lt: end }, endsAt: { gt: start } },
     orderBy: [{ startsAt: 'asc' }],
     select: { id: true, title: true, startsAt: true, endsAt: true, description: true },
-  }) as Row[]
+  }) as unknown as Row[]
 
-  const items = rows
-    .filter((r: Row): r is Row => !q || (r.title || '').toLowerCase().includes(q))
+  const items: Array<{
+    id: string
+    title: string | null
+    startsAtUTC: string
+    endsAtUTC: string
+    startsAtLocal: string
+    endsAtLocal: string
+    startsOnDate: boolean
+    endsOnDate: boolean
+    overlaps: true
+  }> = (rows as Row[])
+    .filter((r: Row) => !q || ((r.title || '').toLowerCase().includes(q)))
     .map((r: Row) => {
       const startsOnDate = r.startsAt >= start && r.startsAt < end
       const endsOnDate = r.endsAt > start && r.endsAt <= end
@@ -67,7 +77,7 @@ export async function GET(req: NextRequest) {
         endsAtLocal: toLocal(r.endsAt, tz),
         startsOnDate,
         endsOnDate,
-        overlaps: true,
+        overlaps: true as const,
       }
     })
 
