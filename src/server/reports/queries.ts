@@ -104,7 +104,8 @@ export async function getEventsForDay(dateYmd: string, vendor?: string | null): 
   const { start, end } = dayStartEnd(dateYmd)
   const p = await getPrisma()
   const rowsDb = await p.event.findMany({
-    where: { OR: [{ startsAt: { lte: end }, endsAt: { gte: start } }] },
+    // Strict overlap with the local day window
+    where: { startsAt: { lt: end }, endsAt: { gt: start } },
     orderBy: [{ title: "asc" }, { startsAt: "asc" }],
     select: { title: true, description: true, type: true, checklist: true, shift: true },
   })
