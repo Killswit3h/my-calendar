@@ -36,6 +36,8 @@ function toLocal(utc: Date, tz: string): string {
   return new Date(utc).toLocaleString('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
+type Row = { id: string; title: string | null; startsAt: Date; endsAt: Date; description: string | null }
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const date = (url.searchParams.get('date') || '').trim()
@@ -49,11 +51,11 @@ export async function GET(req: NextRequest) {
     where: { startsAt: { lt: end }, endsAt: { gt: start } },
     orderBy: [{ startsAt: 'asc' }],
     select: { id: true, title: true, startsAt: true, endsAt: true, description: true },
-  }) as Array<{ id: string; title: string | null; startsAt: Date; endsAt: Date; description: string | null }>
+  }) as Row[]
 
   const items = rows
-    .filter((r: { id: string; title: string | null; startsAt: Date; endsAt: Date }) => !q || (r.title || '').toLowerCase().includes(q))
-    .map((r: { id: string; title: string | null; startsAt: Date; endsAt: Date }) => {
+    .filter((r: Row): r is Row => !q || (r.title || '').toLowerCase().includes(q))
+    .map((r: Row) => {
       const startsOnDate = r.startsAt >= start && r.startsAt < end
       const endsOnDate = r.endsAt > start && r.endsAt <= end
       return {
