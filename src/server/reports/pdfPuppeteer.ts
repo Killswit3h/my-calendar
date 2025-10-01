@@ -1,4 +1,6 @@
 import puppeteer from 'puppeteer'
+import puppeteerCore from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import type { DaySnapshot, ReportRow } from './queries'
 import fs from 'fs'
 import path from 'path'
@@ -112,7 +114,15 @@ export async function snapshotsToPdfPuppeteer(days: DaySnapshot[], options?: { n
   const body = days.map((d) => dayHtml(d, options?.notes)).join('\n')
   const html = htmlShell(body, styles)
 
-  const browser = await puppeteer.launch({ headless: true })
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION || process.env.NODE_ENV === 'production'
+  const browser = isServerless
+    ? await puppeteerCore.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        defaultViewport: chromium.defaultViewport,
+      })
+    : await puppeteer.launch({ headless: true })
   try {
     const page = await browser.newPage()
     await page.emulateMediaType('screen')
