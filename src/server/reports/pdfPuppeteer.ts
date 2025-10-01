@@ -119,7 +119,7 @@ export async function snapshotsToPdfPuppeteer(days: DaySnapshot[], options?: { n
     ? await puppeteerCore.launch({
         args: chromium.args,
         executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
+        headless: true,
         defaultViewport: chromium.defaultViewport,
       })
     : await puppeteer.launch({ headless: true })

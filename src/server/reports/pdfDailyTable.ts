@@ -1,10 +1,20 @@
 import puppeteer from 'puppeteer'
+import puppeteerCore from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import type { DailyReport } from '@/server/reports/mapToDailyReport'
 import { renderDailyHTML } from '@/server/reports/templates/daily-html'
 
 export async function dailyTableToPdf(data: DailyReport): Promise<Uint8Array> {
   const html = renderDailyHTML(data)
-  const browser = await puppeteer.launch({ headless: true })
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION || process.env.NODE_ENV === 'production'
+  const browser = isServerless
+    ? await puppeteerCore.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+        defaultViewport: chromium.defaultViewport,
+      })
+    : await puppeteer.launch({ headless: true })
   try {
     const page = await browser.newPage()
     await page.emulateMediaType('screen')
