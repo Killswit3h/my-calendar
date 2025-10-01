@@ -12,7 +12,6 @@ export async function dailyTableToPdf(data: DailyReport): Promise<Uint8Array> {
         args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
         executablePath: await chromium.executablePath(),
         headless: true,
-        defaultViewport: chromium.defaultViewport,
       })
     : await puppeteer.launch({ headless: true })
   try {

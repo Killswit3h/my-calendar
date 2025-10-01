@@ -7,10 +7,9 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer> {
   if (isServerless) {
     // Serverless: puppeteer-core + @sparticuz/chromium
     const puppeteer = (await import("puppeteer-core")) as typeof PuppeteerCoreNS;
-    const exePath = await chromium.executablePath("");
+    const exePath = await chromium.executablePath();
     const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
       executablePath: exePath,
       headless: true,
     });
