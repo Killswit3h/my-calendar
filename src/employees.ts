@@ -18,6 +18,28 @@ function toId(first: string, last: string): string {
   return `${kebab(first)}-${kebab(last)}`;
 }
 
+function titleCaseChunk(chunk: string): string {
+  const lower = chunk.toLowerCase();
+  if (/^(?:ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)$/i.test(chunk)) {
+    return chunk.toUpperCase();
+  }
+  if (/^(jr|sr)$/i.test(chunk)) {
+    return chunk.toUpperCase();
+  }
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+export function displayNameFromEmployeeId(id: string): string {
+  const raw = (id || '').trim();
+  if (!raw) return '';
+  const parts = raw
+    .split(/[-\s]+/)
+    .map(part => part.replace(/[^a-z0-9]/gi, ''))
+    .filter(Boolean);
+  if (!parts.length) return raw;
+  return parts.map(titleCaseChunk).join(' ');
+}
+
 const seedEmployeeData: Omit<Employee, 'id'>[] = [
   { firstName: 'Adrian', lastName: 'Ramos', team: 'South' },
   { firstName: 'Carlos', lastName: 'Manuel Diaz', team: 'South' },
@@ -108,4 +130,3 @@ export function resetEmployees(): void {
     window.localStorage.removeItem(LS_KEY);
   }
 }
-

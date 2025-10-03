@@ -3,7 +3,24 @@
 
 const LS_KEY = 'yard.assignments.v1'
 
-type YardMap = Record<string, string[]>
+const DEFAULT_YARD_IDS = [
+  'jony-baquedano-mendoza',
+  'jose-santos-diaz',
+  'edilberto-acuna',
+  'gerardo-oliva',
+]
+
+type YardMap = Record<string, string[]> & {
+  __seededDefaults?: Record<string, boolean>
+}
+
+function ensureSeedTracker(map: YardMap): Record<string, boolean> {
+  const tracker = map.__seededDefaults
+  if (tracker && typeof tracker === 'object') return tracker
+  const next: Record<string, boolean> = {}
+  map.__seededDefaults = next
+  return next
+}
 
 function load(): YardMap {
   if (typeof window === 'undefined') return {}
@@ -23,8 +40,19 @@ function save(map: YardMap): void {
 
 export function getYardForDate(dateKey: string): string[] {
   const map = load()
-  const arr = map[dateKey]
-  return Array.isArray(arr) ? arr.slice() : []
+  const tracker = ensureSeedTracker(map)
+  const current = Array.isArray(map[dateKey]) ? [...map[dateKey]] : []
+
+  if (!tracker[dateKey]) {
+    const missing = DEFAULT_YARD_IDS.filter((id) => !current.includes(id))
+    const next = missing.length ? [...current, ...missing] : current
+    map[dateKey] = next
+    tracker[dateKey] = true
+    save(map)
+    return next.slice()
+  }
+
+  return current
 }
 
 export function setYardForDate(dateKey: string, ids: string[]): void {
@@ -47,4 +75,3 @@ export function removeYard(dateKey: string, id: string): void {
   map[dateKey] = arr.filter((x) => x !== id)
   save(map)
 }
-

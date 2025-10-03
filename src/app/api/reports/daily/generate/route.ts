@@ -26,11 +26,24 @@ function normalizeYmd(input: string | null | undefined): string | null {
 export async function POST(req: NextRequest) {
   if (!okRole()) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
-  const body = (await req.json().catch(() => null)) as { date?: string; vendor?: string | null; force?: boolean } | null
+  const body = (await req.json().catch(() => null)) as {
+    date?: string
+    vendor?: string | null
+    force?: boolean
+    yardEmployees?: unknown
+    noWorkEmployees?: unknown
+  } | null
   const date = normalizeYmd(body?.date || '') || ''
   const vendor = (body?.vendor ?? null) as string | null
   const force = !!body?.force
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: 'date_required' }, { status: 400 })
+
+  const yardEmployees = Array.isArray(body?.yardEmployees)
+    ? body!.yardEmployees.map(v => String(v ?? '').trim()).filter(Boolean)
+    : []
+  const noWorkEmployees = Array.isArray(body?.noWorkEmployees)
+    ? body!.noWorkEmployees.map(v => String(v ?? '').trim()).filter(Boolean)
+    : []
 
   const p = await getPrisma()
 
@@ -56,6 +69,8 @@ export async function POST(req: NextRequest) {
 
     const snapshot = await getEventsForDay(date, vendor ?? null)
     const reportData = mapSnapshotToDailyReport(snapshot)
+    if (yardEmployees.length) reportData.yardEmployees = yardEmployees
+    if (noWorkEmployees.length) reportData.noWorkEmployees = noWorkEmployees
     const pdfBytes = await dailyTableToPdf(reportData)
     const pdfBuf = Buffer.from(pdfBytes)
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))

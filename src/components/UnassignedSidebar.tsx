@@ -38,9 +38,10 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
   const bump = () => setYardVersion(v => v + 1);
 
   // Map of dateKey -> Set of assigned employeeIds
-  const assignedByDay = useMemo(() => {
+  const { assignedByDay, eventAssignedByDay } = useMemo(() => {
     const map = new Map<string, Set<string>>();
-    if (!daysToShow.length) return map;
+    const eventMap = new Map<string, Set<string>>();
+    if (!daysToShow.length) return { assignedByDay: map, eventAssignedByDay: eventMap };
     const rangeStart = daysToShow[0];
     const rangeEnd = new Date(daysToShow[daysToShow.length - 1].getFullYear(), daysToShow[daysToShow.length - 1].getMonth(), daysToShow[daysToShow.length - 1].getDate() + 1);
 
@@ -87,11 +88,16 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
           const k = ymdLocal(day);
           let s = map.get(k);
           if (!s) { s = new Set<string>(); map.set(k, s); }
-          for (const id of employeeIds) s.add(id);
+          let eSet = eventMap.get(k);
+          if (!eSet) { eSet = new Set<string>(); eventMap.set(k, eSet); }
+          for (const id of employeeIds) {
+            s.add(id);
+            eSet.add(id);
+          }
         }
       }
     }
-    return map;
+    return { assignedByDay: map, eventAssignedByDay: eventMap };
   }, [events, daysToShow, yardVersion]);
 
   const isEmpty = employees.length === 0;
@@ -108,6 +114,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
           {daysToShow.map((d) => {
             const key = ymdLocal(d);
             const assigned = assignedByDay.get(key) ?? new Set<string>();
+            const eventAssigned = eventAssignedByDay.get(key) ?? new Set<string>();
             const free = employees.filter((e) => !assigned.has(e.id));
             return (
               <div key={key} className="day-card" role="listitem" aria-label={`Unassigned for ${key}`}>
@@ -161,8 +168,10 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                   <div className="section-card yard-card">
                     <div className="yard-title">Yard/Shop</div>
                     <div className="yard-list" role="list">
-                      {getYardForDate(key).length ? (
-                        getYardForDate(key).map((id) => {
+                      {(() => {
+                        const yardIds = getYardForDate(key).filter(id => !eventAssigned.has(id));
+                        if (!yardIds.length) return <div className="muted-xs">No one assigned</div>;
+                        return yardIds.map((id) => {
                           const emp = employees.find(e => e.id === id);
                           const label = emp ? `${emp.firstName} ${emp.lastName}` : id;
                           return (
@@ -173,10 +182,8 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                               </button>
                             </div>
                           );
-                        })
-                      ) : (
-                        <div className="muted-xs">No one assigned</div>
-                      )}
+                        });
+                      })()}
                     </div>
                     <div className="yard-row">
                       <select aria-label={`Add Yard/Shop employee for ${key}`} className="yard-select" defaultValue="">
