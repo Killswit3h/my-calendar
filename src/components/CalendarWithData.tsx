@@ -1,19 +1,19 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, TouchEvent, Suspense } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
-import * as chrono from 'chrono-node';
 import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
 import { eventOverlapsLocalDay, ymdLocal } from '@/lib/dateUtils';
 import { getYardForDate } from '@/lib/yard';
+import { getAbsentForDate } from '@/lib/absent';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
@@ -28,6 +28,8 @@ type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
 type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; vendor?: Vendor; payroll?: boolean; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
+
+const DAY_MS = 86_400_000;
 const TYPE_LABEL: Record<JobType, string> = { FENCE:'Fence', GUARDRAIL:'Guardrail', ATTENUATOR:'Attenuator', HANDRAIL:'Handrail', TEMP_FENCE:'Temporary Fence' };
 const TYPE_COLOR: Record<JobType, string> = {
   FENCE: 'var(--evt-fence)',
@@ -134,7 +136,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const locationRef = useRef<HTMLInputElement>(null);
   const autoRef = useRef<any>(null);
   const [locInput, setLocInput] = useState('');
-  const [quickText, setQuickText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const filterEventsForSearch = useCallback((list: EventInput[]) => {
     const q = searchQuery.trim().toLowerCase();
@@ -306,82 +307,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     return text.replace(re, '<mark>$1</mark>');
   };
 
-  const handleQuickAdd = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    let txt = quickText.trim();
-    if (!txt) return;
-
-    const typeMatch = txt.match(/\b(temp(?:orary)?\s*fence|guardrail|fence|attenuator|handrail)\b/i);
-    let type: JobType | null = null;
-    if (typeMatch) {
-      const kw = typeMatch[1].toLowerCase();
-      if (kw.includes('temp')) type = 'TEMP_FENCE';
-      else if (kw === 'guardrail') type = 'GUARDRAIL';
-      else if (kw === 'attenuator') type = 'ATTENUATOR';
-      else if (kw === 'handrail') type = 'HANDRAIL';
-      else if (kw === 'fence') type = 'FENCE';
-      txt = txt.replace(typeMatch[0], '').trim();
-    }
-
-    const parsed = chrono.parse(txt)[0];
-    if (parsed && parsed.start) {
-      const hasTime = parsed.start.isCertain('hour');
-      const start = parsed.start.date();
-      const end = parsed.end
-        ? parsed.end.date()
-        : hasTime
-          ? new Date(start.getTime() + 60 * 60 * 1000)
-          : start;
-      const title = (txt.replace(parsed.text, '').trim()) || 'Event';
-      const r = await fetch(`/api/calendars/${calendarId}/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description: '',
-          start: start.toISOString(),
-          end: end.toISOString(),
-          allDay: !hasTime,
-          location: '',
-          type,
-          shift: null,
-          checklist: null,
-        }),
-      });
-      if (r.ok) {
-        const c = await r.json();
-        const normalized = normalizeEvent(c);
-        setEvents(p => [
-          ...p,
-          {
-            id: normalized.id,
-            title: normalized.title,
-            start: normalized.start,
-            end: normalized.end,
-            allDay: !!normalized.allDay,
-            extendedProps: {
-              location: normalized.location ?? '',
-              ...splitInvoiceProps(normalized.description ?? ''),
-              type: normalized.type ?? null,
-              shift: normalized.shift ?? null,
-              checklist: normalized.checklist ?? null,
-              calendarId: normalized.calendarId ?? '',
-            },
-            className: typeToClass(normalized.type),
-            display: 'block',
-          },
-        ]);
-        refetchCalendar();
-      }
-    } else {
-      const nowIso = new Date().toISOString();
-      setDraft({ title: txt, start: toLocalInput(nowIso), end: toLocalInput(nowIso), allDay: false, location: '', description: '', type: type ?? 'FENCE', payment: 'DAILY', vendor: 'JORGE', payroll: false, checklist: defaultChecklist() });
-      setEditId(null);
-      setOpen(true);
-    }
-    setQuickText('');
-  }, [quickText, calendarId, refetchCalendar]);
-
   const fetchHolidays = useCallback(async (year: number, cc: string) => {
     const res = await fetch(`/api/holidays?year=${year}&country=${cc}`); const json = await res.json();
     const bg: EventInput[] = (json.holidays as { date: string; title: string }[]).map(h => ({
@@ -450,24 +375,25 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const existing = top.querySelector('.day-weather');
     if (existing) existing.remove();
     const data = weather[ymd];
-    if (!data || !coords) return;
-    const a = document.createElement('a');
-    a.className = 'day-weather';
-    const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
-    const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
-    a.appendChild(ico); a.appendChild(txt);
-    // Override with explicit Fahrenheit unit for display
-    try { txt.textContent = `${Math.round(data.tmax)}\u00B0F ${Math.round(data.pop)}%`; } catch {}
-    a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
-    a.target = '_blank'; a.rel = 'noopener noreferrer';
-    ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
-      a.addEventListener(evt as any, (e) => { e.stopPropagation(); });
-    });
-    const dayNum = top.querySelector('.fc-daygrid-day-number');
-    if (dayNum && dayNum.parentNode) {
-      dayNum.parentNode.insertBefore(a, dayNum);
-    } else {
-      top.insertBefore(a, top.firstChild);
+    if (data && coords) {
+      const a = document.createElement('a');
+      a.className = 'day-weather';
+      const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = weatherIcon(data.code, data.pop);
+      const txt = document.createElement('span'); txt.textContent = `${Math.round(data.tmax)}° ${Math.round(data.pop)}%`;
+      a.appendChild(ico); a.appendChild(txt);
+      // Override with explicit Fahrenheit unit for display
+      try { txt.textContent = `${Math.round(data.tmax)}\u00B0F ${Math.round(data.pop)}%`; } catch {}
+      a.href = `https://www.google.com/search?q=weather%20${encodeURIComponent(`${coords.lat.toFixed(2)},${coords.lon.toFixed(2)} ${ymd}`)}`;
+      a.target = '_blank'; a.rel = 'noopener noreferrer';
+      ['click','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend'].forEach(evt => {
+        a.addEventListener(evt as any, (e) => { e.stopPropagation(); });
+      });
+      const dayNum = top.querySelector('.fc-daygrid-day-number');
+      if (dayNum && dayNum.parentNode) {
+        dayNum.parentNode.insertBefore(a, dayNum);
+      } else {
+        top.insertBefore(a, top.firstChild);
+      }
     }
 
     // Add a small plus button at bottom-right for creating an event
@@ -484,13 +410,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const parts = ymd.split('-').map(n => parseInt(n, 10));
-        const d = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0, 0);
-        const startLocal = dateToLocalInput(d);
+        const startDate = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+        const endDate = new Date(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0);
         setEditId(null);
         setDraft({
-          title: 'Event',
-          start: fromLocalInput(startLocal),
-          end: fromLocalInput(startLocal),
+          title: '',
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
           allDay: true,
           location: '',
           description: '',
@@ -501,6 +427,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: 'DAY',
           checklist: defaultChecklist(),
         });
+        setUserChangedStart(false);
+        setUserChangedEnd(false);
         setOpen(true);
       });
       frame.appendChild(btn);
@@ -601,11 +529,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
     // Prefill an all-day event on the selected local day with the chosen employee
-    const startLocal = dateToLocalInput(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
+    const startDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+    const endDate = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0, 0);
     setDraft({
-      title: 'Event',
-      start: startLocal,
-      end: startLocal,
+      title: '',
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
       allDay: true,
       location: '',
       description: '',
@@ -616,6 +545,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       checklist: { ...(defaultChecklist()), employees: [employeeId] },
     });
     setEditId(null);
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
     setOpen(true);
   }, []);
 
@@ -638,23 +569,52 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const handleSelect = useCallback((sel: DateSelectArg) => {
     setEditId(null);
 
-    const startLocal = dateToLocalInput(sel.start);
-    const endLocal = dateToLocalInput(sel.end ?? sel.start);
+    const baseStart = sel.start ?? new Date();
+    const baseEnd = sel.end ?? sel.start ?? baseStart;
 
-    setDraft({
-      title: '',
-      start: fromLocalInput(startLocal),
-      end: fromLocalInput(endLocal),
-      allDay: sel.allDay,
-      type: 'FENCE',
-      invoice: '',
-      payment: 'DAILY',
-      vendor: 'JORGE',
-      payroll: false,
-      shift: 'DAY',
-      checklist: defaultChecklist(),
-    });
     if (sel.start) setSelectedDay(new Date(sel.start.getFullYear(), sel.start.getMonth(), sel.start.getDate()));
+
+    if (sel.allDay) {
+      const startDate = new Date(baseStart.getFullYear(), baseStart.getMonth(), baseStart.getDate(), 0, 0, 0, 0);
+      let endDate = baseEnd
+        ? new Date(baseEnd.getFullYear(), baseEnd.getMonth(), baseEnd.getDate(), 0, 0, 0, 0)
+        : new Date(startDate.getTime());
+      if (!sel.end) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+      if (endDate <= startDate) {
+        endDate = new Date(startDate.getTime() + DAY_MS);
+      }
+      setDraft({
+        title: '',
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        allDay: true,
+        type: 'FENCE',
+        invoice: '',
+        payment: 'DAILY',
+        vendor: 'JORGE',
+        payroll: false,
+        shift: 'DAY',
+        checklist: defaultChecklist(),
+      });
+    } else {
+      setDraft({
+        title: '',
+        start: baseStart.toISOString(),
+        end: baseEnd.toISOString(),
+        allDay: false,
+        type: 'FENCE',
+        invoice: '',
+        payment: 'DAILY',
+        vendor: 'JORGE',
+        payroll: false,
+        shift: 'DAY',
+        checklist: defaultChecklist(),
+      });
+    }
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
     setOpen(true);
   }, []);
 
@@ -672,10 +632,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       } as EventInput);
     } else {
       setEditId(e.id);
+      const times = normalizeEventTimes({ start: e.start ?? undefined, end: e.end ?? undefined, allDay: e.allDay });
       setDraft({
         title: e.title,
-        start: e.start ? e.start.toISOString() : new Date().toISOString(),
-        end: e.end ? e.end.toISOString() : undefined,
+        start: times.start,
+        end: times.end,
         allDay: e.allDay,
         location: e.extendedProps['location'] as string | undefined,
         description: e.extendedProps['description'] as string | undefined,
@@ -687,6 +648,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
       });
+      setUserChangedStart(false);
+      setUserChangedEnd(false);
       setOpen(true);
     }
   }, [isTablet]);
@@ -695,10 +658,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!selectedEvent) return;
     const e: any = selectedEvent;
     setEditId(e.id as string);
+    const times = normalizeEventTimes({ start: e.start as string | undefined, end: e.end as string | undefined, allDay: e.allDay as boolean | undefined });
     setDraft({
       title: e.title,
-      start: e.start as string,
-      end: e.end as string | undefined,
+      start: times.start,
+      end: times.end,
       allDay: e.allDay as boolean,
       location: e.extendedProps?.location as string | undefined,
       description: e.extendedProps?.description as string | undefined,
@@ -710,6 +674,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
     });
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
     setOpen(true);
   }, [selectedEvent]);
 
@@ -744,9 +710,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const saveDraft = useCallback(async () => {
     if (!draft?.title) return;
+    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
+    const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
+    const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
     if (editId) {
       const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, startsAt: payloadStart, endsAt: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to update event');
@@ -773,7 +742,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         } : ev)));
     } else {
       const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), startsAt: fromLocalInput(draft.start), endsAt: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, startsAt: payloadStart, endsAt: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to create event');
@@ -825,8 +794,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const duplicateCurrent = useCallback(async () => {
     if (!draft) return;
+    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
+    const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
+    const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
     const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: fromLocalInput(draft.start), end: fromLocalInput(draft.end ?? draft.start), allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+      body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to duplicate event');
@@ -861,6 +833,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft) return;
     const prevStart = new Date(draft.start);
     const newStartDate = new Date(iso);
+    if (draft.allDay) {
+      newStartDate.setHours(0, 0, 0, 0);
+      iso = newStartDate.toISOString();
+    }
     let endIso = draft.end;
     if (!userChangedEnd && draft.end) {
       const duration = new Date(draft.end).getTime() - prevStart.getTime();
@@ -872,8 +848,21 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const updateEnd = (iso: string) => {
     if (!draft) return;
-    const endDate = new Date(iso);
-    if (endDate < new Date(draft.start)) endDate.setTime(new Date(draft.start).getTime());
+    if (draft.allDay) {
+      const startDate = new Date(draft.start);
+      const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+      const raw = new Date(iso);
+      let endMidnight = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate(), 0, 0, 0, 0);
+      endMidnight.setDate(endMidnight.getDate() + 1);
+      if (endMidnight <= startMidnight) {
+        endMidnight = new Date(startMidnight.getTime() + DAY_MS);
+      }
+      setDraft({ ...draft, end: endMidnight.toISOString() });
+      setUserChangedEnd(true);
+      return;
+    }
+    let endDate = new Date(iso);
+    if (endDate < new Date(draft.start)) endDate = new Date(draft.start);
     setDraft({ ...draft, end: endDate.toISOString() });
     setUserChangedEnd(true);
   };
@@ -1015,16 +1004,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </div>
             ) : null}
           </div>
-          <form id="quick-add-form" onSubmit={handleQuickAdd} className="quick-add-form">
-            <input
-              type="text"
-              placeholder="Quick add event"
-              value={quickText}
-              onChange={e => setQuickText(e.target.value)}
-              className="search-input"
-            />
-            <button type="submit" className="btn primary">Add</button>
-          </form>
           <input
             type="text"
             placeholder="Search"
@@ -1234,8 +1213,47 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <button className="btn primary" onClick={async () => {
                 const ymd = reportDate.trim();
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) { alert('Invalid date'); return; }
+                const yardIds = getYardForDate(ymd);
+                const noWorkIds = getAbsentForDate(ymd);
+                const [yyyy, mm, dd] = ymd.split('-').map(n => parseInt(n, 10));
+                const targetDay = Number.isFinite(yyyy) && Number.isFinite(mm) && Number.isFinite(dd)
+                  ? new Date(yyyy, mm - 1, dd)
+                  : null;
+                const assignedIds = new Set<string>();
+                if (targetDay) {
+                  events.forEach(ev => {
+                    if (!ev) return;
+                    const minimal = { start: ev.start as any, end: ev.end as any, allDay: !!ev.allDay } as const;
+                    if (!eventOverlapsLocalDay(minimal as any, targetDay)) return;
+                    const list: unknown = (ev.extendedProps as any)?.checklist?.employees;
+                    if (Array.isArray(list)) {
+                      list.forEach(id => {
+                        const str = typeof id === 'string' ? id : String(id ?? '');
+                        if (str.trim()) assignedIds.add(str);
+                      });
+                    }
+                  });
+                }
+                const filteredYardIds = yardIds.filter(id => !assignedIds.has(id));
+                const nameById = new Map(employees.map(e => [e.id, `${e.firstName} ${e.lastName}`]));
+                const yardEmployees = filteredYardIds
+                  .map(id => nameById.get(id) || id)
+                  .filter((name): name is string => !!name && name.trim().length > 0);
+                const noWorkEmployees = noWorkIds
+                  .map(id => nameById.get(id) || id)
+                  .filter((name): name is string => !!name && name.trim().length > 0);
                 try {
-                  const r = await fetch('/api/reports/daily/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: ymd, vendor: null, force: true }) });
+                  const r = await fetch('/api/reports/daily/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      date: ymd,
+                      vendor: null,
+                      force: true,
+                      yardEmployees,
+                      noWorkEmployees,
+                    }),
+                  });
                   const j = await r.json();
                   if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); setReportPickerOpen(false); }
                   else alert(j.error || 'Failed to generate');
@@ -1259,7 +1277,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               {isMobile ? (
                 <>
                   <label><div className="label">Start date</div>
-                    <input type="date" value={toLocalDate(draft.start)} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
+                    <input type="date" value={formatDateInputValue(draft.start, { allDay: !!draft.allDay })} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
                   </label>
                   {!draft.allDay && (
                     <label><div className="label">Start time</div>
@@ -1267,7 +1285,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                     </label>
                   )}
                   <label><div className="label">End date</div>
-                    <input type="date" min={toLocalDate(draft.start)} value={toLocalDate(draft.end ?? draft.start)} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
+                    <input type="date" min={formatDateInputValue(draft.start, { allDay: !!draft.allDay })} value={formatDateInputValue(draft.end ?? draft.start, { allDay: !!draft.allDay, isEnd: true })} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
                   </label>
                   {!draft.allDay && (
                     <label><div className="label">End time</div>
@@ -1278,10 +1296,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               ) : (
                 <>
                   <label><div className="label">Start</div>
-                    <input type="datetime-local" value={toLocalInput(draft.start)} onChange={e => updateStart(fromLocalInput(e.target.value))} />
+                    <input type="datetime-local" value={formatDateTimeInputValue(draft.start, { allDay: !!draft.allDay })} onChange={e => updateStart(fromLocalInput(e.target.value))} />
                   </label>
                   <label><div className="label">End</div>
-                    <input type="datetime-local" min={toLocalInput(draft.start)} value={toLocalInput(draft.end ?? draft.start)} onChange={e => updateEnd(fromLocalInput(e.target.value))} />
+                    <input type="datetime-local" min={formatDateTimeInputValue(draft.start, { allDay: !!draft.allDay })} value={formatDateTimeInputValue(draft.end ?? draft.start, { allDay: !!draft.allDay, isEnd: true })} onChange={e => updateEnd(fromLocalInput(e.target.value))} />
                   </label>
                 </>
               )}
@@ -1535,6 +1553,96 @@ function dateToLocalInput(d: Date) { const pad = (n: number) => String(n).padSta
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
 
+function isUtcMidnight(date: Date): boolean {
+  return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+}
+
+function normalizeDraftBounds(draft: NewEvent): { start: string; end: string } {
+  const startDate = new Date(draft.start);
+  if (Number.isNaN(startDate.getTime())) {
+    const now = new Date();
+    const later = new Date(now.getTime() + 60 * 60 * 1000);
+    return { start: now.toISOString(), end: later.toISOString() };
+  }
+
+  if (draft.allDay) {
+    const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+    let endDateRaw = draft.end ? new Date(draft.end) : null;
+    if (!endDateRaw || Number.isNaN(endDateRaw.getTime())) {
+      endDateRaw = new Date(startMidnight.getTime() + DAY_MS);
+    }
+    let endMidnight = new Date(endDateRaw.getFullYear(), endDateRaw.getMonth(), endDateRaw.getDate(), 0, 0, 0, 0);
+    if (!isUtcMidnight(endDateRaw)) {
+      endMidnight.setDate(endMidnight.getDate() + 1);
+    }
+    if (endMidnight <= startMidnight) {
+      endMidnight = new Date(startMidnight.getTime() + DAY_MS);
+    }
+    return { start: startMidnight.toISOString(), end: endMidnight.toISOString() };
+  }
+
+  let endDate = draft.end ? new Date(draft.end) : null;
+  if (!endDate || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+    endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  }
+  return { start: startDate.toISOString(), end: endDate.toISOString() };
+}
+
+type NormalizeEventInput = { start?: string | Date | null; end?: string | Date | null; allDay?: boolean | null };
+
+function normalizeEventTimes(event: NormalizeEventInput): { start: string; end: string } {
+  const rawStart = event.start instanceof Date ? event.start : (event.start ? new Date(event.start) : new Date());
+  const rawEnd = event.end instanceof Date ? event.end : (event.end ? new Date(event.end) : null);
+
+  if (event.allDay) {
+    const startMidnight = new Date(rawStart.getFullYear(), rawStart.getMonth(), rawStart.getDate(), 0, 0, 0, 0);
+    let endMidnight: Date;
+    if (rawEnd) {
+      endMidnight = new Date(rawEnd.getFullYear(), rawEnd.getMonth(), rawEnd.getDate(), 0, 0, 0, 0);
+      if (!isUtcMidnight(rawEnd)) {
+        endMidnight.setDate(endMidnight.getDate() + 1);
+      }
+      if (endMidnight <= startMidnight) {
+        endMidnight = new Date(startMidnight.getTime() + DAY_MS);
+      }
+    } else {
+      endMidnight = new Date(startMidnight.getTime() + DAY_MS);
+    }
+    return { start: startMidnight.toISOString(), end: endMidnight.toISOString() };
+  }
+
+  const startIso = rawStart.toISOString();
+  const endIso = (rawEnd ?? rawStart).toISOString();
+  return { start: startIso, end: endIso };
+}
+
+function formatDateInputValue(iso: string, { allDay, isEnd = false }: { allDay: boolean; isEnd?: boolean }): string {
+  if (!iso) return '';
+  if (!allDay) return toLocalInput(iso).slice(0, 10);
+  const date = new Date(iso);
+  if (isEnd) {
+    if (isUtcMidnight(date)) {
+      date.setMinutes(date.getMinutes() - 1);
+    }
+  }
+  return ymdLocal(date);
+}
+
+function formatDateTimeInputValue(iso: string, { allDay, isEnd = false }: { allDay: boolean; isEnd?: boolean }): string {
+  if (!iso) return '';
+  if (!allDay) return toLocalInput(iso);
+  const date = new Date(iso);
+  if (isEnd) {
+    if (isUtcMidnight(date)) {
+      date.setMinutes(date.getMinutes() - 1);
+    }
+    date.setHours(23, 59, 0, 0);
+  } else {
+    date.setHours(0, 0, 0, 0);
+  }
+  return dateToLocalInput(date);
+}
+
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
   return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
@@ -1629,14 +1737,3 @@ function SubtasksEditor({ value, onChange }: { value: { id: string; text: string
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-

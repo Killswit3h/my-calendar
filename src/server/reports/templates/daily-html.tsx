@@ -21,6 +21,9 @@ export function renderDailyHTML(data: DailyReport): string {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   })
 
+  const yardList = Array.isArray(data.yardEmployees) ? data.yardEmployees.filter(Boolean) : []
+  const noWorkList = Array.isArray(data.noWorkEmployees) ? data.noWorkEmployees.filter(Boolean) : []
+
   const bodyRows = (rows || []).map(r => {
     const vendorCls = vendorClass(r.vendor)
     return `
@@ -35,6 +38,25 @@ export function renderDailyHTML(data: DailyReport): string {
         <td class="col-time">${escapeHtml(r.time || '—')}</td>
       </tr>`
   }).join('')
+
+  const renderList = (items: string[]) => {
+    if (!items.length) return '<div class="extra-empty">—</div>'
+    return `<ul class="extra-list">${items.map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`
+  }
+
+  const extras = (yardList.length || noWorkList.length)
+    ? `
+  <div class="extras">
+    <div class="extra-card">
+      <div class="extra-title">Yard/Shop</div>
+      ${renderList(yardList)}
+    </div>
+    <div class="extra-card">
+      <div class="extra-title">No Work</div>
+      ${renderList(noWorkList)}
+    </div>
+  </div>`
+    : ''
 
   return `<!doctype html>
 <html>
@@ -72,6 +94,12 @@ export function renderDailyHTML(data: DailyReport): string {
   .vendor-jorge { background:#4CAF50; color:#fff; }
   .vendor-tony  { background:#3B82F6; color:#fff; }
   .vendor-chris { background:#E53935; color:#fff; }
+
+  .extras { display: flex; gap: 12pt; margin-top: 12pt; }
+  .extra-card { flex: 1; border: 1pt solid #444; border-radius: 6pt; padding: 8pt; background: #fafafa; }
+  .extra-title { font-size: 10pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; }
+  .extra-list { list-style: disc; padding-left: 14pt; margin: 0; font-size: 10pt; display: grid; gap: 2pt; }
+  .extra-empty { font-size: 9pt; color: #666; }
 </style>
 </head>
 <body>
@@ -94,6 +122,7 @@ export function renderDailyHTML(data: DailyReport): string {
       ${bodyRows}
     </tbody>
   </table>
+  ${extras}
 </body>
 </html>`
 }

@@ -1,6 +1,6 @@
 // src/server/reports/queries.ts
 import { getPrisma } from "@/lib/db"
-import { getEmployees } from "@/employees"
+import { getEmployees, displayNameFromEmployeeId } from "@/employees"
 
 export type ReportRow = {
   project: string
@@ -102,10 +102,15 @@ function workFromType(type: string | null, notes: string): string {
 
 export async function getEventsForDay(dateYmd: string, vendor?: string | null): Promise<DaySnapshot> {
   const { start, end } = dayStartEnd(dateYmd)
+  const endInclusive = new Date(end.getTime() - 1)
   const p = await getPrisma()
   const rowsDb = await p.event.findMany({
-    // Strict overlap with the local day window
-    where: { startsAt: { lt: end }, endsAt: { gt: start } },
+    // Treat the report window as 12:00am through 11:59:59.999pm local time
+    // Include any job that overlaps that window, even if it started earlier
+    where: {
+      startsAt: { lte: endInclusive },
+      endsAt: { gt: start },
+    },
     orderBy: [{ title: "asc" }, { startsAt: "asc" }],
     select: { title: true, description: true, type: true, checklist: true, shift: true },
   })
@@ -120,7 +125,12 @@ export async function getEventsForDay(dateYmd: string, vendor?: string | null): 
     const meta = parseMeta(e.description || "")
     const cl: any = e.checklist as any
     const crewIds: string[] = Array.isArray(cl?.employees) ? (cl.employees as string[]) : []
-    const crew: string[] = crewIds.map(id => nameById.get(id) || id)
+    const crew: string[] = crewIds.map(id => {
+      const known = nameById.get(id)
+      if (known) return known
+      const guess = displayNameFromEmployeeId(id)
+      return guess || id
+    })
     const work = workFromType(e.type ?? null, meta.notes)
     const timeUnit = /adjusted/i.test(meta.payment) ? "Hour" : "Day"
     return {

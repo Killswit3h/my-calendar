@@ -1,4 +1,5 @@
 import type { DaySnapshot, ReportRow } from '@/server/reports/queries'
+import { getEmployees, displayNameFromEmployeeId } from '@/employees'
 
 export type JobRow = {
   projectCompany: string
@@ -14,7 +15,12 @@ export type JobRow = {
 export type DailyReport = {
   dateISO: string
   rows: JobRow[]
+  yardEmployees?: string[]
+  noWorkEmployees?: string[]
 }
+
+const YES_RE = /^\s*(yes|y|true|1)\s*$/i
+const NO_RE = /^\s*(no|n|false|0)\s*$/i
 
 function workToLetter(work: string): string {
   const w = (work || '').toUpperCase()
@@ -28,6 +34,32 @@ function workToLetter(work: string): string {
   return work || '—'
 }
 
+function normalizeShift(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  if (/night/i.test(raw)) return 'Night'
+  if (/day/i.test(raw)) return 'Day'
+  return raw
+}
+
+function resolvePayrollFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const s = String(entry ?? '').trim()
+      if (!s) continue
+      if (YES_RE.test(s)) return true
+      if (NO_RE.test(s)) return false
+    }
+    return false
+  }
+  const s = String(value ?? '').trim()
+  if (!s) return false
+  if (YES_RE.test(s)) return true
+  if (NO_RE.test(s)) return false
+  return false
+}
+
 function toStringOrDash(v: unknown): string {
   const s = String(v ?? '').trim()
   return s ? s : '—'
@@ -38,16 +70,41 @@ function toStringArray(v: unknown): string[] {
   return []
 }
 
+function createCrewNameResolver(): (raw: string) => string {
+  const nameById = new Map(getEmployees().map(e => [e.id, `${e.firstName} ${e.lastName}`]))
+  const cache = new Map<string, string>()
+  return (raw: string): string => {
+    const key = String(raw ?? '').trim()
+    if (!key) return ''
+    const cached = cache.get(key)
+    if (cached) return cached
+    const known = nameById.get(key)
+    if (known) {
+      cache.set(key, known)
+      return known
+    }
+    const guess = displayNameFromEmployeeId(key)
+    const finalValue = guess || key
+    cache.set(key, finalValue)
+    return finalValue
+  }
+}
+
 export function mapEventsToDailyReport(dateISO: string, events: any[]): DailyReport {
+  const resolveCrewName = createCrewNameResolver()
   const rows: JobRow[] = (events || []).map((e: any) => {
     const project = e.title ?? e.project ?? e.customer ?? '—'
     const invoice = e.invoice ?? '—'
-    const crew = toStringArray(e?.crew?.length ? e.crew : e?.checklist?.employees)
+    const crewRaw = toStringArray(e?.crew?.length ? e.crew : e?.checklist?.employees)
+    const crew = crewRaw.map(resolveCrewName).filter(Boolean)
     const work = workToLetter(e.work ?? e.type ?? '—')
-    const payroll = !!(e.payrollAffects || (Array.isArray(e?.payroll) && e.payroll.length > 0))
+    const payroll = typeof e.payrollAffects === 'boolean'
+      ? e.payrollAffects
+      : resolvePayrollFlag(e?.payroll)
     const payment = e.payment ?? e.paymentTerm ?? '—'
     const vendor = e.vendor ?? e.vendorName ?? '—'
-    const time = e.timeUnit ?? e.shift ?? '—'
+    const shift = normalizeShift(e.shift)
+    const time = shift || e.timeUnit || '—'
     return {
       projectCompany: toStringOrDash(project),
       invoice: toStringOrDash(invoice),
@@ -63,15 +120,16 @@ export function mapEventsToDailyReport(dateISO: string, events: any[]): DailyRep
 }
 
 export function mapSnapshotToDailyReport(day: DaySnapshot): DailyReport {
+  const resolveCrewName = createCrewNameResolver()
   const rows: JobRow[] = (day.rows || []).map((r: ReportRow) => ({
     projectCompany: toStringOrDash(r.project),
     invoice: toStringOrDash(r.invoice),
-    crewMembers: Array.isArray(r.crew) ? r.crew : [],
+    crewMembers: Array.isArray(r.crew) ? r.crew.map(resolveCrewName).filter(Boolean) : [],
     work: toStringOrDash(workToLetter(r.work || '')),
-    payroll: !!(r.payroll && r.payroll.length),
+    payroll: resolvePayrollFlag(r.payroll),
     payment: toStringOrDash(r.payment),
     vendor: toStringOrDash(r.vendor),
-    time: toStringOrDash(r.timeUnit || r.shift),
+    time: toStringOrDash(normalizeShift(r.shift) || r.timeUnit),
   }))
   // Rule: exclude jobs with no assigned employees from the Daily Report
   .filter(row => Array.isArray(row.crewMembers) && row.crewMembers.length > 0)

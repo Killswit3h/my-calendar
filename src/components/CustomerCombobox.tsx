@@ -182,7 +182,6 @@ export default function CustomerCombobox({
           ) : null}
         </ul>
       ) : null}
-      <div className="muted-sm mt-1">Select an existing customer from the list.</div>
     </div>
   );
 }
