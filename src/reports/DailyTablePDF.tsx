@@ -39,6 +39,8 @@ registerFontIfExists('Calibri', 'Calibri-Bold.ttf', 700)
 registerFontIfExists('Carlito', 'Carlito-Regular.ttf', 400)
 registerFontIfExists('Carlito', 'Carlito-Bold.ttf', 700)
 
+const TABLOID_LANDSCAPE = { width: 17 * 72, height: 11 * 72 }
+
 const styles = StyleSheet.create({
   page: {
     padding: 24,
@@ -108,11 +110,22 @@ const styles = StyleSheet.create({
   colWork: { flexGrow: 5, flexShrink: 0, flexBasis: 0 },
   colPayroll: { flexGrow: 5, flexShrink: 0, flexBasis: 0 },
   colPayment: { flexGrow: 8, flexShrink: 0, flexBasis: 0 },
-  colVendor: { flexGrow: 3, flexShrink: 0, flexBasis: 0 },
+  colVendor: { flexGrow: 3, flexShrink: 0, flexBasis: 0, minWidth: 40 },
   colTime: { flexGrow: 2, flexShrink: 0, flexBasis: 0 },
   center: { textAlign: 'center' },
   bold: { fontWeight: 700 },
   upper: { textTransform: 'uppercase' as any },
+  vendorCell: {
+    paddingLeft: 2,
+    paddingRight: 2,
+  },
+  vendorText: {
+    fontSize: 7,
+    fontWeight: 700,
+    textTransform: 'uppercase' as any,
+    textAlign: 'center',
+    lineHeight: 1,
+  },
 })
 
 function formatTitle(iso: string): string {
@@ -170,9 +183,10 @@ function Header({ date }: { date: string }) {
 function BodyRow({ r, index }: { r: JobRow; index: number }) {
   const bg = vendorColor(r.vendor)
   const rowStyle = index % 2 === 1 ? [styles.row, styles.rowAlt] : [styles.row]
-  const vendorCellStyle: any[] = [styles.cell, styles.colVendor, styles.center]
+  const vendorCellStyle: any[] = [styles.cell, styles.colVendor, styles.center, styles.vendorCell]
   if (bg) vendorCellStyle.push({ backgroundColor: bg })
-  const vendorTextStyle = bg ? { color: '#fff' } : undefined
+  const vendorTextStyle: any[] = [styles.vendorText]
+  if (bg) vendorTextStyle.push({ color: '#fff' })
   return (
     <View style={rowStyle}>
       <View style={[styles.cell, styles.colStatus]}><Text>{''}</Text></View>
@@ -182,7 +196,7 @@ function BodyRow({ r, index }: { r: JobRow; index: number }) {
       <View style={[styles.cell, styles.colWork, styles.center]}><Text>{toText(r.work)}</Text></View>
       <View style={[styles.cell, styles.colPayroll, styles.center]}><Text>{r.payroll ? 'Yes' : 'No'}</Text></View>
       <View style={[styles.cell, styles.colPayment, styles.center]}><Text style={styles.bold}>{toText(r.payment)}</Text></View>
-      <View style={vendorCellStyle}><Text style={vendorTextStyle}>{toText(r.vendor)}</Text></View>
+      <View style={vendorCellStyle}><Text style={vendorTextStyle} wrap={false}>{toText(r.vendor)}</Text></View>
       <View style={[styles.cell, styles.colTime, styles.center]}><Text>{toText(r.time)}</Text></View>
     </View>
   )
@@ -191,7 +205,7 @@ function BodyRow({ r, index }: { r: JobRow; index: number }) {
 export function DailyTablePDF({ data }: { data: DailyReport }): React.ReactElement {
   return (
     <Document>
-      <Page size="LETTER" style={styles.page}>
+      <Page size={TABLOID_LANDSCAPE} style={styles.page} orientation="landscape">
         <Header date={data.date} />
         <View style={styles.body}>
           {data.rows.map((r, i) => (
