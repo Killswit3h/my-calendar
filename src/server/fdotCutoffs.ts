@@ -1,6 +1,7 @@
 // src/server/fdotCutoffs.ts
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/db'
+import type { PrismaClient } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 
 export type FdotCutoffRecord = {
@@ -178,7 +179,7 @@ export async function saveCutoffs(
   let created = 0
   let updated = 0
 
-  const results = await prisma.$transaction(async tx => {
+  const results = await prisma.$transaction(async (tx: PrismaClient) => {
     if (toDelete.length > 0) {
       await tx.fdotCutoff.deleteMany({ where: { id: { in: toDelete } } })
     }
