@@ -23,6 +23,7 @@ type PrismaEventRow = EventRowLike & {
   type: EventType | null
   shift: WorkShift | null
   checklist: unknown | null
+  _count?: { quantities: number }
 }
 
 const hasEventTypeEvent = (() => {
@@ -173,7 +174,7 @@ async function insertEventCompat(
         checklist: true,
       },
     })) as PrismaEventRow
-    return created
+    return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
       'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$4,$5) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist"',
@@ -202,6 +203,7 @@ async function insertEventCompat(
       type: row.type,
       shift: row.shift,
       checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : row.checklist,
+      hasQuantities: false,
     } as PrismaEventRow
   }
 }
@@ -253,12 +255,18 @@ export async function GET(
           type: true,
           shift: true,
           checklist: true,
+          _count: { select: { quantities: true } },
         },
       })) as PrismaEventRow[],
     [] as PrismaEventRow[],
   )
 
-  const events = rows.map(serialize)
+  const events = rows.map(row =>
+    serialize({
+      ...row,
+      hasQuantities: !!row._count && row._count.quantities > 0,
+    } as PrismaEventRow),
+  )
   return NextResponse.json({ events }, { status: 200 })
 }
 

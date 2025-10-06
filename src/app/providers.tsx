@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { ThemeProvider, CssBaseline } from "@mui/material";
+import { CssBaseline } from "@mui/material";
+import { CssVarsProvider } from "@mui/material/styles";
 import { createAppTheme, type Accent } from "../theme";
 
 interface AccentCtx {
@@ -33,10 +34,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <AccentColorContext.Provider value={{ accent, setAccent }}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <CssVarsProvider defaultMode="dark" theme={theme} disableTransitionOnChange>
+        <CssBaseline enableColorScheme />
         {children}
-      </ThemeProvider>
+      </CssVarsProvider>
     </AccentColorContext.Provider>
   );
 }

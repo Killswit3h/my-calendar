@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
@@ -15,6 +16,31 @@ import { eventOverlapsLocalDay, ymdLocal } from '@/lib/dateUtils';
 import { getYardForDate } from '@/lib/yard';
 import { getAbsentForDate } from '@/lib/absent';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
+import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
+import { Toast } from '@/components/Toast';
+import PayItemsManager from '@/components/PayItemsManager';
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  MenuItem,
+  Paper,
+  Stack,
+  Switch,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
+} from '@mui/material';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -49,19 +75,6 @@ const EmployeesLink = () => {
   const href = `/employees?from=${encodeURIComponent(pathname)}`;
   return <Link href={href} className="btn">Employees</Link>;
 };
-
-const IconType = (props: any) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M3 6l3-3h8l3 3v12l-3 3H6l-3-3V6z"/></svg>
-);
-const IconClock = (props: any) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zm1 11h5v2h-7V6h2z"/></svg>
-);
-const IconLocation = (props: any) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5S13.4 11.5 12 11.5z"/></svg>
-);
-const IconTicket = (props: any) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" {...props}><path fill="currentColor" d="M21 5H3v4h1a2 2 0 1 1 0 4H3v4h18v-4h-1a2 2 0 1 1 0-4h1V5z"/></svg>
-);
 
 /** Normalizes event payloads so downstream code can rely on {start,end}. */
 type EventLikeWithLegacyFields = {
@@ -118,6 +131,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'tickets' | 'quantities'>('info');
+  const [modalHasQuantities, setModalHasQuantities] = useState(false);
+  const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [isMobile, setIsMobile] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(() => {
     try { const s = localStorage.getItem('weather.coords'); if (s) return JSON.parse(s); } catch {}
@@ -137,6 +153,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const autoRef = useRef<any>(null);
   const [locInput, setLocInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const notify = useCallback((message: string) => setToast({ open: true, message }), []);
+  const closeToast = useCallback(() => setToast({ open: false, message: '' }), []);
   const filterEventsForSearch = useCallback((list: EventInput[]) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return list;
@@ -173,6 +191,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         const rows = Array.isArray(payload?.events) ? payload.events : Array.isArray(payload) ? payload : [];
         const mapped = rows.map((row: any) => {
           const normalized = normalizeEvent(row);
+          const hasQuantities = !!(row.hasQuantities ?? (row._count?.quantities ?? 0) > 0)
           const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
           return {
             id: normalized.id,
@@ -191,6 +210,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               shift: normalized.shift ?? null,
               checklist: normalized.checklist ?? null,
               calendarId: normalized.calendarId ?? '',
+              hasQuantities,
             },
             className: typeToClass(normalized.type),
             display: 'block',
@@ -410,13 +430,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const parts = ymd.split('-').map(n => parseInt(n, 10));
-        const startDate = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
-        const endDate = new Date(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0);
+        const startDateUtc = startOfUtcDayFromParts(parts[0], parts[1] - 1, parts[2]);
+        const endDateUtc = new Date(startDateUtc.getTime() + DAY_MS);
         setEditId(null);
         setDraft({
           title: '',
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
+          start: startDateUtc.toISOString(),
+          end: endDateUtc.toISOString(),
           allDay: true,
           location: '',
           description: '',
@@ -427,6 +447,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: 'DAY',
           checklist: defaultChecklist(),
         });
+        setSelectedDay(new Date(parts[0], parts[1] - 1, parts[2]));
+        setModalHasQuantities(false);
         setUserChangedStart(false);
         setUserChangedEnd(false);
         setOpen(true);
@@ -488,6 +510,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               shift: normalized.shift ?? null,
               checklist: normalized.checklist ?? null,
               calendarId: normalized.calendarId ?? '',
+              hasQuantities: false,
             },
             className: typeToClass(normalized.type),
             display: 'block',
@@ -529,12 +552,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
     // Prefill an all-day event on the selected local day with the chosen employee
-    const startDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
-    const endDate = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0, 0);
+    const startDateUtc = startOfUtcDayLocal(day);
+    const endDateUtc = new Date(startDateUtc.getTime() + DAY_MS);
     setDraft({
       title: '',
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
+      start: startDateUtc.toISOString(),
+      end: endDateUtc.toISOString(),
       allDay: true,
       location: '',
       description: '',
@@ -544,6 +567,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: false,
       checklist: { ...(defaultChecklist()), employees: [employeeId] },
     });
+    setSelectedDay(new Date(day.getFullYear(), day.getMonth(), day.getDate()));
     setEditId(null);
     setUserChangedStart(false);
     setUserChangedEnd(false);
@@ -575,12 +599,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (sel.start) setSelectedDay(new Date(sel.start.getFullYear(), sel.start.getMonth(), sel.start.getDate()));
 
     if (sel.allDay) {
-      const startDate = new Date(baseStart.getFullYear(), baseStart.getMonth(), baseStart.getDate(), 0, 0, 0, 0);
-      let endDate = baseEnd
-        ? new Date(baseEnd.getFullYear(), baseEnd.getMonth(), baseEnd.getDate(), 0, 0, 0, 0)
-        : new Date(startDate.getTime());
+      const startDate = startOfUtcDayLocal(baseStart);
+      let endDate = baseEnd ? startOfUtcDayLocal(baseEnd) : new Date(startDate.getTime());
       if (!sel.end) {
-        endDate.setDate(endDate.getDate() + 1);
+        endDate = new Date(startDate.getTime() + DAY_MS);
       }
       if (endDate <= startDate) {
         endDate = new Date(startDate.getTime() + DAY_MS);
@@ -613,8 +635,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         checklist: defaultChecklist(),
       });
     }
+    setModalHasQuantities(false);
     setUserChangedStart(false);
     setUserChangedEnd(false);
+    setLocInput('');
     setOpen(true);
   }, []);
 
@@ -648,6 +672,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
       });
+      setModalHasQuantities(Boolean((e.extendedProps as any)?.hasQuantities));
       setUserChangedStart(false);
       setUserChangedEnd(false);
       setOpen(true);
@@ -674,6 +699,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
     });
+    setModalHasQuantities(Boolean(e.extendedProps?.hasQuantities));
     setUserChangedStart(false);
     setUserChangedEnd(false);
     setOpen(true);
@@ -713,67 +739,172 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
     const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
     const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
+    const payloadBody = {
+      title: draft.title,
+      description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false),
+      start: payloadStart,
+      end: payloadEnd,
+      startsAt: payloadStart,
+      endsAt: payloadEnd,
+      allDay: !!draft.allDay,
+      location: draft.location ?? '',
+      type: draft.type ?? null,
+      payment: draft.payment ?? null,
+      vendor: draft.vendor ?? null,
+      payroll: draft.payroll ?? null,
+      shift: draft.shift ?? null,
+      checklist: draft.checklist ?? null,
+    };
+
     if (editId) {
-      const r = await fetch(`/api/events/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, startsAt: payloadStart, endsAt: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+      const r = await fetch(`/api/events/${editId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadBody),
+      });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Failed to update event');
         return;
       }
-      const u = await r.json();
-      const normalized = normalizeEvent(u);
+      const raw = await r.json();
+      const normalized = normalizeEvent(raw);
+      const normalizedStartIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.start) : normalized.start;
+      const normalizedEndIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.end ?? normalized.start) : normalized.end;
+      const startForCalendar = normalized.allDay ? normalized.start : normalizedStartIso;
+      const endForCalendar = normalized.allDay ? (normalized.end ?? normalizedStartIso) : normalizedEndIso;
+      const meta = splitInvoiceProps(normalized.description ?? '');
+      const hasQuantities = !!(normalized as any).hasQuantities;
+
       setEvents(prev => prev.map(ev => (ev.id === editId ? {
         id: normalized.id,
         title: normalized.title,
-        start: normalized.start,
-        end: normalized.end,
+        start: startForCalendar,
+        end: endForCalendar,
         allDay: !!normalized.allDay,
         extendedProps: {
           location: normalized.location ?? '',
-          ...splitInvoiceProps(normalized.description ?? ''),
+          description: meta.description ?? '',
+          invoice: meta.invoice ?? '',
+          payment: meta.payment || '',
+          vendor: meta.vendor || '',
+          payroll: typeof meta.payroll === 'boolean' ? meta.payroll : false,
           type: normalized.type ?? null,
           shift: normalized.shift ?? null,
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
+          hasQuantities,
         },
         className: typeToClass(normalized.type),
         display: 'block',
         } : ev)));
-    } else {
-      const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, startsAt: payloadStart, endsAt: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, payment: draft.payment ?? null, vendor: draft.vendor ?? null, payroll: draft.payroll ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        alert(err.error || 'Failed to create event');
-        return;
-      }
-      const c = await r.json();
-      const normalized = normalizeEvent(c);
-      setEvents(p => [
-        ...p,
-        {
-          id: normalized.id,
+
+      setSelectedEvent(prev => {
+        if (!prev || prev.id !== editId) return prev;
+        return {
+          ...prev,
           title: normalized.title,
-          start: normalized.start,
-          end: normalized.end,
+          start: startForCalendar,
+          end: endForCalendar,
           allDay: !!normalized.allDay,
           extendedProps: {
+            ...(prev.extendedProps ?? {}),
             location: normalized.location ?? '',
-            ...splitInvoiceProps(normalized.description ?? ''),
+            description: meta.description ?? '',
+            invoice: meta.invoice ?? '',
+            payment: meta.payment || '',
+            vendor: meta.vendor || '',
+            payroll: typeof meta.payroll === 'boolean' ? meta.payroll : false,
             type: normalized.type ?? null,
             shift: normalized.shift ?? null,
             checklist: normalized.checklist ?? null,
             calendarId: normalized.calendarId ?? '',
+            hasQuantities,
           },
-          className: typeToClass(normalized.type),
-          display: 'block',
-        },
-      ]);
+        } as EventInput;
+      });
+
+      setModalHasQuantities(hasQuantities);
+      setLocInput(normalized.location ?? '');
+      notify('Event updated');
       refetchCalendar();
+      setOpen(false);
+      setDraft(null);
+      setEditId(null);
+      return;
     }
-    setOpen(false); setDraft(null); setEditId(null);
-  }, [draft, editId, calendarId, refetchCalendar]);
+
+    const r = await fetch(`/api/calendars/${calendarId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadBody),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert(err.error || 'Failed to create event');
+      return;
+    }
+
+    const createdRaw = await r.json();
+    const normalized = normalizeEvent(createdRaw);
+    const normalizedStartIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.start) : normalized.start;
+    const normalizedEndIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.end ?? normalized.start) : normalized.end;
+    const startForCalendar = normalized.allDay ? normalized.start : normalizedStartIso;
+    const endForCalendar = normalized.allDay ? (normalized.end ?? normalizedStartIso) : normalizedEndIso;
+    const meta = splitInvoiceProps(normalized.description ?? '');
+
+    setEvents(p => [
+      ...p,
+      {
+        id: normalized.id,
+        title: normalized.title,
+        start: startForCalendar,
+        end: endForCalendar,
+        allDay: !!normalized.allDay,
+        extendedProps: {
+          location: normalized.location ?? '',
+          description: meta.description ?? '',
+          invoice: meta.invoice ?? '',
+          payment: meta.payment || '',
+          vendor: meta.vendor || '',
+          payroll: typeof meta.payroll === 'boolean' ? meta.payroll : false,
+          type: normalized.type ?? null,
+          shift: normalized.shift ?? null,
+          checklist: normalized.checklist ?? null,
+          calendarId: normalized.calendarId ?? '',
+          hasQuantities: false,
+        },
+        className: typeToClass(normalized.type),
+        display: 'block',
+      },
+    ]);
+    refetchCalendar();
+
+    setEditId(normalized.id);
+    setModalHasQuantities(false);
+    setLocInput(normalized.location ?? '');
+
+    const paymentValue = (meta.payment || draft.payment || 'DAILY') as PaymentType;
+    const vendorValue = (meta.vendor || draft.vendor || 'JORGE') as Vendor;
+    setDraft({
+      title: normalized.title,
+      start: normalizedStartIso,
+      end: normalizedEndIso,
+      allDay: !!normalized.allDay,
+      location: normalized.location ?? '',
+      description: meta.description ?? '',
+      invoice: meta.invoice ?? '',
+      payment: paymentValue,
+      vendor: vendorValue,
+      payroll: typeof meta.payroll === 'boolean' ? meta.payroll : draft.payroll ?? false,
+      type: (normalized.type as JobType | undefined) ?? draft.type ?? 'FENCE',
+      shift: (normalized.shift as WorkShift | undefined) ?? draft.shift ?? 'DAY',
+      checklist: normalized.checklist ?? draft.checklist ?? defaultChecklist(),
+    });
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
+    notify('Event saved. Add quantities below.');
+  }, [draft, editId, calendarId, notify, refetchCalendar]);
 
   useEffect(() => {
     if (!open) return;
@@ -821,6 +952,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: normalized.shift ?? null,
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
+          hasQuantities: false,
         },
         className: typeToClass(normalized.type),
         display: 'block',
@@ -829,35 +961,57 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     refetchCalendar();
   }, [draft, calendarId, refetchCalendar]);
 
+  const handleQuantitiesChange = useCallback((has: boolean) => {
+    if (!editId) return;
+    setModalHasQuantities(has);
+    setEvents(prev => prev.map(ev => (ev.id === editId ? {
+      ...ev,
+      extendedProps: {
+        ...(ev.extendedProps ?? {}),
+        hasQuantities: has,
+      },
+    } : ev)));
+    setSelectedEvent(prev => {
+      if (!prev || prev.id !== editId) return prev;
+      return {
+        ...prev,
+        extendedProps: {
+          ...(prev.extendedProps ?? {}),
+          hasQuantities: has,
+        },
+      } as EventInput;
+    });
+  }, [editId]);
+
   const updateStart = (iso: string) => {
     if (!draft) return;
     const prevStart = new Date(draft.start);
-    const newStartDate = new Date(iso);
-    if (draft.allDay) {
-      newStartDate.setHours(0, 0, 0, 0);
-      iso = newStartDate.toISOString();
-    }
+    const isAllDay = !!draft.allDay;
+    const candidate = new Date(iso);
+    const normalizedStart = isAllDay ? startOfUtcDayUTC(candidate) : candidate;
     let endIso = draft.end;
     if (!userChangedEnd && draft.end) {
       const duration = new Date(draft.end).getTime() - prevStart.getTime();
-      endIso = new Date(newStartDate.getTime() + duration).toISOString();
+      endIso = new Date(normalizedStart.getTime() + duration).toISOString();
     }
-    setDraft({ ...draft, start: iso, end: endIso });
+    if (isAllDay) {
+      const startDate = normalizedStart;
+      const currentEnd = endIso ? new Date(endIso) : null;
+      const exclusive = currentEnd && currentEnd > startDate ? currentEnd : new Date(startDate.getTime() + DAY_MS);
+      endIso = exclusive.toISOString();
+    }
+    setDraft({ ...draft, start: normalizedStart.toISOString(), end: endIso });
     setUserChangedStart(true);
   };
 
   const updateEnd = (iso: string) => {
     if (!draft) return;
     if (draft.allDay) {
-      const startDate = new Date(draft.start);
-      const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
-      const raw = new Date(iso);
-      let endMidnight = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate(), 0, 0, 0, 0);
-      endMidnight.setDate(endMidnight.getDate() + 1);
-      if (endMidnight <= startMidnight) {
-        endMidnight = new Date(startMidnight.getTime() + DAY_MS);
-      }
-      setDraft({ ...draft, end: endMidnight.toISOString() });
+      const startDate = startOfUtcDayUTC(new Date(draft.start));
+      const rawDate = startOfUtcDayUTC(new Date(iso));
+      let exclusive = new Date(rawDate.getTime() + DAY_MS);
+      if (exclusive <= startDate) exclusive = new Date(startDate.getTime() + DAY_MS);
+      setDraft({ ...draft, end: exclusive.toISOString() });
       setUserChangedEnd(true);
       return;
     }
@@ -884,19 +1038,92 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setDraft({ ...draft, shift: newShift, start: startIso, end: endIso });
   };
 
+  const createBlankDraft = useCallback((): NewEvent => {
+    const base = selectedDay ? new Date(selectedDay.getTime()) : new Date();
+    const startDay = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0);
+    const endDay = new Date(startDay.getTime() + DAY_MS);
+    return {
+      title: '',
+      start: startDay.toISOString(),
+      end: endDay.toISOString(),
+      allDay: true,
+      location: '',
+      description: '',
+      invoice: '',
+      payment: 'DAILY',
+      type: 'FENCE',
+      vendor: 'JORGE',
+      payroll: false,
+      shift: 'DAY',
+      checklist: defaultChecklist(),
+    };
+  }, [selectedDay]);
+
+  const handleAddNew = useCallback(() => {
+    const blank = createBlankDraft();
+    setEditId(null);
+    setDraft(blank);
+    setSelectedEvent(null);
+    setLocInput('');
+    setModalHasQuantities(false);
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
+    setActiveTab('info');
+  }, [createBlankDraft]);
+
+  const handleAllDayToggle = () => {
+    setDraft(prev => {
+      if (!prev) return prev;
+      if (prev.allDay) {
+        const startDate = new Date(prev.start);
+        const endDate = prev.end ? new Date(prev.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
+        return { ...prev, allDay: false, start: startDate.toISOString(), end: endDate.toISOString() };
+      }
+      const startUtc = startOfUtcDayUTC(new Date(prev.start));
+      const endUtc = new Date(startUtc.getTime() + DAY_MS);
+      return { ...prev, allDay: true, start: startUtc.toISOString(), end: endUtc.toISOString() };
+    });
+    setUserChangedStart(false);
+    setUserChangedEnd(false);
+  };
+
+  const handleStartFieldChange = (value: string) => {
+    if (!draft) return;
+    if (draft.allDay) {
+      const iso = isoFromDateOnly(value);
+      if (!iso) return;
+      updateStart(iso);
+      return;
+    }
+    updateStart(fromLocalInput(value));
+  };
+
+  const handleEndFieldChange = (value: string) => {
+    if (!draft) return;
+    if (draft.allDay) {
+      const exclusiveIso = exclusiveIsoFromDateOnly(value, draft.start);
+      setDraft({ ...draft, end: exclusiveIso });
+      setUserChangedEnd(true);
+      return;
+    }
+    updateEnd(fromLocalInput(value));
+  };
+
   const currentTypeColor = draft ? TYPE_COLOR[(draft.type ?? 'FENCE') as JobType] : 'transparent';
   const currentVendorColor = draft ? VENDOR_COLOR[(draft.vendor ?? 'JORGE') as Vendor] : 'transparent';
 
-  const handleDescKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleDescKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLTextAreaElement | undefined;
+    if (!target) return;
     if (e.key === 'Enter') {
-      const start = e.currentTarget.selectionStart;
-      const value = e.currentTarget.value;
+      const start = target.selectionStart;
+      const value = target.value;
       const lineStart = value.lastIndexOf('\n', start - 1) + 1;
       const line = value.slice(lineStart, start);
       if (line.startsWith('- ')) {
         e.preventDefault();
         const insert = '\n- ';
-        const newVal = value.slice(0, start) + insert + value.slice(e.currentTarget.selectionEnd);
+        const newVal = value.slice(0, start) + insert + value.slice(target.selectionEnd);
         setDraft(d => d ? { ...d, description: newVal } : d);
         requestAnimationFrame(() => {
           if (descRef.current) {
@@ -917,6 +1144,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     span.className = 'evt-title';
     span.innerHTML = highlightText(arg.event.title, searchQuery);
     frag.appendChild(span);
+    const hasQuantities = Boolean((arg.event.extendedProps as any)?.hasQuantities);
+    if (hasQuantities) {
+      const badge = document.createElement('span');
+      badge.className = 'qty-pill';
+      badge.textContent = 'QTY';
+      frag.appendChild(badge);
+    }
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
     if (loc && loc.trim()) {
       const a = document.createElement('a');
@@ -934,6 +1168,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
+  const [payItemsDialog, setPayItemsDialog] = useState(false);
   const reloadTodos = useCallback(async () => {
     try {
       const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
@@ -943,6 +1178,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     } catch {}
   }, [calendarId]);
   useEffect(() => { reloadTodos(); }, [reloadTodos]);
+  useEffect(() => {
+    if (open) setActiveTab('info');
+  }, [open]);
   useEffect(() => {
     const onFocus = () => reloadTodos();
     window.addEventListener('focus', onFocus);
@@ -988,8 +1226,235 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);
 
+  const isAllDay = !!draft?.allDay;
+  const startInputType = isAllDay ? 'date' : 'datetime-local';
+  const endInputType = startInputType;
+  const startInputValue = draft
+    ? (isAllDay
+        ? formatDateInputValue(draft.start, { allDay: true })
+        : formatDateTimeInputValue(draft.start, { allDay: false }))
+    : '';
+  const endInputValue = draft
+    ? (isAllDay
+        ? formatDateInputValue(draft.end ?? draft.start, { allDay: true, isEnd: true })
+        : formatDateTimeInputValue(draft.end ?? draft.start, { allDay: false, isEnd: true }))
+    : '';
+
+  const eventInfoContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Title
+        </Typography>
+        <CustomerCombobox value={draft.title} onChange={value => setDraft({ ...draft, title: value })} />
+      </Box>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <TextField
+          label="Start"
+          type={startInputType}
+          value={startInputValue}
+          onChange={e => handleStartFieldChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+        <TextField
+          label="End"
+          type={endInputType}
+          value={endInputValue}
+          onChange={e => handleEndFieldChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Box>
+      <Stack
+        spacing={2}
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ xs: 'stretch', md: 'center' }}
+      >
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Work Time
+          </Typography>
+          <ToggleButtonGroup
+            value={draft.shift ?? 'DAY'}
+            exclusive
+            size="small"
+            onChange={(_, value) => {
+              if (value) setDraft({ ...draft, shift: value as WorkShift });
+            }}
+          >
+            <ToggleButton value="DAY">Day</ToggleButton>
+            <ToggleButton value="NIGHT">Night</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        <FormControlLabel
+          control={<Switch checked={draft.allDay} onChange={handleAllDayToggle} />}
+          label={draft.allDay ? 'All-day event' : 'Timed event'}
+        />
+        <TextField
+          select
+          label="Type"
+          value={draft.type ?? 'FENCE'}
+          onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}
+          fullWidth
+        >
+          <MenuItem value="FENCE">Fence</MenuItem>
+          <MenuItem value="TEMP_FENCE">Temp Fence</MenuItem>
+          <MenuItem value="GUARDRAIL">Guardrail</MenuItem>
+          <MenuItem value="HANDRAIL">Handrail</MenuItem>
+          <MenuItem value="ATTENUATOR">Attenuator</MenuItem>
+        </TextField>
+      </Stack>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, alignItems: 'start' }}>
+        <Box>
+          <TextField
+            label="Location"
+            value={locInput}
+            onChange={e => {
+              setLocInput(e.target.value);
+              if (!e.target.value) autoRef.current?.set && autoRef.current.set('place', null);
+            }}
+            fullWidth
+          />
+          <Button
+            size="small"
+            variant="text"
+            disabled={!locInput.trim()}
+            onClick={() => {
+              if (!locInput.trim()) return;
+              const href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locInput)}`;
+              window.open(href, '_blank');
+            }}
+            sx={{ mt: 1 }}
+          >
+            Open in Google Maps
+          </Button>
+        </Box>
+        <TextField
+          label="Invoice #"
+          value={draft.invoice ?? ''}
+          onChange={e => setDraft({ ...draft, invoice: e.target.value })}
+          fullWidth
+        />
+      </Box>
+    </Stack>
+  ) : null;
+
+  const workInfoContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+        <TextField
+          select
+          label="Vendor"
+          value={draft.vendor ?? 'JORGE'}
+          onChange={e => setDraft({ ...draft, vendor: e.target.value as Vendor })}
+          fullWidth
+        >
+          <MenuItem value="JORGE">Jorge</MenuItem>
+          <MenuItem value="TONY">Tony</MenuItem>
+          <MenuItem value="CHRIS">Chris</MenuItem>
+        </TextField>
+        <TextField
+          select
+          label="Payroll"
+          value={draft.payroll ? 'YES' : 'NO'}
+          onChange={e => setDraft({ ...draft, payroll: e.target.value === 'YES' })}
+          fullWidth
+        >
+          <MenuItem value="YES">Yes</MenuItem>
+          <MenuItem value="NO">No</MenuItem>
+        </TextField>
+        <TextField
+          select
+          label="Payment"
+          value={draft.payment ?? 'DAILY'}
+          onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}
+          fullWidth
+        >
+          <MenuItem value="DAILY">Daily</MenuItem>
+          <MenuItem value="ADJUSTED">Adjusted</MenuItem>
+        </TextField>
+      </Box>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Employees
+        </Typography>
+        <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', p: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+          <EmployeeMultiSelect
+            employees={employees}
+            value={draft.checklist?.employees ?? []}
+            onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
+          />
+        </Box>
+      </Box>
+      <TextField
+        label="Notes"
+        value={draft.description ?? ''}
+        onChange={e => setDraft({ ...draft, description: e.target.value })}
+        onKeyDown={handleDescKeyDown}
+        multiline
+        minRows={4}
+        fullWidth
+      />
+    </Stack>
+  ) : null;
+
+  const ticketsContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+          <TextField
+            label="Ticket #"
+            value={draft.checklist?.locate?.ticket ?? ''}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })}
+            fullWidth
+          />
+          <TextField
+            label="Requested"
+            type="date"
+            value={(draft.checklist?.locate?.requested ?? '').slice(0, 10)}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+          <TextField
+            label="Expires"
+            type="date"
+            value={(draft.checklist?.locate?.expires ?? '').slice(0, 10)}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+        </Box>
+      </Paper>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Subtasks
+        </Typography>
+        <SubtasksEditor
+          value={draft.checklist?.subtasks ?? []}
+          onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
+        />
+      </Box>
+    </Stack>
+  ) : null;
+
+  const quantitiesContent: ReactNode = draft ? (
+    <Box sx={{ mt: 1 }}>
+      {editId ? (
+        <EventQuantitiesEditor eventId={editId} onHasQuantitiesChange={handleQuantitiesChange} />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Save the event to add quantities.
+        </Typography>
+      )}
+    </Box>
+  ) : null;
+
+
   return (
     <div className="cal-shell">
+      <Toast message={toast.message} open={toast.open} onClose={closeToast} />
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
         <div className="flex gap-2 items-center flex-wrap">
@@ -999,6 +1464,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
+                <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
                 <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
                 <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
               </div>
@@ -1025,6 +1491,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
                 <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
+                <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
                 <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
                 <Suspense fallback={<span className="menu-item" aria-disabled>Employees</span>}>
                   <EmployeesLink />
@@ -1264,125 +1731,53 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       ) : null}
 
-      {/* modal */}
-      {open && draft ? (
-        <div className="modal-root">
-          <div className="modal-card">
-            <h3 className="modal-title" style={{ borderLeft: `4px solid ${currentTypeColor}`, paddingLeft: '0.5rem' }}>{editId ? 'Edit event' : 'Add event'}</h3>
-            <div className="form-grid form-compact">
-              <div className="form-section span-2">Event Info</div>
-              <label className="span-2"><div className="label">Title</div>
-                <CustomerCombobox value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} />
-              </label>
-              {isMobile ? (
-                <>
-                  <label><div className="label">Start date</div>
-                    <input type="date" value={formatDateInputValue(draft.start, { allDay: !!draft.allDay })} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
-                  </label>
-                  {!draft.allDay && (
-                    <label><div className="label">Start time</div>
-                      <input type="time" value={toLocalTime(draft.start)} onChange={e => { const time = e.target.value; const date = toLocalDate(draft.start); updateStart(fromLocalDateTime(date, time)); }} />
-                    </label>
-                  )}
-                  <label><div className="label">End date</div>
-                    <input type="date" min={formatDateInputValue(draft.start, { allDay: !!draft.allDay })} value={formatDateInputValue(draft.end ?? draft.start, { allDay: !!draft.allDay, isEnd: true })} onChange={e => { const date = e.target.value; const time = toLocalTime(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
-                  </label>
-                  {!draft.allDay && (
-                    <label><div className="label">End time</div>
-                      <input type="time" value={toLocalTime(draft.end ?? draft.start)} onChange={e => { const time = e.target.value; const date = toLocalDate(draft.end ?? draft.start); updateEnd(fromLocalDateTime(date, time)); }} />
-                    </label>
-                  )}
-                </>
-              ) : (
-                <>
-                  <label><div className="label">Start</div>
-                    <input type="datetime-local" value={formatDateTimeInputValue(draft.start, { allDay: !!draft.allDay })} onChange={e => updateStart(fromLocalInput(e.target.value))} />
-                  </label>
-                  <label><div className="label">End</div>
-                    <input type="datetime-local" min={formatDateTimeInputValue(draft.start, { allDay: !!draft.allDay })} value={formatDateTimeInputValue(draft.end ?? draft.start, { allDay: !!draft.allDay, isEnd: true })} onChange={e => updateEnd(fromLocalInput(e.target.value))} />
-                  </label>
-                </>
-              )}
-              <label><div className="label"><IconClock className="ico" />Work Time</div>
-                <button type="button" className={`shift-toggle ${draft.shift === 'NIGHT' ? 'night' : 'day'}`} onClick={toggleShift} aria-label="Toggle work time">{(draft.shift ?? 'DAY') === 'DAY' ? 'Day' : 'Night'}</button>
-              </label>
-              <label><div className="label"><IconType className="ico" />Type</div>
-                <div className="inline"><span className="type-chip" style={{ background: currentTypeColor }}></span>
-                  <select value={draft.type} onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}>
-                    <option value="FENCE">Fence</option><option value="TEMP_FENCE">Temp Fence</option><option value="GUARDRAIL">Guardrail</option><option value="HANDRAIL">Handrail</option><option value="ATTENUATOR">Attenuator</option>
-                  </select>
-                </div>
-              </label>
-              <label><div className="label">Vendor</div>
-                <div className="inline"><span className="type-chip" style={{ background: currentVendorColor }}></span>
-                  <select value={draft.vendor ?? 'JORGE'} onChange={e => setDraft({ ...draft, vendor: e.target.value as Vendor })}>
-                    <option value="JORGE" style={{ color: VENDOR_COLOR.JORGE }}>Jorge</option>
-                    <option value="TONY" style={{ color: VENDOR_COLOR.TONY }}>Tony</option>
-                    <option value="CHRIS" style={{ color: VENDOR_COLOR.CHRIS }}>Chris</option>
-                  </select>
-                </div>
-              </label>
-              <label><div className="label">Payroll</div>
-                <select value={draft.payroll ? 'YES' : 'NO'} onChange={e => setDraft({ ...draft, payroll: e.target.value === 'YES' })}>
-                  <option value="YES">Yes</option>
-                  <option value="NO">No</option>
-                </select>
-              </label>
-              <label><div className="label">Payment</div>
-                <select value={draft.payment ?? 'DAILY'} onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}>
-                  <option value="DAILY">Daily</option>
-                  <option value="ADJUSTED">Adjusted</option>
-                </select>
-              </label>
-              <label className="span-2"><div className="label">Employees</div>
-                <EmployeeMultiSelect
-                  employees={employees}
-                  value={draft.checklist?.employees ?? []}
-                  onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
-                />
-              </label>
-              <div className="form-section span-2">Work Details</div>
-              <label><div className="label"><IconLocation className="ico" />Location</div>
-                <input ref={locationRef} type="text" value={locInput} onChange={e => { setLocInput(e.target.value); if (!e.target.value) { autoRef.current?.set && autoRef.current.set('place', null); } }} />
-                <div className="mt-1">
-                  <a href={locInput && locInput.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locInput)}` : '#'} target="_blank" rel="noopener noreferrer" className="event-gmap-link" aria-disabled={!locInput || !locInput.trim()} onClick={e => { if (!locInput || !locInput.trim()) e.preventDefault(); }} title={locInput && locInput.trim() ? 'Open in Google Maps' : 'Enter a location to open in Maps'}>Open in Google Maps</a>
-                </div>
-              </label>
-              <label><div className="label">Invoice #</div>
-                <input type="text" inputMode="numeric" value={draft.invoice ?? ''} onChange={e => setDraft({ ...draft, invoice: e.target.value })} />
-              </label>
-              <label className="span-2"><div className="label">Description</div>
-                <textarea ref={descRef} value={draft.description ?? ''} onChange={e => setDraft({ ...draft, description: e.target.value })} onKeyDown={handleDescKeyDown} />
-              </label>
-              <div className="form-section span-2">Tickets</div>
-              <div className="span-2">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label><div className="label"><IconTicket className="ico" />Ticket #</div>
-                    <input type="text" inputMode="numeric" value={draft.checklist?.locate?.ticket ?? ''} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })} />
-                  </label>
-                  <label><div className="label">Requested</div>
-                    <input type="date" value={(draft.checklist?.locate?.requested ?? '').slice(0,10)} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })} />
-                  </label>
-                  <label><div className="label">Expires</div>
-                    <input type="date" value={(draft.checklist?.locate?.expires ?? '').slice(0,10)} onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })} />
-                  </label>
-                </div>
-              </div>
-              <div className="form-section span-2">Subtasks</div>
-              <div className="span-2">
-                <SubtasksEditor
-                  value={draft.checklist?.subtasks ?? []}
-                  onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
-                />
-              </div>
-              <div className="modal-actions span-2">
-                {editId ? (<><button className="btn" onClick={duplicateCurrent}>Duplicate</button><button className="btn ghost" onClick={deleteCurrent}>Delete</button></>) : null}
-                <button className="btn ghost" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</button>
-                <button className="btn primary" onClick={saveDraft}>Save</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {draft ? (
+        <Dialog
+          open={open}
+          onClose={() => { setOpen(false); setDraft(null); setEditId(null); }}
+          fullWidth
+          maxWidth="md"
+          scroll="paper"
+        >
+          <DialogTitle>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="h6" component="span">
+                {editId ? 'Edit Event' : 'Add Event'}
+              </Typography>
+              {editId && modalHasQuantities ? <Chip label="QTY" size="small" color="secondary" /> : null}
+            </Stack>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Tabs
+              value={activeTab}
+              onChange={(_, value) => setActiveTab(value as typeof activeTab)}
+              variant="scrollable"
+              allowScrollButtonsMobile
+              sx={{ mb: 2 }}
+            >
+              <Tab value="info" label="Event Info" />
+              <Tab value="work" label="Work & Payroll" />
+              <Tab value="tickets" label="Tickets & Subtasks" />
+              <Tab value="quantities" label="Quantities" />
+            </Tabs>
+            <Box sx={{ display: activeTab === 'info' ? 'block' : 'none' }}>{eventInfoContent}</Box>
+            <Box sx={{ display: activeTab === 'work' ? 'block' : 'none' }}>{workInfoContent}</Box>
+            <Box sx={{ display: activeTab === 'tickets' ? 'block' : 'none' }}>{ticketsContent}</Box>
+            <Box sx={{ display: activeTab === 'quantities' ? 'block' : 'none' }}>{quantitiesContent}</Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button variant="text" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</Button>
+            <Box sx={{ flexGrow: 1 }} />
+            <Button variant="outlined" onClick={handleAddNew}>Add</Button>
+            {editId ? (
+              <>
+                <Button variant="outlined" onClick={duplicateCurrent}>Duplicate</Button>
+                <Button variant="outlined" color="error" onClick={deleteCurrent}>Delete</Button>
+              </>
+            ) : null}
+            <Button variant="contained" onClick={saveDraft}>Save Event</Button>
+          </DialogActions>
+        </Dialog>
       ) : null}
 
       {/* Holidays country prompt */}
@@ -1429,6 +1824,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 }}>Save</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {payItemsDialog && (
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setPayItemsDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
+            <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Pay Items</span>
+              <button className="icon-btn" aria-label="Close" onClick={() => setPayItemsDialog(false)}>✕</button>
+            </div>
+            <PayItemsManager condensed />
           </div>
         </div>
       )}
@@ -1557,6 +1964,46 @@ function isUtcMidnight(date: Date): boolean {
   return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
 }
 
+function startOfUtcDayFromParts(year: number, month0: number, day: number): Date {
+  return new Date(Date.UTC(year, month0, day, 0, 0, 0, 0));
+}
+
+function startOfUtcDayLocal(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0));
+}
+
+function startOfUtcDayUTC(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isoFromDateOnly(value: string): string | null {
+  if (!DATE_ONLY_RE.test(value)) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  return startOfUtcDayFromParts(y, m - 1, d).toISOString();
+}
+
+function exclusiveIsoFromDateOnly(value: string, minStartIso: string): string {
+  const baseIso = isoFromDateOnly(value);
+  const minStart = new Date(minStartIso);
+  if (!baseIso) {
+    return new Date(minStart.getTime() + DAY_MS).toISOString();
+  }
+  const dayUtc = new Date(baseIso);
+  let exclusive = new Date(dayUtc.getTime() + DAY_MS);
+  if (exclusive <= minStart) exclusive = new Date(minStart.getTime() + DAY_MS);
+  return exclusive.toISOString();
+}
+
+function normalizeAllDayIsoValue(value: string): string {
+  const direct = isoFromDateOnly(value);
+  if (direct) return direct;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return startOfUtcDayUTC(parsed).toISOString();
+}
+
 function normalizeDraftBounds(draft: NewEvent): { start: string; end: string } {
   const startDate = new Date(draft.start);
   if (Number.isNaN(startDate.getTime())) {
@@ -1566,19 +2013,16 @@ function normalizeDraftBounds(draft: NewEvent): { start: string; end: string } {
   }
 
   if (draft.allDay) {
-    const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+    const startMidnight = startOfUtcDayUTC(startDate);
     let endDateRaw = draft.end ? new Date(draft.end) : null;
     if (!endDateRaw || Number.isNaN(endDateRaw.getTime())) {
       endDateRaw = new Date(startMidnight.getTime() + DAY_MS);
     }
-    let endMidnight = new Date(endDateRaw.getFullYear(), endDateRaw.getMonth(), endDateRaw.getDate(), 0, 0, 0, 0);
-    if (!isUtcMidnight(endDateRaw)) {
-      endMidnight.setDate(endMidnight.getDate() + 1);
+    let endExclusive = startOfUtcDayUTC(endDateRaw);
+    if (endExclusive <= startMidnight) {
+      endExclusive = new Date(startMidnight.getTime() + DAY_MS);
     }
-    if (endMidnight <= startMidnight) {
-      endMidnight = new Date(startMidnight.getTime() + DAY_MS);
-    }
-    return { start: startMidnight.toISOString(), end: endMidnight.toISOString() };
+    return { start: startMidnight.toISOString(), end: endExclusive.toISOString() };
   }
 
   let endDate = draft.end ? new Date(draft.end) : null;

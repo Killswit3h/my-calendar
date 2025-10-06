@@ -87,6 +87,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             type: true,
             shift: true,
             checklist: true,
+            _count: { select: { quantities: true } },
           },
         }),
       null as any,
@@ -108,6 +109,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       type: updated.type ?? null,
       shift: updated.shift ?? null,
       checklist: updated.checklist ?? null,
+      hasQuantities: !!(updated._count?.quantities ?? 0),
     }, { timezone: 'UTC' })
 
     return NextResponse.json(payload, { status: 200, headers: cors as any })

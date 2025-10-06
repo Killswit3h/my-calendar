@@ -19,6 +19,7 @@ export type EventRowLike = {
   type?: EventType | null
   shift?: WorkShift | null
   checklist?: unknown | null
+  hasQuantities?: boolean | null
 }
 
 export type CalendarEventPayload = {
@@ -33,6 +34,7 @@ export type CalendarEventPayload = {
   type: EventType | null
   shift: WorkShift | null
   checklist: unknown | null
+  hasQuantities: boolean
 }
 
 function toDate(value: MaybeDateInput): Date | null {
@@ -76,6 +78,7 @@ function ensureAllDayEnd(start: Date, end: Date | null): Date {
 export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?: string }): CalendarEventPayload {
   const timezone = options?.timezone ?? DEFAULT_TIME_ZONE
   const allDay = !!row.allDay
+  const hasQuantities = !!(row as any).hasQuantities
 
   let startDate = toDate(row.start ?? row.startsAt)
   let endDate = toDate(row.end ?? row.endsAt)
@@ -122,6 +125,7 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
       type: row.type ?? null,
       shift: row.shift ?? null,
       checklist: parsedChecklist,
+      hasQuantities,
     }
   }
 
@@ -141,6 +145,7 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
     type: row.type ?? null,
     shift: row.shift ?? null,
     checklist: parsedChecklist,
+    hasQuantities,
   }
 }
 

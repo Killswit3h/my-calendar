@@ -44,6 +44,7 @@ type PrismaEventRow = {
   checklist: unknown | null
   attachmentName: string | null
   attachmentType: string | null
+  hasQuantities?: boolean
 }
 
 let legacyColumnsHandled = false
@@ -68,7 +69,7 @@ async function ensureLegacyStartColumnsHandled(p: any) {
 async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEventRow> {
   await ensureLegacyStartColumnsHandled(p)
   try {
-    return await p.event.create({
+    const created = await p.event.create({
       data,
       select: {
         id: true,
@@ -86,6 +87,7 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
         attachmentType: true,
       },
     })
+    return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
       'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$4,$5) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","attachmentName","attachmentType"',
@@ -115,6 +117,7 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
       checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : row.checklist,
       attachmentName: row.attachmentName ?? null,
       attachmentType: row.attachmentType ?? null,
+      hasQuantities: false,
     }
   }
 }
@@ -144,6 +147,7 @@ export async function GET(req: NextRequest) {
           checklist: true,
           attachmentName: true,
           attachmentType: true,
+          _count: { select: { quantities: true } },
         },
       }),
     [] as any[],
@@ -163,6 +167,7 @@ export async function GET(req: NextRequest) {
     checklist: e.checklist ?? null,
     attachmentName: e.attachmentName ?? null,
     attachmentType: e.attachmentType ?? null,
+    hasQuantities: !!(e._count?.quantities ?? 0),
   }))
 
   return NextResponse.json(payload, { headers: cors as any })
@@ -221,6 +226,7 @@ export async function POST(req: NextRequest) {
       checklist: created.checklist ?? null,
       attachmentName: created.attachmentName ?? null,
       attachmentType: created.attachmentType ?? null,
+      hasQuantities: false,
     }
 
     return NextResponse.json(payload, { status: 201, headers: cors as any })

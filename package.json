@@ -10,7 +10,7 @@
         "postinstall": "prisma generate && npm --prefix my-calendar-main exec prisma generate",
         "generate:edge": "prisma generate --no-engine",
         "generate:node": "prisma generate",
-        "test": "echo \"No tests\"",
+        "test": "vitest",
         "check:design": "node scripts/check-design.mjs",
         "cf:build": "npm run build:edge",
         "pdf:job-by-job": "tsx scripts/render-job-by-job.ts",
@@ -60,7 +60,8 @@
         "tailwindcss": "^4.1.12",
         "ts-node": "^10.9.2",
         "tsx": "^4.20.5",
-        "typescript": "^5.5.4"
+        "typescript": "^5.5.4",
+        "vitest": "^1.6.1"
     },
     "overrides": {
         "xlsx": "0.0.0-unsupported",

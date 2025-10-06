@@ -47,10 +47,40 @@ model Event {
   checklist      Json?
 
   calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  quantities     EventQuantity[]
 
   // Use model field names in indexes
   @@index([calendarId, startsAt])
   @@map("Event")
+}
+
+model PayItem {
+  id          String           @id @default(cuid())
+  number      String           @unique
+  description String
+  unit        String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  quantities  EventQuantity[]
+}
+
+model EventQuantity {
+  id          String   @id @default(cuid())
+  eventId     String
+  payItemId   String
+  quantity    Decimal  @db.Decimal(18, 6)
+  stationFrom String?
+  stationTo   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payItem PayItem @relation(fields: [payItemId], references: [id], onDelete: Restrict)
+
+  @@index([eventId])
+  @@index([payItemId])
 }
 
 model Todo {
