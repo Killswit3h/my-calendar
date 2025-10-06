@@ -1,7 +1,7 @@
 // src/server/fdotCutoffs.ts
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/db'
-import type { PrismaClient } from '@prisma/client'
+import type { FdotCutoff, PrismaClient } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 
 export type FdotCutoffRecord = {
@@ -52,7 +52,7 @@ function ensureSameYear(expected: number, ymd: string) {
   }
 }
 
-function toPayload(row: any): FdotCutoffRecord {
+function toPayload(row: FdotCutoff): FdotCutoffRecord {
   return {
     id: String(row.id ?? ''),
     year: Number(row.year ?? 0),
@@ -95,7 +95,7 @@ export async function fetchCutoffsForYear(year: number): Promise<FdotCutoffRecor
         where: { year },
         orderBy: { cutoffDate: 'asc' },
       }),
-    [] as any[],
+    [] as FdotCutoff[],
   )
   return rows.map(toPayload)
 }
@@ -103,7 +103,7 @@ export async function fetchCutoffsForYear(year: number): Promise<FdotCutoffRecor
 export async function fetchAllCutoffs(): Promise<Record<string, FdotCutoffRecord[]>> {
   const rows = await tryPrisma(
     p => p.fdotCutoff.findMany({ orderBy: [{ year: 'asc' }, { cutoffDate: 'asc' }] }),
-    [] as any[],
+    [] as FdotCutoff[],
   )
   const grouped = new Map<number, FdotCutoffRecord[]>()
   rows.forEach(row => {
@@ -184,7 +184,7 @@ export async function saveCutoffs(
       await tx.fdotCutoff.deleteMany({ where: { id: { in: toDelete } } })
     }
 
-    const persisted: any[] = []
+    const persisted: FdotCutoff[] = []
     for (const row of sorted) {
       const data = {
         year,
@@ -224,7 +224,9 @@ export async function saveCutoffs(
 
   const formatted = results
     .map(toPayload)
-    .sort((a, b) => (a.cutoffDate < b.cutoffDate ? -1 : a.cutoffDate > b.cutoffDate ? 1 : 0))
+    .sort((a: FdotCutoffRecord, b: FdotCutoffRecord) =>
+      a.cutoffDate < b.cutoffDate ? -1 : a.cutoffDate > b.cutoffDate ? 1 : 0,
+    )
 
   const deleted = toDelete.length
 
@@ -319,7 +321,7 @@ async function runAggregation(
 
   try {
     const rows = await tryPrisma(
-      (p) =>
+      (p: PrismaClient) =>
         p.$queryRaw<Array<{
           job_id: string
           job_name: string | null
