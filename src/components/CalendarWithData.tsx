@@ -19,6 +19,7 @@ import UnassignedSidebar from '@/components/UnassignedSidebar';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
 import PayItemsManager from '@/components/PayItemsManager';
+import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
 import {
   Box,
   Button,
@@ -1167,6 +1168,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
   const [payItemsDialog, setPayItemsDialog] = useState(false);
   const reloadTodos = useCallback(async () => {
@@ -1465,6 +1467,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
+                <Link className="menu-row" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛣️</span><span className="menu-text">FDOT Cut-Off Dates</span></Link>
                 <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
                 <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
               </div>
@@ -1492,6 +1495,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
+                <a className="menu-item" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}>FDOT Cut-Off Dates…</a>
                 <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
                 <Suspense fallback={<span className="menu-item" aria-disabled>Employees</span>}>
                   <EmployeesLink />
@@ -1512,6 +1516,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             setReportDate(`${y}-${m}-${d}`);
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
+          <button className="btn" onClick={() => setCutoffReportOpen(true)}>Generate Cut-Off Report</button>
         </div>
       </div>
 
@@ -1730,6 +1735,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           </div>
         </div>
       ) : null}
+
+      <CutoffReportDialog open={cutoffReportOpen} onClose={() => setCutoffReportOpen(false)} />
 
       {draft ? (
         <Dialog

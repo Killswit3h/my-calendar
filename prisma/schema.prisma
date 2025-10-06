@@ -199,3 +199,16 @@ enum WeeklyStatus {
   SUCCESS
   ERROR
 }
+
+model FdotCutoff {
+  id         String   @id @default(cuid())
+  year       Int
+  cutoffDate DateTime @map("cutoff_date")
+  label      String?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([year, cutoffDate])
+  @@map("fdot_cutoffs")
+}
