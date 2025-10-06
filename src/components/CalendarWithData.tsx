@@ -771,8 +771,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       const normalized = normalizeEvent(raw);
       const normalizedStartIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.start) : normalized.start;
       const normalizedEndIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.end ?? normalized.start) : normalized.end;
-      const startForCalendar = normalized.allDay ? normalized.start : normalizedStartIso;
-      const endForCalendar = normalized.allDay ? (normalized.end ?? normalizedStartIso) : normalizedEndIso;
+      const startForCalendar = normalized.allDay ? normalizedStartIso.slice(0, 10) : normalizedStartIso;
+      const endForCalendar = normalized.allDay ? normalizedEndIso.slice(0, 10) : normalizedEndIso;
       const meta = splitInvoiceProps(normalized.description ?? '');
       const hasQuantities = !!(normalized as any).hasQuantities;
 
@@ -849,8 +849,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const normalized = normalizeEvent(createdRaw);
     const normalizedStartIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.start) : normalized.start;
     const normalizedEndIso = normalized.allDay ? normalizeAllDayIsoValue(normalized.end ?? normalized.start) : normalized.end;
-    const startForCalendar = normalized.allDay ? normalized.start : normalizedStartIso;
-    const endForCalendar = normalized.allDay ? (normalized.end ?? normalizedStartIso) : normalizedEndIso;
+    const startForCalendar = normalized.allDay ? normalizedStartIso.slice(0, 10) : normalizedStartIso;
+    const endForCalendar = normalized.allDay ? normalizedEndIso.slice(0, 10) : normalizedEndIso;
     const meta = splitInvoiceProps(normalized.description ?? '');
 
     setEvents(p => [
@@ -2039,13 +2039,10 @@ function normalizeEventTimes(event: NormalizeEventInput): { start: string; end: 
   const rawEnd = event.end instanceof Date ? event.end : (event.end ? new Date(event.end) : null);
 
   if (event.allDay) {
-    const startMidnight = new Date(rawStart.getFullYear(), rawStart.getMonth(), rawStart.getDate(), 0, 0, 0, 0);
+    const startMidnight = startOfUtcDayLocal(rawStart);
     let endMidnight: Date;
     if (rawEnd) {
-      endMidnight = new Date(rawEnd.getFullYear(), rawEnd.getMonth(), rawEnd.getDate(), 0, 0, 0, 0);
-      if (!isUtcMidnight(rawEnd)) {
-        endMidnight.setDate(endMidnight.getDate() + 1);
-      }
+      endMidnight = startOfUtcDayLocal(rawEnd);
       if (endMidnight <= startMidnight) {
         endMidnight = new Date(startMidnight.getTime() + DAY_MS);
       }
