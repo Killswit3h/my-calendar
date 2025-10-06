@@ -162,9 +162,18 @@ export async function saveCutoffs(
 
   const prisma = await getPrisma()
   const existing = await prisma.fdotCutoff.findMany({ where: { year } })
-  const existingById = new Map(existing.map(row => [String(row.id), row]))
-  const keepIds = new Set(sorted.map(row => (row.id ? row.id : '').trim()).filter(Boolean))
-  const toDelete = existing.filter(row => !keepIds.has(String(row.id))).map(row => String(row.id))
+  type ExistingRow = (typeof existing)[number]
+  const existingById = new Map<string, ExistingRow>(
+    existing.map((row: ExistingRow): [string, ExistingRow] => [String(row.id), row]),
+  )
+  const keepIds = new Set(
+    sorted
+      .map(row => (row.id ? row.id : '').trim())
+      .filter((id): id is string => id.length > 0),
+  )
+  const toDelete = existing
+    .filter((row: ExistingRow) => !keepIds.has(String(row.id)))
+    .map((row: ExistingRow) => String(row.id))
 
   let created = 0
   let updated = 0

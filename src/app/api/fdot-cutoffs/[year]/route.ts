@@ -14,11 +14,16 @@ async function readJson(req: NextRequest): Promise<any | null> {
   return null
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { year: string } },
-) {
-  const year = Number.parseInt(params?.year ?? '', 10)
+type YearContext = { params: Promise<{ year: string }> }
+
+async function resolveYear(context: YearContext): Promise<number> {
+  const { year } = await context.params
+  const parsed = Number.parseInt(year ?? '', 10)
+  return parsed
+}
+
+export async function GET(_req: NextRequest, context: YearContext) {
+  const year = await resolveYear(context)
   if (!Number.isFinite(year)) {
     return NextResponse.json({ error: 'Invalid year' }, { status: 400 })
   }
@@ -26,11 +31,8 @@ export async function GET(
   return NextResponse.json({ year, cutoffs })
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { year: string } },
-) {
-  const year = Number.parseInt(params?.year ?? '', 10)
+export async function PUT(req: NextRequest, context: YearContext) {
+  const year = await resolveYear(context)
   if (!Number.isFinite(year)) {
     return NextResponse.json({ error: 'Invalid year' }, { status: 400 })
   }
