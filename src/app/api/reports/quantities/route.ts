@@ -74,7 +74,23 @@ export async function GET(req: NextRequest) {
     [] as any[],
   )
 
-  const data = rows.map((row: any) => ({
+  const startMs = from.getTime()
+  const endMs = toExclusive.getTime()
+  const customerNeedle = customerRaw.toLowerCase()
+
+  const filtered = rows.filter((row: any) => {
+    const eventStart = row.event?.startsAt ? new Date(row.event.startsAt).getTime() : NaN
+    if (!Number.isFinite(eventStart)) return false
+    if (eventStart < startMs || eventStart >= endMs) return false
+    if (calendarId && row.event?.calendarId !== calendarId) return false
+    if (customerNeedle) {
+      const title = String(row.event?.title ?? '').toLowerCase()
+      if (!title.includes(customerNeedle)) return false
+    }
+    return true
+  })
+
+  const data = filtered.map((row: any) => ({
     eventId: row.event?.id ?? '',
     eventDate: row.event?.startsAt ? new Date(row.event.startsAt).toISOString() : '',
     eventTitle: row.event?.title ?? '',
