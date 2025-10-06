@@ -91,9 +91,10 @@ export function CutoffReportDialog({ open, onClose }: Props) {
       const res = await fetch('/api/fdot-cutoffs', { cache: 'no-store' })
       if (!res.ok) throw new Error('Failed to load cut-offs')
       const json = await res.json()
-      const yearsList: number[] = Array.isArray(json.years)
-        ? [...new Set(json.years.map((y: any) => Number(y)))].filter(Number.isFinite).sort((a, b) => a - b)
-        : []
+      const rawYears = Array.isArray(json?.years) ? json.years : []
+      const yearsList = [...new Set(rawYears.map((y: unknown) => Number(y)))]
+        .filter((value): value is number => Number.isFinite(value))
+        .sort((a, b) => a - b)
       const grouped: Record<number, Cutoff[]> = {}
       if (json.cutoffs && typeof json.cutoffs === 'object') {
         Object.entries(json.cutoffs).forEach(([key, value]) => {
