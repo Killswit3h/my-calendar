@@ -12,7 +12,7 @@ import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
-import { eventOverlapsLocalDay, ymdLocal } from '@/lib/dateUtils';
+import { eventOverlapsLocalDay } from '@/lib/dateUtils';
 import { getYardForDate } from '@/lib/yard';
 import { getAbsentForDate } from '@/lib/absent';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
@@ -176,15 +176,29 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
   const [visibleDate, setVisibleDate] = useState<Date | null>(null);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const toAppLocalDate = useCallback((input: Date | string | null | undefined): Date | null => {
-    if (!input) return null;
-    const ymd = typeof input === 'string'
-      ? input.slice(0, 10)
-      : formatInTimeZone(input, APP_TZ).date;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-    const [y, m, d] = ymd.split('-').map(Number);
-    return new Date(y, m - 1, d);
+  const [selectedDayYmd, setSelectedDayYmd] = useState<string>('');
+  const selectedDay = useMemo(() => (selectedDayYmd ? new Date(`${selectedDayYmd}T00:00:00`) : null), [selectedDayYmd]);
+
+  const selectDay = useCallback((input: Date | string | null | undefined) => {
+    if (!input) {
+      setSelectedDayYmd('');
+      return;
+    }
+    if (typeof input === 'string') {
+      const trimmed = input.slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        setSelectedDayYmd(trimmed);
+        return;
+      }
+      const parsed = new Date(input);
+      if (!Number.isNaN(parsed.getTime())) {
+        const { date } = formatInTimeZone(parsed, APP_TZ);
+        setSelectedDayYmd(date);
+      }
+      return;
+    }
+    const { date } = formatInTimeZone(input, APP_TZ);
+    setSelectedDayYmd(date);
   }, []);
   const refetchCalendar = useCallback(() => {
     const api = calendarRef.current?.getApi();
@@ -463,8 +477,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: 'DAY',
           checklist: defaultChecklist(),
         });
-        const nextSelected = toAppLocalDate(ymd);
-        if (nextSelected) setSelectedDay(nextSelected);
+        selectDay(ymd);
         setModalHasQuantities(false);
         setUserChangedStart(false);
         setUserChangedEnd(false);
@@ -474,11 +487,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
   };
 
-  const dayCellDidMount = useCallback((arg: { date: Date; el: HTMLElement }) => {
+  const dayCellDidMount = useCallback((arg: { date: Date; dateStr?: string; el: HTMLElement }) => {
     injectBadgeIntoCell(arg.el);
 
     const el = arg.el;
-    const dateStr = dateToLocalInput(arg.date).slice(0, 10);
+    const dateStr = (arg as any)?.dateStr ?? formatInTimeZone(arg.date, APP_TZ).date;
     el.setAttribute('data-date', dateStr);
     const onDragOver = (e: Event) => { (e as DragEvent).preventDefault(); };
     const onDrop = async (e: Event) => {
@@ -547,16 +560,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     cells.forEach(injectBadgeIntoCell);
   }, [weather, coords]);
 
-  const handleDateClick = useCallback((arg: { date: Date }) => {
-    const nextSelected = toAppLocalDate(arg.date);
-    if (nextSelected) setSelectedDay(nextSelected);
-    else setSelectedDay(new Date(arg.date.getFullYear(), arg.date.getMonth(), arg.date.getDate()));
-  }, [toAppLocalDate]);
+  const handleDateClick = useCallback((arg: { date: Date; dateStr?: string }) => {
+    if ((arg as any)?.dateStr) {
+      selectDay((arg as any).dateStr as string);
+      return;
+    }
+    selectDay(arg.date);
+  }, [selectDay]);
 
   const freeCount = useMemo(() => {
-    if (!selectedDay) return 0;
+    if (!selectedDay || !selectedDayYmd) return 0;
     const day = selectedDay;
-    const key = formatInTimeZone(day, APP_TZ).date;
+    const key = selectedDayYmd;
     const assigned = new Set<string>(getYardForDate(key));
     for (const ev of events) {
       const ex: any = ev.extendedProps ?? {};
@@ -567,7 +582,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       }
     }
     return employees.filter(e => !assigned.has(e.id)).length;
-  }, [selectedDay, events, employees, yardTick]);
+  }, [selectedDay, selectedDayYmd, events, employees, yardTick]);
 
   const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
     // Prefill an all-day event on the selected local day with the chosen employee
@@ -587,13 +602,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: false,
       checklist: { ...(defaultChecklist()), employees: [employeeId] },
     });
-    const nextSelected = toAppLocalDate(day);
-    if (nextSelected) setSelectedDay(nextSelected);
+    selectDay(day);
     setEditId(null);
     setUserChangedStart(false);
     setUserChangedEnd(false);
     setOpen(true);
-  }, []);
+  }, [selectDay]);
 
 
   async function geocode(q: string): Promise<{ lat: number; lon: number } | null> {
@@ -617,14 +631,17 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const baseStart = sel.start ?? new Date();
     const baseEnd = sel.end ?? sel.start ?? baseStart;
 
-    if (sel.start) {
-      const nextSelected = toAppLocalDate(sel.start);
-      if (nextSelected) setSelectedDay(nextSelected);
+    if ((sel as any)?.startStr) {
+      selectDay((sel as any).startStr);
+    } else if (sel.start) {
+      selectDay(sel.start);
     }
 
     if (sel.allDay) {
-      const startDate = zonedStartOfDayUtc(formatInTimeZone(baseStart, APP_TIMEZONE).date, APP_TIMEZONE);
-      let endDate = baseEnd ? zonedStartOfDayUtc(formatInTimeZone(baseEnd, APP_TIMEZONE).date, APP_TIMEZONE) : startDate;
+      const startYmd = (sel as any)?.startStr ? String((sel as any).startStr).slice(0, 10) : formatInTimeZone(baseStart, APP_TZ).date;
+      const endYmdRaw = (sel as any)?.endStr ? String((sel as any).endStr).slice(0, 10) : formatInTimeZone(baseEnd, APP_TZ).date;
+      const startDate = zonedStartOfDayUtc(startYmd, APP_TIMEZONE);
+      let endDate = endYmdRaw ? zonedStartOfDayUtc(endYmdRaw, APP_TIMEZONE) : startDate;
       if (!sel.end || endDate <= startDate) {
         endDate = addDaysUtc(startDate, 1);
       }
@@ -661,7 +678,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setUserChangedEnd(false);
     setLocInput('');
     setOpen(true);
-  }, []);
+  }, [selectDay]);
 
   const handleEventClick = useCallback((arg: EventClickArg) => {
     const e = arg.event; if (!e.id) return;
@@ -2100,15 +2117,24 @@ function normalizeEventTimes(event: NormalizeEventInput): { start: string; end: 
 }
 
 function formatDateInputValue(iso: string, { allDay, isEnd = false }: { allDay: boolean; isEnd?: boolean }): string {
-  if (!iso) return '';
-  if (!allDay) return toLocalInput(iso).slice(0, 10);
-  const date = new Date(iso);
-  if (isEnd) {
-    if (isUtcMidnight(date)) {
-      date.setMinutes(date.getMinutes() - 1);
-    }
+  if (!iso) return ''
+  if (!allDay) {
+    const parsed = new Date(iso)
+    if (Number.isNaN(parsed.getTime())) return ''
+    return formatInTimeZone(parsed, APP_TZ).date
   }
-  return ymdLocal(date);
+
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const { date: ymd, time } = formatInTimeZone(date, APP_TZ)
+
+  if (isEnd && time === '00:00:00') {
+    const startOfDayUtc = zonedStartOfDayUtc(ymd, APP_TZ)
+    const previous = addDaysUtc(startOfDayUtc, -1)
+    return formatInTimeZone(previous, APP_TZ).date
+  }
+
+  return ymd
 }
 
 function formatDateTimeInputValue(iso: string, { allDay, isEnd = false }: { allDay: boolean; isEnd?: boolean }): string {

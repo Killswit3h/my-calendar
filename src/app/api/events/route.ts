@@ -6,7 +6,8 @@ export const revalidate = 0
 import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
-import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
+import { parseAppDateTime, parseAppDateOnly, addDaysUtc, formatInTimeZone } from '@/lib/timezone'
+import { APP_TZ } from '@/lib/appConfig'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -154,22 +155,34 @@ export async function GET(req: NextRequest) {
     [] as any[],
   )
 
-  const payload = rows.map((e: any) => ({
-    id: e.id,
-    calendarId: e.calendarId,
-    title: e.title,
-    description: e.description ?? '',
-    start: e.startsAt,
-    end: e.endsAt,
-    allDay: !!e.allDay,
-    location: e.location ?? '',
-    type: e.type ?? null,
-    shift: e.shift ?? null,
-    checklist: e.checklist ?? null,
-    attachmentName: e.attachmentName ?? null,
-    attachmentType: e.attachmentType ?? null,
-    hasQuantities: !!(e._count?.quantities ?? 0),
-  }))
+  const payload = rows.map((e: any) => {
+    const base = {
+      id: e.id,
+      calendarId: e.calendarId,
+      title: e.title,
+      description: e.description ?? '',
+      allDay: !!e.allDay,
+      location: e.location ?? '',
+      type: e.type ?? null,
+      shift: e.shift ?? null,
+      checklist: e.checklist ?? null,
+      attachmentName: e.attachmentName ?? null,
+      attachmentType: e.attachmentType ?? null,
+      hasQuantities: !!(e._count?.quantities ?? 0),
+    }
+
+    if (base.allDay) {
+      const startLocal = formatInTimeZone(e.startsAt, APP_TZ).date
+      const endLocal = formatInTimeZone(e.endsAt, APP_TZ).date
+      return { ...base, start: startLocal, end: endLocal }
+    }
+
+    return {
+      ...base,
+      start: e.startsAt instanceof Date ? e.startsAt.toISOString() : e.startsAt,
+      end: e.endsAt instanceof Date ? e.endsAt.toISOString() : e.endsAt,
+    }
+  })
 
   return NextResponse.json(payload, { headers: cors as any })
 }
