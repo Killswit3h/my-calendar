@@ -96,30 +96,30 @@ type EventLikeWithLegacyFields = {
 type NormalizedEvent<T> = T & { start: string; end: string };
 
 function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
-  const startRaw = obj.start ?? obj.startsAt;
+  const startRaw = obj.start ?? obj.startsAt
   if (!startRaw) {
-    const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
-    return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>;
+    const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
+    return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>
   }
-  const endRaw = obj.end ?? obj.endsAt ?? startRaw;
-  const allDay = Boolean((obj as { allDay?: boolean }).allDay);
+  const endRaw = obj.end ?? obj.endsAt ?? startRaw
+  const allDay = Boolean((obj as { allDay?: boolean }).allDay)
 
   const cast = (value: string | Date | null | undefined, fallback: string): string => {
-    if (typeof value === 'string' && value.trim().length > 0) return value;
+    if (typeof value === 'string' && value.trim().length > 0) return value
     if (value instanceof Date) {
-      const iso = value.toISOString();
-      return allDay ? iso.slice(0, 10) : iso;
+      const iso = value.toISOString()
+      return allDay ? iso.slice(0, 10) : iso
     }
-    if (value == null) return fallback;
-    const str = String(value);
-    return str.length ? str : fallback;
-  };
+    if (value == null) return fallback
+    const str = String(value)
+    return str.length ? str : fallback
+  }
 
-  const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z';
-  const start = cast(startRaw, fallbackStart);
-  const end = cast(endRaw, start);
+  const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
+  const start = cast(startRaw, fallbackStart)
+  const end = cast(endRaw, start)
 
-  return { ...obj, start, end } as NormalizedEvent<T>;
+  return { ...obj, start, end } as NormalizedEvent<T>
 }
 
 export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
@@ -694,7 +694,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       } as EventInput);
     } else {
       setEditId(e.id);
-      const times = normalizeEventTimes({ start: e.start ?? undefined, end: e.end ?? undefined, allDay: e.allDay });
+      const times = normalizeEventTimes({
+        start: e.allDay ? (e.startStr ?? undefined) : (e.start ?? undefined),
+        end: e.allDay ? (e.endStr ?? undefined) : (e.end ?? undefined),
+        allDay: e.allDay,
+      });
       setDraft({
         title: e.title,
         start: times.start,
@@ -721,7 +725,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!selectedEvent) return;
     const e: any = selectedEvent;
     setEditId(e.id as string);
-    const times = normalizeEventTimes({ start: e.start as string | undefined, end: e.end as string | undefined, allDay: e.allDay as boolean | undefined });
+    const times = normalizeEventTimes({
+      start: e.start as string | undefined,
+      end: e.end as string | undefined,
+      allDay: e.allDay as boolean | undefined,
+    });
     setDraft({
       title: e.title,
       start: times.start,
