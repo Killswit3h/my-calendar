@@ -5,8 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['tests/**/*.test.ts', '__tests__/**/*.test.ts'],
-    exclude: ['tests/server/**/Abstract*.test.ts'], // Exclude abstract test utilities
+    include: ['tests/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
     coverage: {
       enabled: false,
@@ -15,7 +14,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@/src': path.resolve(__dirname, 'src'),
     },
   },
 })

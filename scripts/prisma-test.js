@@ -17,36 +17,23 @@ try {
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-const APP_TZ = 'America/New_York'
-const formatYmd = (date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    date,
-  )
-
 async function main() {
   const calendarId = process.argv[2] || 'codex-test-cal'
   const title = process.argv[3] || 'Codex Test'
   await prisma.calendar.upsert({ where: { id: calendarId }, update: {}, create: { id: calendarId, name: 'Default' } })
   const now = new Date()
-  now.setUTCHours(0, 0, 0, 0)
-  const tomorrow = new Date(now.getTime())
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-  const startDateYmd = formatYmd(now)
-  const endDateYmd = formatYmd(tomorrow)
   const ev = await prisma.event.create({
     data: {
       calendarId,
       title,
       description: '',
       startsAt: now,
-      endsAt: tomorrow,
+      endsAt: now,
       allDay: true,
-      startDate: startDateYmd,
-      endDate: endDateYmd,
       location: '',
       type: null,
     },
-    select: { id: true, title: true, startsAt: true, endsAt: true, startDate: true, endDate: true, allDay: true, calendarId: true },
+    select: { id: true, title: true, startsAt: true, endsAt: true, allDay: true, calendarId: true },
   })
   console.log(JSON.stringify(ev))
 }

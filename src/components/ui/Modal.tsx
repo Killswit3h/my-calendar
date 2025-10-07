@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from 'react';
+import { Button } from './Button';
 
 export interface ModalProps {
   open: boolean;
@@ -59,7 +60,7 @@ export function Modal({ open, title, onClose, children, footer, widthClass = 'ma
         {title ? <h3 className="text-lg font-semibold mb-3">{title}</h3> : null}
         <div className="max-h-[70vh] overflow-auto">{children}</div>
         <div className="mt-4 flex justify-end gap-2">
-          {footer ?? <button onClick={onClose} className="px-4 py-2 rounded-md hover:bg-card/80 transition-colors">Close</button>}
+          {footer ?? <Button variant="ghost" onClick={onClose}>Close</Button>}
         </div>
       </div>
     </div>

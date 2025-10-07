@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
 import { mapSnapshotToDailyReport } from '@/server/reports/mapToDailyReport'
@@ -33,7 +32,6 @@ export async function POST(req: NextRequest) {
     force?: boolean
     yardEmployees?: unknown
     noWorkEmployees?: unknown
-    note?: string | null
   } | null
   const date = normalizeYmd(body?.date || '') || ''
   const vendor = (body?.vendor ?? null) as string | null
@@ -46,7 +44,6 @@ export async function POST(req: NextRequest) {
   const noWorkEmployees = Array.isArray(body?.noWorkEmployees)
     ? body!.noWorkEmployees.map(v => String(v ?? '').trim()).filter(Boolean)
     : []
-  const note = typeof body?.note === 'string' ? body.note.trim() : ''
 
   const p = await getPrisma()
 
@@ -74,10 +71,6 @@ export async function POST(req: NextRequest) {
     const reportData = mapSnapshotToDailyReport(snapshot)
     if (yardEmployees.length) reportData.yardEmployees = yardEmployees
     if (noWorkEmployees.length) reportData.noWorkEmployees = noWorkEmployees
-    if (note) {
-      reportData.yardNote = note
-      reportData.noWorkNote = note
-    }
     const pdfBytes = await dailyTableToPdf(reportData)
     const pdfBuf = Buffer.from(pdfBytes)
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
@@ -95,32 +88,13 @@ export async function POST(req: NextRequest) {
     )
 
     await p.dailyReportSnapshot.create({
-      data: {
-        id: randomUUID(),
-        reportDate,
-        vendor: vendor ?? null,
-        payloadJson: JSON.stringify(snapshot),
-      },
+      data: { reportDate, vendor: vendor ?? null, payloadJson: JSON.stringify(snapshot) },
     })
     await p.reportFile.create({
-      data: {
-        id: randomUUID(),
-        kind: 'DAILY_PDF',
-        reportDate,
-        vendor: vendor ?? null,
-        blobUrl: storedPdf.url,
-        bytes: storedPdf.bytes,
-      },
+      data: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null, blobUrl: storedPdf.url, bytes: storedPdf.bytes },
     })
     await p.reportFile.create({
-      data: {
-        id: randomUUID(),
-        kind: 'DAILY_XLSX',
-        reportDate,
-        vendor: vendor ?? null,
-        blobUrl: storedXlsx.url,
-        bytes: storedXlsx.bytes,
-      },
+      data: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null, blobUrl: storedXlsx.url, bytes: storedXlsx.bytes },
     })
 
     return NextResponse.json({ pdfUrl: storedPdf.url, xlsxUrl: storedXlsx.url })

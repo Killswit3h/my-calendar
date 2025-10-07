@@ -1,30 +1,18 @@
-// app/layout.tsx
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
+import 'leaflet/dist/leaflet.css';
 import Providers from "./providers";
-import ConditionalLayout from "@/components/ConditionalLayout";
-import PushClient from "./_push-client";
-import { AppNav } from "./_nav";
-import { NotificationDrawer } from "./_notification-drawer";
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
+export const metadata: Metadata = {
+  title: "GFC Calendar",
+  description: "Scheduling and job planning for Guaranteed Fence Corp.",
 };
-
-export const metadata: Metadata = { title: "Planner" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark h-full" suppressHydrationWarning style={{ colorScheme: "dark" }}>
-      <body className="h-full">
-        <Providers>
-          <PushClient />
-          <AppNav />
-          <ConditionalLayout>{children}</ConditionalLayout>
-          <NotificationDrawer />
-        </Providers>
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

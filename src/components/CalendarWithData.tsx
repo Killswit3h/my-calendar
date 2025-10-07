@@ -1,8 +1,9 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -19,8 +20,6 @@ import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
 import PayItemsManager from '@/components/PayItemsManager';
 import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
-import useOverlayA11y from '@/hooks/useOverlayA11y';
-import { EditEventDialog } from '@/components/events/EditEventDialog';
 import {
   APP_TIMEZONE,
   APP_TZ,
@@ -50,7 +49,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { EllipsisVertical, X } from 'lucide-react';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -62,23 +60,7 @@ type Checklist = {
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
-type NewEvent = {
-  title: string;
-  start: string;
-  end?: string;
-  allDay: boolean;
-  location?: string;
-  description?: string;
-  invoice?: string;
-  payment?: PaymentType;
-  type?: JobType;
-  vendor?: Vendor;
-  payroll?: boolean;
-  shift?: WorkShift;
-  checklist?: Checklist | null;
-  reminderEnabled?: boolean;
-  reminderOffsets?: number[];
-};
+type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; vendor?: Vendor; payroll?: boolean; shift?: WorkShift; checklist?: Checklist | null };
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 
 const DAY_MS = 86_400_000;
@@ -96,6 +78,12 @@ const VENDOR_COLOR: Record<Vendor, string> = {
   CHRIS: 'orange',
 };
 
+const EmployeesLink = () => {
+  const pathname = usePathname();
+  const href = `/employees?from=${encodeURIComponent(pathname)}`;
+  return <Link href={href} className="btn">Employees</Link>;
+};
+
 /** Normalizes event payloads so downstream code can rely on {start,end}. */
 type EventLikeWithLegacyFields = {
   start?: string | Date | null;
@@ -107,14 +95,6 @@ type EventLikeWithLegacyFields = {
 
 type NormalizedEvent<T> = T & { start: string; end: string };
 
-function formatAllDayDateString(value: string): string {
-  const parsedDate = parseAppDateOnly(value, APP_TIMEZONE)
-  if (parsedDate) return formatInTimeZone(parsedDate, APP_TIMEZONE).date
-  const parsedDateTime = parseAppDateTime(value, APP_TIMEZONE)
-  if (parsedDateTime) return formatInTimeZone(parsedDateTime, APP_TIMEZONE).date
-  return value.slice(0, 10)
-}
-
 function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
   const startRaw = obj.start ?? obj.startsAt
   if (!startRaw) {
@@ -125,16 +105,14 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
   const allDay = Boolean((obj as { allDay?: boolean }).allDay)
 
   const cast = (value: string | Date | null | undefined, fallback: string): string => {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return allDay ? formatAllDayDateString(value.trim()) : value.trim()
-    }
+    if (typeof value === 'string' && value.trim().length > 0) return value
     if (value instanceof Date) {
-      return allDay ? formatInTimeZone(value, APP_TIMEZONE).date : value.toISOString()
+      const iso = value.toISOString()
+      return allDay ? iso.slice(0, 10) : iso
     }
     if (value == null) return fallback
     const str = String(value)
-    if (!str.length) return fallback
-    return allDay ? formatAllDayDateString(str) : str
+    return str.length ? str : fallback
   }
 
   const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
@@ -161,6 +139,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'tickets' | 'quantities'>('info');
   const [modalHasQuantities, setModalHasQuantities] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [isMobile, setIsMobile] = useState(false);
@@ -196,12 +175,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [searchQuery]);
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
-  const reportPickerRef = useRef<HTMLDivElement>(null);
-  const holidayDialogRef = useRef<HTMLDivElement>(null);
-  const weatherDialogRef = useRef<HTMLDivElement>(null);
-  const payItemsDialogRef = useRef<HTMLDivElement>(null);
-  const todoDialogRef = useRef<HTMLDivElement>(null);
-  const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const [visibleDate, setVisibleDate] = useState<Date | null>(null);
   const [selectedDayYmd, setSelectedDayYmd] = useState<string>('');
   const selectedDay = useMemo(() => (selectedDayYmd ? new Date(`${selectedDayYmd}T00:00:00`) : null), [selectedDayYmd]);
@@ -740,10 +713,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         type: e.extendedProps['type'] as JobType | undefined,
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
-        reminderEnabled: (e.extendedProps['reminderEnabled'] as boolean | undefined) ?? false,
-        reminderOffsets: Array.isArray((e.extendedProps as any)['reminderOffsets'])
-          ? [...((e.extendedProps as any)['reminderOffsets'] as number[])]
-          : [],
       });
       setModalHasQuantities(Boolean((e.extendedProps as any)?.hasQuantities));
       setUserChangedStart(false);
@@ -775,10 +744,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       type: e.extendedProps?.type as JobType | undefined,
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
-      reminderEnabled: (e.extendedProps?.reminderEnabled as boolean | undefined) ?? false,
-      reminderOffsets: Array.isArray(e.extendedProps?.reminderOffsets)
-        ? [...(e.extendedProps?.reminderOffsets as number[])]
-        : [],
     });
     setModalHasQuantities(Boolean(e.extendedProps?.hasQuantities));
     setUserChangedStart(false);
@@ -791,69 +756,50 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     refetchCalendar();
   }, [refetchCalendar]);
 
-  const regenerateEventReminders = useCallback(async (eventId: string) => {
-    try {
-      await fetch('/api/reminders/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entityType: 'event', entityId: eventId }),
-      })
-    } catch (error) {
-      console.error('Failed to regenerate reminders', error)
-    }
-  }, []);
-
   const handleEventDrop = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
     const newStart = e.startStr ?? e.start?.toISOString() ?? null;
     const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) {
-      updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay })
-      void regenerateEventReminders(e.id as string)
-    } else {
+    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
+    else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to move event');
     }
-  }, [updateEventById, regenerateEventReminders]);
+  }, [updateEventById]);
 
   const handleEventResize = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
     const newStart = e.startStr ?? e.start?.toISOString() ?? null;
     const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) {
-      updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay })
-      void regenerateEventReminders(e.id as string)
-    } else {
+    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
+    else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to resize event');
     }
-  }, [updateEventById, regenerateEventReminders]);
+  }, [updateEventById]);
 
-  const saveDraft = useCallback(async (override?: NewEvent) => {
-    const current = override ?? draft;
-    if (!current?.title) return;
-    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(current);
-    const payloadStart = current.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
-    const payloadEnd = current.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
+  const saveDraft = useCallback(async () => {
+    if (!draft?.title) return;
+    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
+    const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
+    const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
     const payloadBody = {
-      title: current.title,
-      description: composeDescription(current.description ?? '', current.invoice ?? '', current.payment ?? '', current.vendor ?? '', current.payroll ?? false),
+      title: draft.title,
+      description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false),
       start: payloadStart,
       end: payloadEnd,
       startsAt: payloadStart,
       endsAt: payloadEnd,
-      allDay: !!current.allDay,
-      location: current.location ?? '',
-      type: current.type ?? null,
-      payment: current.payment ?? null,
-      vendor: current.vendor ?? null,
-      payroll: current.payroll ?? null,
-      shift: current.shift ?? null,
-      checklist: current.checklist ?? null,
-      reminderEnabled: current.reminderEnabled ?? false,
-      reminderOffsets: current.reminderOffsets ?? [],
+      allDay: !!draft.allDay,
+      location: draft.location ?? '',
+      type: draft.type ?? null,
+      payment: draft.payment ?? null,
+      vendor: draft.vendor ?? null,
+      payroll: draft.payroll ?? null,
+      shift: draft.shift ?? null,
+      checklist: draft.checklist ?? null,
     };
 
     if (editId) {
@@ -894,10 +840,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities,
-          reminderEnabled: !!(normalized as any).reminderEnabled,
-          reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
-            ? [...((normalized as any).reminderOffsets as number[])]
-            : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
@@ -924,10 +866,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             checklist: normalized.checklist ?? null,
             calendarId: normalized.calendarId ?? '',
             hasQuantities,
-            reminderEnabled: !!(normalized as any).reminderEnabled,
-            reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
-              ? [...((normalized as any).reminderOffsets as number[])]
-              : [],
           },
         } as EventInput;
       });
@@ -939,7 +877,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       setOpen(false);
       setDraft(null);
       setEditId(null);
-      void regenerateEventReminders(editId);
       return;
     }
 
@@ -982,10 +919,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities: false,
-          reminderEnabled: !!(normalized as any).reminderEnabled,
-          reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
-            ? [...((normalized as any).reminderOffsets as number[])]
-            : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
@@ -997,8 +930,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setModalHasQuantities(false);
     setLocInput(normalized.location ?? '');
 
-    const paymentValue = (meta.payment || current.payment || 'DAILY') as PaymentType;
-    const vendorValue = (meta.vendor || current.vendor || 'JORGE') as Vendor;
+    const paymentValue = (meta.payment || draft.payment || 'DAILY') as PaymentType;
+    const vendorValue = (meta.vendor || draft.vendor || 'JORGE') as Vendor;
     setDraft({
       title: normalized.title,
       start: normalizedStartIso,
@@ -1009,24 +942,20 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       invoice: meta.invoice ?? '',
       payment: paymentValue,
       vendor: vendorValue,
-      payroll: typeof meta.payroll === 'boolean' ? meta.payroll : current.payroll ?? false,
-      type: (normalized.type as JobType | undefined) ?? current.type ?? 'FENCE',
-      shift: (normalized.shift as WorkShift | undefined) ?? current.shift ?? 'DAY',
-      checklist: normalized.checklist ?? current.checklist ?? defaultChecklist(),
-      reminderEnabled: (normalized as any).reminderEnabled ?? current.reminderEnabled ?? false,
-      reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
-        ? [...((normalized as any).reminderOffsets as number[])]
-        : current.reminderOffsets ?? [],
+      payroll: typeof meta.payroll === 'boolean' ? meta.payroll : draft.payroll ?? false,
+      type: (normalized.type as JobType | undefined) ?? draft.type ?? 'FENCE',
+      shift: (normalized.shift as WorkShift | undefined) ?? draft.shift ?? 'DAY',
+      checklist: normalized.checklist ?? draft.checklist ?? defaultChecklist(),
     });
     setUserChangedStart(false);
     setUserChangedEnd(false);
-    void regenerateEventReminders(normalized.id);
     notify('Event saved. Add quantities below.');
-  }, [draft, editId, calendarId, notify, refetchCalendar, regenerateEventReminders]);
+  }, [draft, editId, calendarId, notify, refetchCalendar]);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); setDraft(null); setEditId(null); }
       if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); saveDraft(); }
     };
     document.addEventListener('keydown', handler);
@@ -1045,23 +974,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
     const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
     const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
-    const r = await fetch(`/api/calendars/${calendarId}/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: `${draft.title}`,
-        description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false),
-        start: payloadStart,
-        end: payloadEnd,
-        allDay: !!draft.allDay,
-        location: draft.location ?? '',
-        type: draft.type ?? null,
-        shift: draft.shift ?? null,
-        checklist: draft.checklist ?? null,
-        reminderEnabled: draft.reminderEnabled ?? false,
-        reminderOffsets: draft.reminderOffsets ?? [],
-      }),
-    })
+    const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to duplicate event');
@@ -1085,16 +999,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities: false,
-          reminderEnabled: draft.reminderEnabled ?? false,
-          reminderOffsets: Array.isArray(draft.reminderOffsets) ? [...(draft.reminderOffsets as number[])] : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
       },
     ]);
     refetchCalendar();
-    void regenerateEventReminders(normalized.id);
-  }, [draft, calendarId, refetchCalendar, regenerateEventReminders]);
+  }, [draft, calendarId, refetchCalendar]);
 
   const handleQuantitiesChange = useCallback((has: boolean) => {
     if (!editId) return;
@@ -1193,8 +1104,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: false,
       shift: 'DAY',
       checklist: defaultChecklist(),
-      reminderEnabled: false,
-      reminderOffsets: [],
     };
   }, [selectedDay]);
 
@@ -1207,6 +1116,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setModalHasQuantities(false);
     setUserChangedStart(false);
     setUserChangedEnd(false);
+    setActiveTab('info');
   }, [createBlankDraft]);
 
   const handleAllDayToggle = () => {
@@ -1274,67 +1184,40 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   };
 
   const eventContent = useCallback((arg: EventContentArg) => {
-    const chip = document.createElement('span');
-    chip.className = 'cal-chip';
-
-    const bullet = document.createElement('span');
-    bullet.className = 'cal-chip__bullet';
-    chip.appendChild(bullet);
-
-    const title = document.createElement('span');
-    title.className = 'cal-chip__title';
-    title.innerHTML = highlightText(arg.event.title, searchQuery);
-    chip.appendChild(title);
-
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.alignItems = 'center';
+    frag.style.gap = '0.25rem';
+    const span = document.createElement('span');
+    span.className = 'evt-title';
+    span.innerHTML = highlightText(arg.event.title, searchQuery);
+    frag.appendChild(span);
     const hasQuantities = Boolean((arg.event.extendedProps as any)?.hasQuantities);
     if (hasQuantities) {
       const badge = document.createElement('span');
-      badge.className = 'cal-chip__badge';
+      badge.className = 'qty-pill';
       badge.textContent = 'QTY';
-      badge.setAttribute('aria-label', 'Quantities attached');
-      badge.setAttribute('title', 'Quantities attached');
-      chip.appendChild(badge);
+      frag.appendChild(badge);
     }
-
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
     if (loc && loc.trim()) {
-      const link = document.createElement('a');
-      link.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.className = 'cal-chip__link';
-      link.setAttribute('aria-label', 'Open location in Google Maps');
-      const pin = document.createElement('span');
-      pin.className = 'cal-chip__pin';
-      pin.setAttribute('aria-hidden', 'true');
-      link.appendChild(pin);
-      chip.appendChild(link);
+      const a = document.createElement('a');
+      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'View in Google Maps';
+      a.textContent = '📍';
+      a.className = 'event-gmap-link';
+      frag.appendChild(a);
     }
-
-    return { domNodes: [chip] };
+    return { domNodes: [frag] };
   }, [highlightText, searchQuery]);
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
-  const [reportNote, setReportNote] = useState<string>('');
   const [payItemsDialog, setPayItemsDialog] = useState(false);
-  const closeReportPicker = useCallback(() => {
-    setReportPickerOpen(false);
-    setReportNote('');
-  }, []);
-  const closeHolidayDialog = useCallback(() => setHolidayDialog(false), []);
-  const closeWeatherDialog = useCallback(() => setWeatherDialog(false), []);
-  const closePayItemsDialog = useCallback(() => setPayItemsDialog(false), []);
-  const closeTodoDialog = useCallback(() => { setTodoEdit(null); setTodoForm(null); }, []);
-  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
-  useOverlayA11y(reportPickerOpen, reportPickerRef, closeReportPicker);
-  useOverlayA11y(holidayDialog, holidayDialogRef, closeHolidayDialog);
-  useOverlayA11y(weatherDialog, weatherDialogRef, closeWeatherDialog);
-  useOverlayA11y(payItemsDialog, payItemsDialogRef, closePayItemsDialog);
-  useOverlayA11y(!!(todoEdit && todoForm), todoDialogRef, closeTodoDialog);
-  useOverlayA11y(mobileSidebarOpen, mobileDrawerRef, closeMobileSidebar);
   const reloadTodos = useCallback(async () => {
     try {
       const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
@@ -1344,6 +1227,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     } catch {}
   }, [calendarId]);
   useEffect(() => { reloadTodos(); }, [reloadTodos]);
+  useEffect(() => {
+    if (open) setActiveTab('info');
+  }, [open]);
   useEffect(() => {
     const onFocus = () => reloadTodos();
     window.addEventListener('focus', onFocus);
@@ -1389,6 +1275,230 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const onDropToColumn = (e: React.DragEvent<HTMLDivElement>, type: JobType) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTodo(id, type); };
   const byType = (typ: JobType) => todos.filter(t => t.type === typ);
 
+  const isAllDay = !!draft?.allDay;
+  const startInputType = isAllDay ? 'date' : 'datetime-local';
+  const endInputType = startInputType;
+  const startInputValue = draft
+    ? (isAllDay
+        ? formatDateInputValue(draft.start, { allDay: true })
+        : formatDateTimeInputValue(draft.start, { allDay: false }))
+    : '';
+  const endInputValue = draft
+    ? (isAllDay
+        ? formatDateInputValue(draft.end ?? draft.start, { allDay: true, isEnd: true })
+        : formatDateTimeInputValue(draft.end ?? draft.start, { allDay: false, isEnd: true }))
+    : '';
+
+  const eventInfoContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Title
+        </Typography>
+        <CustomerCombobox value={draft.title} onChange={value => setDraft({ ...draft, title: value })} />
+      </Box>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <TextField
+          label="Start"
+          type={startInputType}
+          value={startInputValue}
+          onChange={e => handleStartFieldChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+        <TextField
+          label="End"
+          type={endInputType}
+          value={endInputValue}
+          onChange={e => handleEndFieldChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Box>
+      <Stack
+        spacing={2}
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ xs: 'stretch', md: 'center' }}
+      >
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Work Time
+          </Typography>
+          <ToggleButtonGroup
+            value={draft.shift ?? 'DAY'}
+            exclusive
+            size="small"
+            onChange={(_, value) => {
+              if (value) setDraft({ ...draft, shift: value as WorkShift });
+            }}
+          >
+            <ToggleButton value="DAY">Day</ToggleButton>
+            <ToggleButton value="NIGHT">Night</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        <FormControlLabel
+          control={<Switch checked={draft.allDay} onChange={handleAllDayToggle} />}
+          label={draft.allDay ? 'All-day event' : 'Timed event'}
+        />
+        <TextField
+          select
+          label="Type"
+          value={draft.type ?? 'FENCE'}
+          onChange={e => setDraft({ ...draft, type: e.target.value as NewEvent['type'] })}
+          fullWidth
+        >
+          <MenuItem value="FENCE">Fence</MenuItem>
+          <MenuItem value="TEMP_FENCE">Temp Fence</MenuItem>
+          <MenuItem value="GUARDRAIL">Guardrail</MenuItem>
+          <MenuItem value="HANDRAIL">Handrail</MenuItem>
+          <MenuItem value="ATTENUATOR">Attenuator</MenuItem>
+        </TextField>
+      </Stack>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, alignItems: 'start' }}>
+        <Box>
+          <TextField
+            label="Location"
+            value={locInput}
+            onChange={e => {
+              setLocInput(e.target.value);
+              if (!e.target.value) autoRef.current?.set && autoRef.current.set('place', null);
+            }}
+            fullWidth
+          />
+          <Button
+            size="small"
+            variant="text"
+            disabled={!locInput.trim()}
+            onClick={() => {
+              if (!locInput.trim()) return;
+              const href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locInput)}`;
+              window.open(href, '_blank');
+            }}
+            sx={{ mt: 1 }}
+          >
+            Open in Google Maps
+          </Button>
+        </Box>
+        <TextField
+          label="Invoice #"
+          value={draft.invoice ?? ''}
+          onChange={e => setDraft({ ...draft, invoice: e.target.value })}
+          fullWidth
+        />
+      </Box>
+    </Stack>
+  ) : null;
+
+  const workInfoContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+        <TextField
+          select
+          label="Vendor"
+          value={draft.vendor ?? 'JORGE'}
+          onChange={e => setDraft({ ...draft, vendor: e.target.value as Vendor })}
+          fullWidth
+        >
+          <MenuItem value="JORGE">Jorge</MenuItem>
+          <MenuItem value="TONY">Tony</MenuItem>
+          <MenuItem value="CHRIS">Chris</MenuItem>
+        </TextField>
+        <TextField
+          select
+          label="Payroll"
+          value={draft.payroll ? 'YES' : 'NO'}
+          onChange={e => setDraft({ ...draft, payroll: e.target.value === 'YES' })}
+          fullWidth
+        >
+          <MenuItem value="YES">Yes</MenuItem>
+          <MenuItem value="NO">No</MenuItem>
+        </TextField>
+        <TextField
+          select
+          label="Payment"
+          value={draft.payment ?? 'DAILY'}
+          onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}
+          fullWidth
+        >
+          <MenuItem value="DAILY">Daily</MenuItem>
+          <MenuItem value="ADJUSTED">Adjusted</MenuItem>
+        </TextField>
+      </Box>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Employees
+        </Typography>
+        <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', p: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+          <EmployeeMultiSelect
+            employees={employees}
+            value={draft.checklist?.employees ?? []}
+            onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
+          />
+        </Box>
+      </Box>
+      <TextField
+        label="Notes"
+        value={draft.description ?? ''}
+        onChange={e => setDraft({ ...draft, description: e.target.value })}
+        onKeyDown={handleDescKeyDown}
+        multiline
+        minRows={4}
+        fullWidth
+      />
+    </Stack>
+  ) : null;
+
+  const ticketsContent: ReactNode = draft ? (
+    <Stack spacing={3} sx={{ mt: 1 }}>
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+          <TextField
+            label="Ticket #"
+            value={draft.checklist?.locate?.ticket ?? ''}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })}
+            fullWidth
+          />
+          <TextField
+            label="Requested"
+            type="date"
+            value={(draft.checklist?.locate?.requested ?? '').slice(0, 10)}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+          <TextField
+            label="Expires"
+            type="date"
+            value={(draft.checklist?.locate?.expires ?? '').slice(0, 10)}
+            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+        </Box>
+      </Paper>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Subtasks
+        </Typography>
+        <SubtasksEditor
+          value={draft.checklist?.subtasks ?? []}
+          onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
+        />
+      </Box>
+    </Stack>
+  ) : null;
+
+  const quantitiesContent: ReactNode = draft ? (
+    <Box sx={{ mt: 1 }}>
+      {editId ? (
+        <EventQuantitiesEditor eventId={editId} onHasQuantitiesChange={handleQuantitiesChange} />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Save the event to add quantities.
+        </Typography>
+      )}
+    </Box>
+  ) : null;
 
 
   return (
@@ -1398,24 +1508,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
         <div className="flex gap-2 items-center flex-wrap">
           <div className="options-wrap">
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Open menu"
-              aria-haspopup="menu"
-              aria-expanded={optsOpen}
-              onClick={() => setOptsOpen(v => !v)}
-            >
-              <EllipsisVertical size={18} aria-hidden="true" />
-            </button>
+            <button type="button" className="icon-btn" aria-label="Open menu" aria-haspopup="menu" aria-expanded={optsOpen} onClick={() => setOptsOpen(v => !v)}>⋮</button>
             {optsOpen ? (
               <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
                 <Link className="menu-row" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛣️</span><span className="menu-text">FDOT Cut-Off Dates</span></Link>
-                <Link className="menu-row" role="menuitem" href="/inventory" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛠️</span><span className="menu-text">Inventory</span></Link>
                 <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
+                <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
               </div>
             ) : null}
           </div>
@@ -1443,6 +1544,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
                 <a className="menu-item" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}>FDOT Cut-Off Dates…</a>
                 <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
+                <Suspense fallback={<span className="menu-item" aria-disabled>Employees</span>}>
+                  <EmployeesLink />
+                </Suspense>
               </div>
             ) : null}
           </div>
@@ -1457,7 +1561,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             const m = String(now.getMonth() + 1).padStart(2, '0');
             const d = String(now.getDate()).padStart(2, '0');
             setReportDate(`${y}-${m}-${d}`);
-            setReportNote('');
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
           <button className="btn" onClick={() => setCutoffReportOpen(true)}>Generate Cut-Off Report</button>
@@ -1473,12 +1576,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone="local"
+              timeZone={APP_TZ}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
               displayEventTime={false}
-              displayEventEnd={true}
               expandRows
               handleWindowResize
               windowResizeDelay={100}
@@ -1534,12 +1636,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone="local"
+              timeZone={APP_TZ}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
               displayEventTime={false}
-              displayEventEnd={true}
               expandRows
               handleWindowResize
               windowResizeDelay={100}
@@ -1593,13 +1694,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             {freeCount > 0 ? <span className="fab-badge" aria-hidden>{freeCount}</span> : null}
           </button>
           {mobileSidebarOpen ? (
-            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) closeMobileSidebar(); }}>
-              <div ref={mobileDrawerRef} className="drawer-panel" role="dialog" aria-modal="true" tabIndex={-1}>
+            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) setMobileSidebarOpen(false); }}>
+              <div className="drawer-panel" role="dialog" aria-modal="true">
                 <div className="drawer-header">
                   <div>Unassigned</div>
-                  <button className="icon-btn" aria-label="Close" onClick={closeMobileSidebar}>
-                    <X size={18} aria-hidden="true" />
-                  </button>
+                  <button className="icon-btn" aria-label="Close" onClick={() => setMobileSidebarOpen(false)}>✕</button>
                 </div>
                 {selectedDay ? (
                   <UnassignedSidebar
@@ -1620,25 +1719,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* daily report date picker */}
       {reportPickerOpen ? (
-        <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) closeReportPicker(); }}>
-          <div ref={reportPickerRef} className="modal-card" style={{ maxWidth: '360px' }} tabIndex={-1} role="dialog" aria-modal="true">
+        <div className="modal-root">
+          <div className="modal-card" style={{ maxWidth: '360px' }}>
             <h3 className="modal-title">Generate Daily Report</h3>
             <div className="form-grid form-compact">
               <label><div className="label">Date</div>
                 <input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} />
               </label>
-              <label className="span-2">
-                <div className="label">Note (optional)</div>
-                <textarea
-                  value={reportNote}
-                  onChange={e => setReportNote(e.target.value)}
-                  rows={3}
-                  placeholder="This note will appear under Yard/Shop and No Work."
-                />
-              </label>
             </div>
             <div className="modal-actions">
-              <button className="btn ghost" onClick={closeReportPicker}>Cancel</button>
+              <button className="btn ghost" onClick={() => setReportPickerOpen(false)}>Cancel</button>
               <button className="btn primary" onClick={async () => {
                 const ymd = reportDate.trim();
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) { alert('Invalid date'); return; }
@@ -1687,11 +1777,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                       force: true,
                       yardEmployees,
                       noWorkEmployees,
-                      note: reportNote.trim() || null,
                     }),
                   });
                   const j = await r.json();
-                  if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); closeReportPicker(); }
+                  if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); setReportPickerOpen(false); }
                   else alert(j.error || 'Failed to generate');
                 } catch { alert('Failed to generate'); }
               }}>Generate</button>
@@ -1702,46 +1791,59 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       <CutoffReportDialog open={cutoffReportOpen} onClose={() => setCutoffReportOpen(false)} />
 
-      <EditEventDialog
-        open={open && !!draft}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            setOpen(false);
-            setDraft(null);
-            setEditId(null);
-          }
-        }}
-        initial={draft ? {
-          title: draft.title,
-          start: draft.start,
-          end: draft.end || draft.start,
-          allDay: draft.allDay,
-          location: draft.location,
-          description: draft.description,
-          invoice: draft.invoice,
-          payment: draft.payment,
-          vendor: draft.vendor,
-          type: draft.type,
-          payroll: draft.payroll,
-          shift: draft.shift,
-          checklist: draft.checklist,
-          reminderEnabled: draft.reminderEnabled ?? false,
-          reminderOffsets: draft.reminderOffsets ?? [],
-        } : undefined}
-        eventId={editId}
-        isNewEvent={!editId}
-        onSave={async (data) => {
-          await saveDraft(data as NewEvent);
-        }}
-        onDelete={deleteCurrent}
-        onAdd={handleAddNew}
-        onDuplicate={duplicateCurrent}
-      />
+      {draft ? (
+        <Dialog
+          open={open}
+          onClose={() => { setOpen(false); setDraft(null); setEditId(null); }}
+          fullWidth
+          maxWidth="md"
+          scroll="paper"
+        >
+          <DialogTitle>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="h6" component="span">
+                {editId ? 'Edit Event' : 'Add Event'}
+              </Typography>
+              {editId && modalHasQuantities ? <Chip label="QTY" size="small" color="secondary" /> : null}
+            </Stack>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Tabs
+              value={activeTab}
+              onChange={(_, value) => setActiveTab(value as typeof activeTab)}
+              variant="scrollable"
+              allowScrollButtonsMobile
+              sx={{ mb: 2 }}
+            >
+              <Tab value="info" label="Event Info" />
+              <Tab value="work" label="Work & Payroll" />
+              <Tab value="tickets" label="Tickets & Subtasks" />
+              <Tab value="quantities" label="Quantities" />
+            </Tabs>
+            <Box sx={{ display: activeTab === 'info' ? 'block' : 'none' }}>{eventInfoContent}</Box>
+            <Box sx={{ display: activeTab === 'work' ? 'block' : 'none' }}>{workInfoContent}</Box>
+            <Box sx={{ display: activeTab === 'tickets' ? 'block' : 'none' }}>{ticketsContent}</Box>
+            <Box sx={{ display: activeTab === 'quantities' ? 'block' : 'none' }}>{quantitiesContent}</Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button variant="text" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>Cancel</Button>
+            <Box sx={{ flexGrow: 1 }} />
+            <Button variant="outlined" onClick={handleAddNew}>Add</Button>
+            {editId ? (
+              <>
+                <Button variant="outlined" onClick={duplicateCurrent}>Duplicate</Button>
+                <Button variant="outlined" color="error" onClick={deleteCurrent}>Delete</Button>
+              </>
+            ) : null}
+            <Button variant="contained" onClick={saveDraft}>Save Event</Button>
+          </DialogActions>
+        </Dialog>
+      ) : null}
 
       {/* Holidays country prompt */}
       {holidayDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeHolidayDialog(); }}>
-          <div ref={holidayDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setHolidayDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
             <h3 className="modal-title">Holidays</h3>
             <div className="form-grid">
               <label className="inline span-2"><input type="checkbox" checked={holidayOn} onChange={e => setHolidayOn(e.target.checked)} /><span>Show public holidays</span></label>
@@ -1752,8 +1854,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 </select>
               </label>
               <div className="modal-actions">
-                <button className="btn ghost" onClick={closeHolidayDialog}>Cancel</button>
-                <button className="btn primary" onClick={() => { closeHolidayDialog(); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
+                <button className="btn ghost" onClick={() => setHolidayDialog(false)}>Cancel</button>
+                <button className="btn primary" onClick={() => { setHolidayDialog(false); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
               </div>
             </div>
           </div>
@@ -1762,8 +1864,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* Weather location prompt */}
       {weatherDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeWeatherDialog(); }}>
-          <div ref={weatherDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setWeatherDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
             <h3 className="modal-title">Weather</h3>
             <div className="form-grid">
               <label className="span-2">
@@ -1771,13 +1873,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <input type="text" value={weatherQuery} onChange={e => setWeatherQuery(e.target.value)} placeholder="e.g. Orlando, FL or 28.54,-81.38" />
               </label>
               <div className="modal-actions span-2">
-                <button className="btn ghost" onClick={closeWeatherDialog}>Cancel</button>
+                <button className="btn ghost" onClick={() => setWeatherDialog(false)}>Cancel</button>
                 <button className="btn primary" onClick={async () => {
                   const g = await geocode(weatherQuery.trim());
                   if (!g) { alert('Location not found. Try City, State or lat,lng'); return; }
                   setCoords(g);
                   localStorage.setItem('weather.coords', JSON.stringify(g));
-                  closeWeatherDialog();
+                  setWeatherDialog(false);
                   if (visibleRange) fetchWeather(visibleRange.start, visibleRange.end, g);
                 }}>Save</button>
               </div>
@@ -1787,13 +1889,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       )}
 
       {payItemsDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closePayItemsDialog(); }}>
-          <div ref={payItemsDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1} style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setPayItemsDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
             <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Pay Items</span>
-              <button className="icon-btn" aria-label="Close" onClick={closePayItemsDialog}>
-                <X size={18} aria-hidden="true" />
-              </button>
+              <button className="icon-btn" aria-label="Close" onClick={() => setPayItemsDialog(false)}>✕</button>
             </div>
             <PayItemsManager condensed />
           </div>
@@ -1802,8 +1902,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* Todo edit prompt */}
       {todoEdit && todoForm && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeTodoDialog(); }}>
-          <div ref={todoDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) { setTodoEdit(null); setTodoForm(null); } }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
             <h3 className="modal-title">Edit To-Do</h3>
             <div className="form-grid form-compact">
               <label className="span-2"><div className="label">Title</div>
@@ -1828,7 +1928,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 </div>
               </div>
               <div className="modal-actions span-2">
-                <button className="btn ghost" onClick={closeTodoDialog}>Cancel</button>
+                <button className="btn ghost" onClick={() => { setTodoEdit(null); setTodoForm(null); }}>Cancel</button>
                 <button className="btn primary" onClick={async () => {
                   if (!todoEdit) return;
                   const payload = { description: todoForm!.description, locate: todoForm!.locate };
@@ -1838,7 +1938,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                     const row = await r.json();
                     setTodos(p => p.map(x => (x.id === row.id ? { id: row.id, title: row.title, notes: row.notes ?? undefined, done: !!row.done, type: row.type } : x)));
                   }
-                  closeTodoDialog();
+                  setTodoEdit(null); setTodoForm(null);
                 }}>Save</button>
               </div>
             </div>
@@ -1854,7 +1954,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(typ => (
               <div key={typ} className="todo-col" onDragOver={e => e.preventDefault()} onDrop={e => onDropToColumn(e, typ)}>
                 <header className="todo-col-header"><span>{TYPE_LABEL[typ]}</span><span className="todo-count">{byType(typ).length}</span></header>
-                <TodoAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
+                <TodoCustomerAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
                 <div className="todo-list">
                   {byType(typ).map(t => (
                     <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t)}>
@@ -1945,22 +2045,7 @@ function dateToLocalInput(d: Date) {
   return `${date}T${time.slice(0, 5)}`
 }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
-function typeToClass(t?: NewEvent['type']) {
-  switch (t) {
-    case 'FENCE':
-      return 'cal-event-chip evt-fence';
-    case 'TEMP_FENCE':
-      return 'cal-event-chip evt-temp-fence';
-    case 'GUARDRAIL':
-      return 'cal-event-chip evt-guardrail';
-    case 'HANDRAIL':
-      return 'cal-event-chip evt-handrail';
-    case 'ATTENUATOR':
-      return 'cal-event-chip evt-attenuator';
-    default:
-      return 'cal-event-chip';
-  }
-}
+function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
 
 function isUtcMidnight(date: Date): boolean {
   return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
@@ -2076,26 +2161,19 @@ function formatDateTimeInputValue(iso: string, { allDay, isEnd = false }: { allD
 }
 
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
+  const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
+  return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
+}
+
+function TodoCustomerAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState('');
-
-  const commit = (next: string) => {
-    setVal(next);
-  };
-
-  const submit = () => {
-    const trimmed = val.trim();
-    if (trimmed) {
-      onAdd(trimmed);
-      setVal('');
-    }
-  };
-
+  const submit = () => { const t = val.trim(); if (t) { onAdd(t); setVal(''); } };
   return (
     <div className="todo-adder">
       <div>
-        <CustomerCombobox value={val} onChange={commit} allowCreateOption={false} />
+        <CustomerCombobox value={val} onChange={setVal} />
       </div>
-      <button className="btn primary todo-add-btn" type="button" onClick={submit}>Add</button>
+      <button className="btn primary todo-add-btn" onClick={submit}>Add</button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 ﻿import type { EventType, WorkShift } from '@prisma/client'
-import { APP_TIMEZONE, formatInTimeZone, formatLocal, nextDateISO } from '@/lib/timezone'
+import { APP_TIMEZONE } from '@/lib/timezone'
 
 const DAY_IN_MS = 86_400_000
 
@@ -14,8 +14,6 @@ export type EventRowLike = {
   end?: MaybeDateInput
   startsAt?: MaybeDateInput
   endsAt?: MaybeDateInput
-  startDate?: string | null
-  endDate?: string | null
   allDay?: boolean | null
   location?: string | null
   type?: EventType | null
@@ -105,17 +103,14 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
   }
 
   if (allDay) {
-    const startDateText =
-      typeof row.startDate === 'string' && row.startDate.trim().length
-        ? row.startDate.trim().slice(0, 10)
-        : formatAllDay(startDate, timezone)
-    let endDateText =
-      typeof row.endDate === 'string' && row.endDate.trim().length
-        ? row.endDate.trim().slice(0, 10)
-        : formatAllDay(ensureAllDayEnd(startDate, endDate), timezone)
+    endDate = ensureAllDayEnd(startDate, endDate)
+    let startText = formatAllDay(startDate, timezone)
+    let endText = formatAllDay(endDate, timezone)
 
-    if (!endDateText || endDateText <= startDateText) {
-      endDateText = nextDateISO(startDateText, timezone)
+    if (startText === endText) {
+      const bumped = new Date(startDate.getTime() + DAY_IN_MS)
+      endDate = bumped
+      endText = formatAllDay(endDate, timezone)
     }
 
     return {
@@ -123,8 +118,8 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
       calendarId: String(row.calendarId ?? ''),
       title: row.title ?? '',
       description: row.description ?? '',
-      start: startDateText,
-      end: endDateText,
+      start: startText,
+      end: endText,
       allDay: true,
       location: row.location ?? '',
       type: row.type ?? null,
@@ -138,16 +133,13 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
     endDate = new Date(startDate.getTime())
   }
 
-  const startText = formatLocal(startDate, "yyyy-MM-dd'T'HH:mm:ssXXX", timezone)
-  const endText = formatLocal(endDate, "yyyy-MM-dd'T'HH:mm:ssXXX", timezone)
-
   return {
     id: String(row.id ?? ''),
     calendarId: String(row.calendarId ?? ''),
     title: row.title ?? '',
     description: row.description ?? '',
-    start: startText,
-    end: endText,
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
     allDay: false,
     location: row.location ?? '',
     type: row.type ?? null,

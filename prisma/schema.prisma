@@ -8,140 +8,197 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model customer {
-  id           Int       @id @default(autoincrement())
-  name         String    @unique @db.VarChar
-  address      String    @db.VarChar
-  phone_number String    @db.VarChar
-  email        String    @unique @db.VarChar
-  notes        String?
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-  project      project[]
+model Customer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model employee {
-  id               Int                @id @default(autoincrement())
-  name             String             @db.VarChar
-  wage_rate        Decimal            @db.Decimal
-  start_date       DateTime           @db.Timestamp(6)
-  last_updated     DateTime?          @db.Timestamp(6)
-  phone_number     String?            @db.VarChar
-  email            String?            @unique @db.VarChar
-  active           Boolean?           @default(true)
-  event_assignment event_assignment[]
+model Calendar {
+  id          String       @id @default(cuid())
+  name        String
+  isPrivate   Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  events      Event[]
+  shareTokens ShareToken[]
+  todos       Todo[]
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model event {
-  id               Int                @id @default(autoincrement())
-  project_id       Int
-  scope_of_work_id Int
-  payment_type_id  Int
-  invoice_id       Int?
-  start_time       DateTime           @db.Timestamp(6)
-  end_time         DateTime           @db.Timestamp(6)
-  is_day_shift     Boolean?           @default(true)
-  location         String?            @db.VarChar
-  notes            String?
-  created_at       DateTime?          @default(now()) @db.Timestamp(6)
-  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
-  invoice          invoice?           @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  payment_type     payment_type       @relation(fields: [payment_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  project          project            @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  scope_of_work    scope_of_work      @relation(fields: [scope_of_work_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  event_assignment event_assignment[]
-  event_quantity   event_quantity[]
+model Event {
+  id             String          @id @default(cuid())
+  calendarId     String
+  title          String
+  description    String?
+  allDay         Boolean         @default(false)
+  location       String?
+  employees      Json?
+  invoiceNumber  String?
+  type           String?
+  shift          WorkShift?
+  checklist      Json?
+  startsAt       DateTime
+  endsAt         DateTime
+  attachmentData Bytes?
+  attachmentName String?
+  attachmentType String?
+  calendar       Calendar        @relation(fields: [calendarId], references: [id])
+  quantities     EventQuantity[]
+
+  @@index([calendarId, startsAt])
+  @@index([endsAt])
+  @@map("Event")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model event_assignment {
-  id          Int      @id @default(autoincrement())
-  event_id    Int
-  employee_id Int
-  employee    employee @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  event       event    @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([event_id, employee_id], map: "event_assignment_event_id_employee_id_idx")
+model PayItem {
+  id          String          @id @default(cuid())
+  number      String          @unique
+  description String
+  unit        String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  quantities  EventQuantity[]
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model event_quantity {
-  id                  Int              @id @default(autoincrement())
-  event_id            Int
-  project_pay_item_id Int
-  quantity            Decimal          @db.Decimal
-  notes               String?
-  event               event            @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  project_pay_item    project_pay_item @relation(fields: [project_pay_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model EventQuantity {
+  id          String   @id @default(cuid())
+  eventId     String
+  payItemId   String
+  quantity    Decimal  @db.Decimal(18, 6)
+  stationFrom String?
+  stationTo   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payItem     PayItem  @relation(fields: [payItemId], references: [id])
+
+  @@index([eventId])
+  @@index([payItemId])
 }
 
-model invoice {
-  id                  Int      @id @default(autoincrement())
-  number              String   @unique @db.VarChar
-  is_contract_invoice Boolean? @default(false)
-  event               event[]
+model Todo {
+  id         String    @id @default(cuid())
+  calendarId String
+  title      String
+  notes      String?
+  done       Boolean   @default(false)
+  type       EventType
+  createdAt  DateTime  @default(now())
+  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId, createdAt])
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model pay_item {
-  id               Int                @id @default(autoincrement())
-  number           String             @unique @db.VarChar
-  description      String
-  unit             String             @db.VarChar
-  project_pay_item project_pay_item[]
+model ShareToken {
+  id         String    @id @default(cuid())
+  calendarId String
+  role       ShareRole
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model payment_type {
-  id          Int     @id @default(autoincrement())
-  description String  @unique @db.VarChar
-  event       event[]
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime
+  localName   String
+  name        String
+  countryCode String
+  regions     String?
+  types       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, countryCode])
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model project {
-  id               Int                @id @default(autoincrement())
-  customer_id      Int?
-  name             String             @unique @db.VarChar
-  location         String             @db.VarChar
-  retainage        Decimal            @db.Decimal
-  is_payroll       Boolean?           @default(false)
-  is_EEO           Boolean?           @default(false)
-  vendor           String             @db.VarChar
-  status           String?            @default("ACTIVE") @db.VarChar
-  created_at       DateTime?          @default(now()) @db.Timestamp(6)
-  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
-  event            event[]
-  customer         customer?          @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  project_pay_item project_pay_item[]
+model UserSetting {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  showHolidays Boolean @default(true)
+  countryCode  String  @default("US")
+  useIcs       Boolean @default(false)
+  icsUrl       String?
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model project_pay_item {
-  id                  Int              @id @default(autoincrement())
-  project_id          Int
-  pay_item_id         Int
-  contracted_quantity Decimal          @db.Decimal
-  unit_rate           Decimal          @db.Decimal
-  is_original         Boolean?         @default(true)
-  stockpile_billed    Decimal?         @default(0) @db.Decimal
-  notes               String?
-  begin_station       String?          @db.VarChar
-  end_station         String?          @db.VarChar
-  status              String?          @db.VarChar
-  locate_ticket       String?          @db.VarChar
-  LF_RT               String?          @db.VarChar
-  onsite_review       String?          @db.VarChar
-  event_quantity      event_quantity[]
-  pay_item            pay_item         @relation(fields: [pay_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  project             project          @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model ReportFile {
+  id         String     @id @default(cuid())
+  kind       ReportKind
+  reportDate DateTime?
+  weekStart  DateTime?
+  weekEnd    DateTime?
+  vendor     String?
+  blobUrl    String
+  bytes      Int
+  createdAt  DateTime   @default(now())
+
+  @@index([reportDate, vendor])
+  @@index([weekStart, weekEnd, vendor], map: "ReportFile_week_vendor_idx")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model scope_of_work {
-  id          Int     @id @default(autoincrement())
-  description String  @unique @db.VarChar
-  event       event[]
+model DailyReportSnapshot {
+  id          String   @id @default(cuid())
+  reportDate  DateTime
+  vendor      String?
+  payloadJson String
+  createdAt   DateTime @default(now())
+
+  @@index([reportDate, vendor])
+}
+
+model WeeklyReportRequest {
+  id         String       @id @default(cuid())
+  weekStart  DateTime
+  weekEnd    DateTime
+  vendor     String?
+  status     WeeklyStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  finishedAt DateTime?
+  errorText  String?
+
+  @@index([weekStart, weekEnd, vendor], map: "WeeklyReportRequest_week_vendor_idx")
+}
+
+model FdotCutoff {
+  id         String   @id @default(cuid())
+  year       Int
+  cutoffDate DateTime @map("cutoff_date")
+  label      String?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([year, cutoffDate])
+  @@map("fdot_cutoffs")
+}
+
+enum ShareRole {
+  VIEWER
+  EDITOR
+}
+
+enum EventType {
+  GUARDRAIL
+  FENCE
+  TEMP_FENCE
+  HANDRAIL
+  ATTENUATOR
+}
+
+enum WorkShift {
+  DAY
+  NIGHT
+}
+
+enum ReportKind {
+  DAILY_PDF
+  DAILY_XLSX
+  WEEKLY_PDF
+}
+
+enum WeeklyStatus {
+  PENDING
+  SUCCESS
+  ERROR
 }

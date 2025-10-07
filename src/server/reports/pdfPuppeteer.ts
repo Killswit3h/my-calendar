@@ -1,7 +1,9 @@
+import puppeteer from 'puppeteer'
+import puppeteerCore from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import type { DaySnapshot, ReportRow } from './queries'
 import fs from 'fs'
 import path from 'path'
-import { launchReportBrowser } from '@/server/reports/launchBrowser'
 
 function htmlShell(body: string, styles: string): string {
   return `<!DOCTYPE html>
@@ -69,18 +71,12 @@ function rowHtml(r: ReportRow): string {
     { key: 'time', text: r.timeUnit || r.shift || '', bold: true, align: 'center' },
   ]
   const cells = cols.map((c) => {
-    const normalized = (c.text || '').trim().toUpperCase()
-    const isNight = c.key === 'time' && normalized === 'NIGHT'
-    const cellClass = ['cell']
-    if (c.bold) cellClass.push('bold')
-    if (isNight) cellClass.push('time-night')
-    const divClass = cellClass.join(' ')
     if (c.key === 'vendor') {
       const chips = vendorChipsHtml(c.text)
       const inner = chips || ''
-      return `<td class="${c.align === 'left' ? 'al-left' : 'al-center'}"><div class="${divClass}">${inner}</div></td>`
+      return `<td class="${c.align === 'left' ? 'al-left' : 'al-center'}"><div class="cell">${inner}</div></td>`
     }
-    return `<td class="${c.align === 'left' ? 'al-left' : 'al-center'}"><div class="${divClass}">${escapeHtml(c.text)}</div></td>`
+    return `<td class="${c.align === 'left' ? 'al-left' : 'al-center'}"><div class="cell${c.bold ? ' bold' : ''}">${escapeHtml(c.text)}</div></td>`
   }).join('')
   return `<tr class="job-row">${cells}</tr><tr class="job-spacer"><td colspan="8"></td></tr>`
 }
@@ -118,7 +114,14 @@ export async function snapshotsToPdfPuppeteer(days: DaySnapshot[], options?: { n
   const body = days.map((d) => dayHtml(d, options?.notes)).join('\n')
   const html = htmlShell(body, styles)
 
-  const browser = await launchReportBrowser()
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION
+  const browser = isServerless
+    ? await puppeteerCore.launch({
+        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      })
+    : await puppeteer.launch({ headless: true })
   try {
     const page = await browser.newPage()
     await page.emulateMediaType('screen')

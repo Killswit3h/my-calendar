@@ -181,9 +181,3 @@ body { margin: 0; background: white; }
 .cell.work { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(8.5pt, 1vw, 10pt); letter-spacing: -0.1pt; }
 .cell.payment, .cell.time, .cell.payroll { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(9pt, 1vw, 10pt); }
 .cell.invoice { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.cell.time-night {
-  background: #FFF3B0;
-  font-weight: 700;
-  color: #7C2D12;
-}

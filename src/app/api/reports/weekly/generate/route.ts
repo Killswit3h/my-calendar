@@ -3,7 +3,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
 import { getEventsForWeek } from '@/server/reports/queries'
@@ -55,7 +54,6 @@ export async function POST(req: NextRequest) {
 
     await p.reportFile.create({
       data: {
-        id: randomUUID(),
         kind: 'WEEKLY_PDF',
         weekStart: new Date(weekStart),
         weekEnd: new Date(weekEnd),
@@ -66,7 +64,6 @@ export async function POST(req: NextRequest) {
     })
     await p.weeklyReportRequest.create({
       data: {
-        id: randomUUID(),
         weekStart: new Date(weekStart),
         weekEnd: new Date(weekEnd),
         vendor: vendor ?? null,

@@ -3,7 +3,14 @@
 
 const LS_KEY = 'yard.assignments.v1'
 
-const DEFAULT_YARD_IDS: string[] = []
+const DEFAULT_YARD_IDS = [
+  'jony-baquedano-mendoza',
+  'jose-santos-diaz',
+  'edilberto-acuna',
+  'gerardo-oliva',
+  'jose-fernandez',
+  'robert-gomez',
+]
 
 type YardMap = Record<string, string[]> & {
   __seededDefaults?: Record<string, boolean>
@@ -73,21 +80,6 @@ export function addYard(dateKey: string, id: string): void {
 export function removeYard(dateKey: string, id: string): void {
   const map = load()
   const arr = Array.isArray(map[dateKey]) ? map[dateKey] : []
-  const filtered = arr.filter((x) => x !== id)
-  map[dateKey] = filtered
-  
-  // Mark this date as manually modified to prevent auto-assignment
-  const tracker = ensureSeedTracker(map)
-  tracker[dateKey] = true
-  
+  map[dateKey] = arr.filter((x) => x !== id)
   save(map)
-  
-  // Dispatch custom event for immediate UI updates
-  if (typeof window !== 'undefined') {
-    try {
-      window.dispatchEvent(new CustomEvent('yard-changed', { 
-        detail: { dateKey, action: 'remove', employeeId: id } 
-      }))
-    } catch {}
-  }
 }

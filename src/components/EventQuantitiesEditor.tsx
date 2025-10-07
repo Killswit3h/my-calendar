@@ -311,27 +311,23 @@ export function EventQuantitiesEditor({ eventId, onHasQuantitiesChange }: Props)
                     </div>
                   </label>
                 </div>
-                <div className="qty-inline">
-                  <div className="qty-cell qty-unit">
-                    <label>
-                      <span className="label">Unit</span>
-                      <input type="text" value={line.unit} disabled aria-disabled style={{ background: '#f5f5f5' }} />
-                    </label>
-                  </div>
-                  <div className="qty-cell qty-quantity">
-                    <label>
-                      <span className="label">Quantity</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={line.quantity}
-                        onChange={e => updateLine(line.key, { quantity: e.target.value })}
-                        placeholder="0.000000"
-                      />
-                    </label>
-                  </div>
+                <div className="qty-cell qty-unit">
+                  <label>
+                    <span className="label">Unit</span>
+                    <input type="text" value={line.unit} disabled aria-disabled style={{ background: '#f5f5f5' }} />
+                  </label>
                 </div>
-                <div className="qty-cell qty-notes">
+                <div className="qty-fields">
+                  <label>
+                    <span className="label">Quantity</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={line.quantity}
+                      onChange={e => updateLine(line.key, { quantity: e.target.value })}
+                      placeholder="0.000000"
+                    />
+                  </label>
                   <label>
                     <span className="label">Notes</span>
                     <textarea value={line.notes} onChange={e => updateLine(line.key, { notes: e.target.value })} rows={3} />

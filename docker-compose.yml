@@ -1,7 +1,6 @@
 version: '3.9'
 services:
   db:
-    # OLD database - keep running
     image: postgres:15
     restart: unless-stopped
     environment:
@@ -12,22 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  db-v2:
-    # NEW database with new schema
-    image: postgres:15
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: gfchub_v2
-    ports:
-      - "5433:5432"  # Different host port
-    volumes:
-      - pgdata-v2:/var/lib/postgresql/data
-      - ./sql/init:/docker-entrypoint-initdb.d:ro  # Auto-run SQL on first start
-
 volumes:
-  pgdata:    # Old database volume
-  pgdata-v2: # New database volume
+  pgdata:
 
