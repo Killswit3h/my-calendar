@@ -1,0 +1,4 @@
+git add -A
+git commit -m "snapshot"  # ok if nothing to commit
+git archive --format=zip -o my-calendar.zip HEAD
+npm 

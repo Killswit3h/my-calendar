@@ -1,0 +1,84 @@
+/* Job-by-Job two-column cards, Letter portrait */
+@page { size: Letter; margin: 24pt; }
+
+/* Fonts: follow Daily Report */
+@font-face {
+  font-family: 'Calibri';
+  src: url('/fonts/Calibri-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Calibri';
+  src: url('/fonts/Calibri-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('/fonts/Carlito-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('/fonts/Carlito-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --label-bg: #E6E6E6;
+  --border: 1pt;
+  --radius: 3pt;
+  --card-pad: 8pt;
+  --cell-pad: 6pt;
+  --gap: 12pt;
+  --label-height: 18pt; /* 18–20pt */
+  --font-body: 10pt;
+  --font-label: 9pt;
+  --font-head: 12pt;
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Calibri, Carlito, system-ui, "Segoe UI", Arial, sans-serif; color: #000; }
+
+/* Header/footer */
+.pdf-header { width: 100%; font-size: 10pt; padding: 4pt 8pt; }
+.pdf-header .right { text-align: right; }
+.pdf-footer { width: 100%; font-size: 9pt; text-align: center; padding: 4pt; color: #333; }
+
+.jj-wrapper { width: 100%; }
+.jj-columns { display: flex; flex-direction: row; gap: var(--gap); align-items: flex-start; }
+.jj-col { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--gap); }
+
+.jj-card {
+  border: var(--border) solid #000;
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  break-inside: avoid;
+}
+.jj-card-head { font-weight: 700; font-size: var(--font-head); margin-bottom: 6pt; }
+.jj-card-body { display: flex; flex-direction: column; gap: 6pt; }
+.jj-row { display: flex; flex-direction: row; gap: 6pt; }
+.jj-cell { flex: 1 1 0; border: var(--border) solid #000; border-radius: 2pt; overflow: hidden; }
+.jj-cell.short { max-width: 50%; }
+.jj-cell.notes { flex: 1 1 auto; }
+.jj-label { background: var(--label-bg); font-size: var(--font-label); font-variant-caps: small-caps; height: var(--label-height); line-height: var(--label-height); padding: 0 var(--cell-pad); border-bottom: var(--border) solid #000; }
+.jj-value { font-size: var(--font-body); padding: var(--cell-pad); }
+
+.jj-value { display: block; }
+.jj-value:empty::before { content: '\2014'; color: #666; }
+
+/* Text alignment tweaks for short values */
+.jj-cell.short .jj-value { text-align: center; }
+.jj-cell.short .jj-value:has(> span.long) { text-align: left; }
+
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
