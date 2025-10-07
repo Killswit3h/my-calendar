@@ -1,9 +1,11 @@
 // src/lib/timezone.ts
 // Centralized timezone utilities for the application.
 
-const DEFAULT_TIME_ZONE = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? process.env.REPORT_TIMEZONE ?? 'America/New_York'
+import { APP_TZ } from './appConfig'
 
-export const APP_TIMEZONE = DEFAULT_TIME_ZONE
+export { APP_TZ } from './appConfig'
+
+export const APP_TIMEZONE = APP_TZ
 
 function getFormatter(tz: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -18,7 +20,7 @@ function getFormatter(tz: string) {
   })
 }
 
-export function getTimeZoneOffsetMs(at: Date, tz = APP_TIMEZONE): number {
+export function getTimeZoneOffsetMs(at: Date, tz = APP_TZ): number {
   const parts = getFormatter(tz).formatToParts(at)
   const lookup = (type: string) => Number(parts.find(p => p.type === type)?.value ?? '0')
   const year = lookup('year')
@@ -33,7 +35,7 @@ export function getTimeZoneOffsetMs(at: Date, tz = APP_TIMEZONE): number {
 
 function zonedDateTimeToUtcInternal(
   parts: { year: number; month: number; day: number; hour?: number; minute?: number; second?: number; millisecond?: number },
-  tz = APP_TIMEZONE,
+  tz = APP_TZ,
 ): Date {
   const { year, month, day } = parts
   const hour = parts.hour ?? 0
@@ -48,7 +50,7 @@ function zonedDateTimeToUtcInternal(
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
 const NAIVE_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/
 
-export function zonedStartOfDayUtc(dateYmd: string, tz = APP_TIMEZONE): Date {
+export function zonedStartOfDayUtc(dateYmd: string, tz = APP_TZ): Date {
   if (!DATE_ONLY_RE.test(dateYmd)) {
     throw new Error(`Invalid date format: ${dateYmd}`)
   }
@@ -56,7 +58,7 @@ export function zonedStartOfDayUtc(dateYmd: string, tz = APP_TIMEZONE): Date {
   return zonedDateTimeToUtcInternal({ year: y, month: m, day: d }, tz)
 }
 
-export function zonedEndOfDayUtc(dateYmd: string, tz = APP_TIMEZONE): Date {
+export function zonedEndOfDayUtc(dateYmd: string, tz = APP_TZ): Date {
   if (!DATE_ONLY_RE.test(dateYmd)) {
     throw new Error(`Invalid date format: ${dateYmd}`)
   }
@@ -64,7 +66,7 @@ export function zonedEndOfDayUtc(dateYmd: string, tz = APP_TIMEZONE): Date {
   return zonedDateTimeToUtcInternal({ year: y, month: m, day: d + 1 }, tz)
 }
 
-export function parseAppDateTime(value: string, tz = APP_TIMEZONE): Date | null {
+export function parseAppDateTime(value: string, tz = APP_TZ): Date | null {
   if (!value) return null
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -93,7 +95,7 @@ export function parseAppDateTime(value: string, tz = APP_TIMEZONE): Date | null 
   return parsed
 }
 
-export function parseAppDateOnly(value: string, tz = APP_TIMEZONE): Date | null {
+export function parseAppDateOnly(value: string, tz = APP_TZ): Date | null {
   if (!value) return null
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -111,7 +113,7 @@ export function addDaysUtc(date: Date, amount: number): Date {
   return out
 }
 
-export function formatInTimeZone(date: Date, tz = APP_TIMEZONE): { date: string; time: string } {
+export function formatInTimeZone(date: Date, tz = APP_TZ): { date: string; time: string } {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
     year: 'numeric',
@@ -136,7 +138,7 @@ export function formatInTimeZone(date: Date, tz = APP_TIMEZONE): { date: string;
   }
 }
 
-export function formatAppLocalIso(date: Date, tz = APP_TIMEZONE): string {
+export function formatAppLocalIso(date: Date, tz = APP_TZ): string {
   const { date: ymd, time } = formatInTimeZone(date, tz)
   return `${ymd}T${time}`
 }

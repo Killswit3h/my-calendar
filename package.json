@@ -14,7 +14,9 @@
         "check:design": "node scripts/check-design.mjs",
         "cf:build": "npm run build:edge",
         "pdf:job-by-job": "tsx scripts/render-job-by-job.ts",
-        "pdf:daily": "tsx src/scripts/generate-daily-table-pdf.ts"
+        "pdf:daily": "tsx src/scripts/generate-daily-table-pdf.ts",
+        "db:whoami": "tsx scripts/db-whoami.ts",
+        "report:probe": "tsx scripts/report-probe.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "3.883.0",
