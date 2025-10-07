@@ -1,4 +1,6 @@
 import { Prisma } from '@prisma/client'
+import { APP_TZ } from '@/lib/appConfig'
+import { formatInTimeZone, zonedEndOfDayUtc, zonedStartOfDayUtc } from '@/lib/timezone'
 
 type PayItemRow = {
   id: string
@@ -47,6 +49,7 @@ export class MockPrisma {
   payItems = new Map<string, PayItemRow>()
   events = new Map<string, EventRow>()
   eventQuantities = new Map<string, EventQuantityRow>()
+  eventTimestampType: 'timestamp without time zone' | 'timestamp with time zone' = 'timestamp without time zone'
 
   setPayItems(items: Array<Omit<PayItemRow, 'createdAt' | 'updatedAt'> & Partial<Pick<PayItemRow, 'createdAt' | 'updatedAt'>>>) {
     this.payItems.clear()
@@ -77,6 +80,10 @@ export class MockPrisma {
     }
     this.events.set(id, row)
     return row
+  }
+
+  setEventTimestampType(type: 'naive' | 'timestamptz') {
+    this.eventTimestampType = type === 'timestamptz' ? 'timestamp with time zone' : 'timestamp without time zone'
   }
 
   private matchesInsensitive(value: string, target: string, mode?: string | null): boolean {
@@ -135,6 +142,74 @@ export class MockPrisma {
       this.payItems.set(where.id, next)
       return { ...next }
     }
+  }
+
+  private buildReportRows(query: any): Array<{ id: string; title: string | null; description: string | null; type: string | null; checklist: unknown; shift: string | null; startsAt: Date; endsAt: Date }> {
+    const values: any[] = Array.isArray((query as any)?.values) ? (query as any).values : []
+
+    let reportDate: string | null = null
+    const dateValues = values.filter(v => v instanceof Date) as Date[]
+    for (const value of values) {
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        reportDate = value
+      }
+    }
+
+    let dayStartUtc: Date | null = null
+    let dayEndUtc: Date | null = null
+    if (dateValues.length >= 2) {
+      dayStartUtc = new Date(dateValues[0])
+      dayEndUtc = new Date(dateValues[dateValues.length - 1])
+    }
+
+    if (!dayStartUtc || !dayEndUtc) {
+      if (!reportDate) {
+        throw new Error('MockPrisma: unable to determine report bounds from raw query')
+      }
+      dayStartUtc = zonedStartOfDayUtc(reportDate, APP_TZ)
+      dayEndUtc = zonedEndOfDayUtc(reportDate, APP_TZ)
+    }
+
+    const mode = reportDate ? 'CLAMP' : 'INTERSECT'
+
+    let events = Array.from(this.events.values())
+    if (mode === 'CLAMP' && reportDate) {
+      events = events.filter(ev => formatInTimeZone(ev.startsAt, APP_TZ).date === reportDate)
+    } else {
+      events = events.filter(ev => ev.endsAt > dayStartUtc! && ev.startsAt < dayEndUtc!)
+    }
+
+    events.sort((a, b) => {
+      const timeDiff = a.startsAt.getTime() - b.startsAt.getTime()
+      if (timeDiff !== 0) return timeDiff
+      return (a.title || '').localeCompare(b.title || '')
+    })
+
+    return events.map(ev => ({
+      id: ev.id,
+      title: ev.title ?? null,
+      description: null,
+      type: null,
+      checklist: null,
+      shift: null,
+      startsAt: new Date(ev.startsAt),
+      endsAt: new Date(ev.endsAt),
+    }))
+  }
+
+  $queryRawUnsafe = async (sql: string) => {
+    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase()
+    if (normalized.startsWith('select data_type from information_schema.columns')) {
+      return [{ data_type: this.eventTimestampType }]
+    }
+    throw new Error(`MockPrisma.$queryRawUnsafe not implemented for query: ${sql}`)
+  }
+
+  $queryRaw = async (query: any) => {
+    if (query && typeof query === 'object' && typeof query.sql === 'string' && query.sql.includes('FROM "Event"')) {
+      return this.buildReportRows(query)
+    }
+    throw new Error('MockPrisma.$queryRaw not implemented for query: ' + String(query))
   }
 
   event = {

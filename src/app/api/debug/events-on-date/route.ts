@@ -4,8 +4,9 @@ export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
+import { APP_TZ } from '@/lib/appConfig'
 
-function getTz(): string { return process.env.REPORT_TIMEZONE || 'America/New_York' }
+function getTz(): string { return APP_TZ }
 
 function tzOffsetMs(at: Date, tz: string): number {
   const fmt = new Intl.DateTimeFormat('en-US', {
@@ -83,4 +84,3 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ date, tz, startUTC: start.toISOString(), endUTC: end.toISOString(), items })
 }
-

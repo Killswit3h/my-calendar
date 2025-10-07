@@ -8,6 +8,7 @@ import { getPrisma } from '@/lib/db'
 import { getEventsForWeek } from '@/server/reports/queries'
 import { snapshotsToPdf } from '@/server/reports/pdfEdge'
 import { storeFile } from '@/server/blob'
+import { APP_TZ } from '@/lib/appConfig'
 
 function okRole(): boolean { return true }
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     const days = await getEventsForWeek(weekStart, weekEnd, vendor ?? null)
-    const tz = process.env.REPORT_TIMEZONE || 'America/New_York'
+    const tz = APP_TZ
     const pdfBuf = Buffer.from(await snapshotsToPdf(days, vendor ?? null, tz))
 
     const suffix = vendor ? `-${vendor.toLowerCase()}` : ''

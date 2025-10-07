@@ -22,6 +22,7 @@ import PayItemsManager from '@/components/PayItemsManager';
 import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
 import {
   APP_TIMEZONE,
+  APP_TZ,
   parseAppDateTime,
   parseAppDateOnly,
   formatInTimeZone,
@@ -176,6 +177,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const calendarRef = useRef<FullCalendar | null>(null);
   const [visibleDate, setVisibleDate] = useState<Date | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const toAppLocalDate = useCallback((input: Date | string | null | undefined): Date | null => {
+    if (!input) return null;
+    const ymd = typeof input === 'string'
+      ? input.slice(0, 10)
+      : formatInTimeZone(input, APP_TZ).date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, []);
   const refetchCalendar = useCallback(() => {
     const api = calendarRef.current?.getApi();
     if (api) api.refetchEvents();
@@ -453,8 +463,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: 'DAY',
           checklist: defaultChecklist(),
         });
-        const parts = ymd.split('-').map(n => parseInt(n, 10));
-        setSelectedDay(new Date(parts[0], parts[1] - 1, parts[2]));
+        const nextSelected = toAppLocalDate(ymd);
+        if (nextSelected) setSelectedDay(nextSelected);
         setModalHasQuantities(false);
         setUserChangedStart(false);
         setUserChangedEnd(false);
@@ -538,13 +548,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [weather, coords]);
 
   const handleDateClick = useCallback((arg: { date: Date }) => {
-    setSelectedDay(new Date(arg.date.getFullYear(), arg.date.getMonth(), arg.date.getDate()));
-  }, []);
+    const nextSelected = toAppLocalDate(arg.date);
+    if (nextSelected) setSelectedDay(nextSelected);
+    else setSelectedDay(new Date(arg.date.getFullYear(), arg.date.getMonth(), arg.date.getDate()));
+  }, [toAppLocalDate]);
 
   const freeCount = useMemo(() => {
     if (!selectedDay) return 0;
     const day = selectedDay;
-    const key = ymdLocal(day);
+    const key = formatInTimeZone(day, APP_TZ).date;
     const assigned = new Set<string>(getYardForDate(key));
     for (const ev of events) {
       const ex: any = ev.extendedProps ?? {};
@@ -575,7 +587,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: false,
       checklist: { ...(defaultChecklist()), employees: [employeeId] },
     });
-    setSelectedDay(new Date(day.getFullYear(), day.getMonth(), day.getDate()));
+    const nextSelected = toAppLocalDate(day);
+    if (nextSelected) setSelectedDay(nextSelected);
     setEditId(null);
     setUserChangedStart(false);
     setUserChangedEnd(false);
@@ -604,7 +617,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const baseStart = sel.start ?? new Date();
     const baseEnd = sel.end ?? sel.start ?? baseStart;
 
-    if (sel.start) setSelectedDay(new Date(sel.start.getFullYear(), sel.start.getMonth(), sel.start.getDate()));
+    if (sel.start) {
+      const nextSelected = toAppLocalDate(sel.start);
+      if (nextSelected) setSelectedDay(nextSelected);
+    }
 
     if (sel.allDay) {
       const startDate = zonedStartOfDayUtc(formatInTimeZone(baseStart, APP_TIMEZONE).date, APP_TIMEZONE);
@@ -1535,7 +1551,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone={APP_TIMEZONE}
+              timeZone={APP_TZ}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -1595,7 +1611,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone="local"
+              timeZone={APP_TZ}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -1721,10 +1737,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   .map(id => nameById.get(id) || id)
                   .filter((name): name is string => !!name && name.trim().length > 0);
                 try {
-                  console.debug('[daily-report-request]', {
-                    reportDate: ymd,
-                    browserTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                  });
+                  console.log(
+                    '[daily-report-request]',
+                    'reportDate:', ymd,
+                    'date.toString():', new Date(ymd).toString(),
+                    'browserTz:', Intl.DateTimeFormat().resolvedOptions().timeZone,
+                  );
                   const r = await fetch('/api/reports/daily/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

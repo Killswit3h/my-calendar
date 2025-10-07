@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { readMemFile, readDiskFile } from "@/server/blob";
 import { getEventsForDay } from "@/server/reports/queries";
 import { snapshotsToPdf } from "@/server/reports/pdfEdge";
+import { APP_TZ } from '@/lib/appConfig';
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       const dateYmd = pdfMatch[1];
       const vendor = pdfMatch[2] ? pdfMatch[2].toUpperCase() : null;
       const snapshot = await getEventsForDay(dateYmd, vendor);
-      const tz = process.env.REPORT_TIMEZONE || 'America/New_York';
+      const tz = APP_TZ;
       const pdf = await snapshotsToPdf([snapshot], vendor, tz);
       body = new Uint8Array(pdf);
       contentType = 'application/pdf';

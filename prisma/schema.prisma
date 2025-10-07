@@ -46,6 +46,7 @@ model Event {
   quantities     EventQuantity[]
 
   @@index([calendarId, startsAt])
+  @@index([endsAt])
   @@map("Event")
 }
 

@@ -1,6 +1,7 @@
 ﻿export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
+import { APP_TZ } from '@/lib/appConfig'
 
 type MaybeString = string | null | undefined
 
@@ -40,5 +41,6 @@ export async function GET() {
     prismaAccelerateUrlConfigured: !!accelerateUrl,
     nodeEnv: process.env.NODE_ENV ?? null,
     reportTimezone: process.env.REPORT_TIMEZONE ?? null,
+    appTimezone: APP_TZ,
   })
 }
