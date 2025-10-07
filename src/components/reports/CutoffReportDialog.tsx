@@ -24,12 +24,6 @@ export type PreviewRow = {
   lastWorkDate: string
 }
 
-type JobTotal = {
-  jobId: string
-  jobName: string
-  quantity: number
-}
-
 type WindowInfo = {
   startDate: string
   endDate: string
@@ -43,7 +37,6 @@ type PreviewResponse = {
   totalRows: number
   page: number
   pageSize: number
-  jobTotals: JobTotal[]
   grandTotal: number
 }
 
@@ -298,13 +291,6 @@ export function CutoffReportDialog({ open, onClose }: Props) {
         totalRows: Number(json.totalRows ?? 0),
         page: Number(json.page ?? pageToLoad),
         pageSize: Number(json.pageSize ?? PAGE_SIZE),
-        jobTotals: Array.isArray(json.jobTotals)
-          ? json.jobTotals.map((jt: any) => ({
-              jobId: String(jt.jobId ?? ''),
-              jobName: String(jt.jobName ?? ''),
-              quantity: Number(jt.quantity ?? 0),
-            }))
-          : [],
         grandTotal: Number(json.grandTotal ?? 0),
       }
       setPreview(normalized)
@@ -436,7 +422,6 @@ export function CutoffReportDialog({ open, onClose }: Props) {
             <div className="label">Report Window</div>
             {displayWindow ? (
               <div className="muted-sm">
-                Report window = previous cut-off + 1 day through selected cut-off (inclusive).
                 <br />
                 {displayWindow.previousCutoff
                   ? `Previous Cut-Off: ${displayWindow.previousCutoff.cutoffDate}`
@@ -494,7 +479,6 @@ export function CutoffReportDialog({ open, onClose }: Props) {
                 <thead>
                   <tr>
                     <th>Job Name</th>
-                    <th>Job ID</th>
                     <th>Pay Item</th>
                     <th>Description</th>
                     <th>Unit</th>
@@ -506,9 +490,8 @@ export function CutoffReportDialog({ open, onClose }: Props) {
                 <tbody>
                   {preview.rows.length ? (
                     preview.rows.map((row, idx) => (
-                      <tr key={`${row.jobId}-${row.payItem}-${idx}`}>
+                      <tr key={`${row.jobName}-${row.payItem}-${idx}`}>
                         <td>{row.jobName || '—'}</td>
-                        <td>{row.jobId || '—'}</td>
                         <td>{row.payItem || '—'}</td>
                         <td>{row.description || '—'}</td>
                         <td>{row.unit || '—'}</td>
@@ -519,7 +502,7 @@ export function CutoffReportDialog({ open, onClose }: Props) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '18px 12px', color: 'var(--muted)' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '18px 12px', color: 'var(--muted)' }}>
                         No FDOT quantities found for this window.
                       </td>
                     </tr>
@@ -527,20 +510,6 @@ export function CutoffReportDialog({ open, onClose }: Props) {
                 </tbody>
               </table>
             </div>
-            {preview.jobTotals.length ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <h4 style={{ margin: '0 0 4px' }}>Totals by Job</h4>
-                <div style={{ display: 'grid', gap: '6px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-                  {preview.jobTotals.map(total => (
-                    <div key={total.jobId || total.jobName} className="surface" style={{ padding: '12px', borderRadius: '12px', border: '1px solid var(--border-2)' }}>
-                      <div style={{ fontWeight: 600 }}>{total.jobName || 'Unnamed Job'}</div>
-                      <div className="muted-sm">ID: {total.jobId || '—'}</div>
-                      <div style={{ marginTop: '6px' }}>Quantity: {numberFmt(total.quantity)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : null}
       </div>

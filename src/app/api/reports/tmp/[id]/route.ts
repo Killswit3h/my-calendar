@@ -4,6 +4,8 @@ import { getEventsForDay } from "@/server/reports/queries";
 import { snapshotsToPdf } from "@/server/reports/pdfEdge";
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

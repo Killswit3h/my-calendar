@@ -1,12 +1,11 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // pooled URL (runtime)
-  directUrl = env("DIRECT_URL")     // direct URL (migrate/CLI)
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Customer {
@@ -27,41 +26,36 @@ model Calendar {
 }
 
 model Event {
-  id             String    @id @default(cuid())
+  id             String          @id @default(cuid())
   calendarId     String
   title          String
   description    String?
-
-  // Map to existing DB columns
+  allDay         Boolean         @default(false)
+  location       String?
+  employees      Json?
+  invoiceNumber  String?
+  type           String?
+  shift          WorkShift?
+  checklist      Json?
   startsAt       DateTime
   endsAt         DateTime
-
-  allDay         Boolean   @default(true)
-  location       String?
-  createdAt      DateTime? @default(now()) @ignore
   attachmentData Bytes?
   attachmentName String?
   attachmentType String?
-  type           EventType?
-  shift          WorkShift?
-  checklist      Json?
-
-  calendar       Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  calendar       Calendar        @relation(fields: [calendarId], references: [id])
   quantities     EventQuantity[]
 
-  // Use model field names in indexes
   @@index([calendarId, startsAt])
   @@map("Event")
 }
 
 model PayItem {
-  id          String           @id @default(cuid())
-  number      String           @unique
+  id          String          @id @default(cuid())
+  number      String          @unique
   description String
   unit        String
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   quantities  EventQuantity[]
 }
 
@@ -75,9 +69,8 @@ model EventQuantity {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  payItem PayItem @relation(fields: [payItemId], references: [id], onDelete: Restrict)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payItem     PayItem  @relation(fields: [payItemId], references: [id])
 
   @@index([eventId])
   @@index([payItemId])
@@ -128,7 +121,56 @@ model UserSetting {
   icsUrl       String?
 }
 
-/* -------------- Enums --------------- */
+model ReportFile {
+  id         String     @id @default(cuid())
+  kind       ReportKind
+  reportDate DateTime?
+  weekStart  DateTime?
+  weekEnd    DateTime?
+  vendor     String?
+  blobUrl    String
+  bytes      Int
+  createdAt  DateTime   @default(now())
+
+  @@index([reportDate, vendor])
+  @@index([weekStart, weekEnd, vendor], map: "ReportFile_week_vendor_idx")
+}
+
+model DailyReportSnapshot {
+  id          String   @id @default(cuid())
+  reportDate  DateTime
+  vendor      String?
+  payloadJson String
+  createdAt   DateTime @default(now())
+
+  @@index([reportDate, vendor])
+}
+
+model WeeklyReportRequest {
+  id         String       @id @default(cuid())
+  weekStart  DateTime
+  weekEnd    DateTime
+  vendor     String?
+  status     WeeklyStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  finishedAt DateTime?
+  errorText  String?
+
+  @@index([weekStart, weekEnd, vendor], map: "WeeklyReportRequest_week_vendor_idx")
+}
+
+model FdotCutoff {
+  id         String   @id @default(cuid())
+  year       Int
+  cutoffDate DateTime @map("cutoff_date")
+  label      String?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([year, cutoffDate])
+  @@map("fdot_cutoffs")
+}
 
 enum ShareRole {
   VIEWER
@@ -148,46 +190,6 @@ enum WorkShift {
   NIGHT
 }
 
-/* -------------- Reports --------------- */
-
-model ReportFile {
-  id         String      @id @default(cuid())
-  kind       ReportKind
-  reportDate DateTime?
-  weekStart  DateTime?
-  weekEnd    DateTime?
-  vendor     String?
-  blobUrl    String
-  bytes      Int
-  createdAt  DateTime    @default(now())
-
-  @@index([reportDate, vendor])
-  @@index([weekStart, weekEnd, vendor])
-}
-
-model DailyReportSnapshot {
-  id          String    @id @default(cuid())
-  reportDate  DateTime
-  vendor      String?
-  payloadJson String
-  createdAt   DateTime  @default(now())
-
-  @@index([reportDate, vendor])
-}
-
-model WeeklyReportRequest {
-  id         String         @id @default(cuid())
-  weekStart  DateTime
-  weekEnd    DateTime
-  vendor     String?
-  status     WeeklyStatus   @default(PENDING)
-  createdAt  DateTime       @default(now())
-  finishedAt DateTime?
-  errorText  String?
-
-  @@index([weekStart, weekEnd, vendor])
-}
-
 enum ReportKind {
   DAILY_PDF
   DAILY_XLSX
@@ -198,17 +200,4 @@ enum WeeklyStatus {
   PENDING
   SUCCESS
   ERROR
-}
-
-model FdotCutoff {
-  id         String   @id @default(cuid())
-  year       Int
-  cutoffDate DateTime @map("cutoff_date")
-  label      String?
-  createdBy  String?  @map("created_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  @@unique([year, cutoffDate])
-  @@map("fdot_cutoffs")
 }

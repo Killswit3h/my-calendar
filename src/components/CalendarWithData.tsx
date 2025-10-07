@@ -21,25 +21,31 @@ import { Toast } from '@/components/Toast';
 import PayItemsManager from '@/components/PayItemsManager';
 import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
 import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  MenuItem,
-  Paper,
-  Stack,
-  Switch,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
-} from '@mui/material';
+  APP_TIMEZONE,
+  parseAppDateTime,
+  parseAppDateOnly,
+  formatInTimeZone,
+  zonedStartOfDayUtc,
+  addDaysUtc,
+} from '@/lib/timezone';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
@@ -430,9 +436,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       btn.textContent = '+';
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const parts = ymd.split('-').map(n => parseInt(n, 10));
-        const startDateUtc = startOfUtcDayFromParts(parts[0], parts[1] - 1, parts[2]);
-        const endDateUtc = new Date(startDateUtc.getTime() + DAY_MS);
+        const startDateUtc = zonedStartOfDayUtc(ymd, APP_TIMEZONE);
+        const endDateUtc = addDaysUtc(startDateUtc, 1);
         setEditId(null);
         setDraft({
           title: '',
@@ -448,6 +453,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           shift: 'DAY',
           checklist: defaultChecklist(),
         });
+        const parts = ymd.split('-').map(n => parseInt(n, 10));
         setSelectedDay(new Date(parts[0], parts[1] - 1, parts[2]));
         setModalHasQuantities(false);
         setUserChangedStart(false);
@@ -553,8 +559,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const handleSidebarQuickAdd = useCallback((employeeId: string, day: Date) => {
     // Prefill an all-day event on the selected local day with the chosen employee
-    const startDateUtc = startOfUtcDayLocal(day);
-    const endDateUtc = new Date(startDateUtc.getTime() + DAY_MS);
+    const { date } = formatInTimeZone(day, APP_TIMEZONE);
+    const startDateUtc = zonedStartOfDayUtc(date, APP_TIMEZONE);
+    const endDateUtc = addDaysUtc(startDateUtc, 1);
     setDraft({
       title: '',
       start: startDateUtc.toISOString(),
@@ -600,13 +607,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (sel.start) setSelectedDay(new Date(sel.start.getFullYear(), sel.start.getMonth(), sel.start.getDate()));
 
     if (sel.allDay) {
-      const startDate = startOfUtcDayLocal(baseStart);
-      let endDate = baseEnd ? startOfUtcDayLocal(baseEnd) : new Date(startDate.getTime());
-      if (!sel.end) {
-        endDate = new Date(startDate.getTime() + DAY_MS);
-      }
-      if (endDate <= startDate) {
-        endDate = new Date(startDate.getTime() + DAY_MS);
+      const startDate = zonedStartOfDayUtc(formatInTimeZone(baseStart, APP_TIMEZONE).date, APP_TIMEZONE);
+      let endDate = baseEnd ? zonedStartOfDayUtc(formatInTimeZone(baseEnd, APP_TIMEZONE).date, APP_TIMEZONE) : startDate;
+      if (!sel.end || endDate <= startDate) {
+        endDate = addDaysUtc(startDate, 1);
       }
       setDraft({
         title: '',
@@ -988,8 +992,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     if (!draft) return;
     const prevStart = new Date(draft.start);
     const isAllDay = !!draft.allDay;
-    const candidate = new Date(iso);
-    const normalizedStart = isAllDay ? startOfUtcDayUTC(candidate) : candidate;
+    const normalizedStart = isAllDay
+      ? (parseAppDateOnly(iso, APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(iso), APP_TIMEZONE).date, APP_TIMEZONE))
+      : (parseAppDateTime(iso, APP_TIMEZONE) ?? new Date(iso));
     let endIso = draft.end;
     if (!userChangedEnd && draft.end) {
       const duration = new Date(draft.end).getTime() - prevStart.getTime();
@@ -997,8 +1002,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
     if (isAllDay) {
       const startDate = normalizedStart;
-      const currentEnd = endIso ? new Date(endIso) : null;
-      const exclusive = currentEnd && currentEnd > startDate ? currentEnd : new Date(startDate.getTime() + DAY_MS);
+      const currentEnd = endIso ? parseAppDateOnly(endIso, APP_TIMEZONE) ?? new Date(endIso) : null;
+      const exclusive = currentEnd && currentEnd > startDate ? currentEnd : addDaysUtc(startDate, 1);
       endIso = exclusive.toISOString();
     }
     setDraft({ ...draft, start: normalizedStart.toISOString(), end: endIso });
@@ -1008,15 +1013,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const updateEnd = (iso: string) => {
     if (!draft) return;
     if (draft.allDay) {
-      const startDate = startOfUtcDayUTC(new Date(draft.start));
-      const rawDate = startOfUtcDayUTC(new Date(iso));
-      let exclusive = new Date(rawDate.getTime() + DAY_MS);
-      if (exclusive <= startDate) exclusive = new Date(startDate.getTime() + DAY_MS);
+      const startDate = parseAppDateOnly(String(draft.start), APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(draft.start), APP_TIMEZONE).date, APP_TIMEZONE);
+      const rawDate = parseAppDateOnly(iso, APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(iso), APP_TIMEZONE).date, APP_TIMEZONE);
+      let exclusive = addDaysUtc(rawDate, 1);
+      if (exclusive <= startDate) exclusive = addDaysUtc(startDate, 1);
       setDraft({ ...draft, end: exclusive.toISOString() });
       setUserChangedEnd(true);
       return;
     }
-    let endDate = new Date(iso);
+    let endDate = parseAppDateTime(iso, APP_TIMEZONE) ?? new Date(iso);
     if (endDate < new Date(draft.start)) endDate = new Date(draft.start);
     setDraft({ ...draft, end: endDate.toISOString() });
     setUserChangedEnd(true);
@@ -1041,8 +1046,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const createBlankDraft = useCallback((): NewEvent => {
     const base = selectedDay ? new Date(selectedDay.getTime()) : new Date();
-    const startDay = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0);
-    const endDay = new Date(startDay.getTime() + DAY_MS);
+    const { date } = formatInTimeZone(base, APP_TIMEZONE);
+    const startDay = zonedStartOfDayUtc(date, APP_TIMEZONE);
+    const endDay = addDaysUtc(startDay, 1);
     return {
       title: '',
       start: startDay.toISOString(),
@@ -1080,8 +1086,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         const endDate = prev.end ? new Date(prev.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
         return { ...prev, allDay: false, start: startDate.toISOString(), end: endDate.toISOString() };
       }
-      const startUtc = startOfUtcDayUTC(new Date(prev.start));
-      const endUtc = new Date(startUtc.getTime() + DAY_MS);
+      const startUtc = parseAppDateOnly(String(prev.start), APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(prev.start), APP_TIMEZONE).date, APP_TIMEZONE);
+      const endUtc = addDaysUtc(startUtc, 1);
       return { ...prev, allDay: true, start: startUtc.toISOString(), end: endUtc.toISOString() };
     });
     setUserChangedStart(false);
@@ -1529,7 +1535,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone="local"
+              timeZone={APP_TIMEZONE}
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -1715,6 +1721,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                   .map(id => nameById.get(id) || id)
                   .filter((name): name is string => !!name && name.trim().length > 0);
                 try {
+                  console.debug('[daily-report-request]', {
+                    reportDate: ymd,
+                    browserTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                  });
                   const r = await fetch('/api/reports/daily/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1958,12 +1968,39 @@ const COUNTRIES: [string, string][] = [
   ['IT', 'Italy'],
 ];
 
-function toLocalInput(isoLike: string) { const d = new Date(isoLike); const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-function fromLocalInput(local: string) { return new Date(local).toISOString(); }
-function toLocalDate(isoLike: string) { return toLocalInput(isoLike).slice(0, 10); }
-function toLocalTime(isoLike: string) { return toLocalInput(isoLike).slice(11, 16); }
-function fromLocalDateTime(date: string, time: string) { return fromLocalInput(`${date}T${time}`); }
-function dateToLocalInput(d: Date) { const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function toLocalInput(isoLike: string) {
+  const d = new Date(isoLike)
+  if (Number.isNaN(d.getTime())) return isoLike
+  const { date, time } = formatInTimeZone(d, APP_TIMEZONE)
+  return `${date}T${time.slice(0, 5)}`
+}
+
+function fromLocalInput(local: string) {
+  const parsed = parseAppDateTime(local, APP_TIMEZONE)
+  if (parsed) return parsed.toISOString()
+  return new Date(local).toISOString()
+}
+
+function toLocalDate(isoLike: string) {
+  const d = new Date(isoLike)
+  if (Number.isNaN(d.getTime())) return isoLike.slice(0, 10)
+  return formatInTimeZone(d, APP_TIMEZONE).date
+}
+
+function toLocalTime(isoLike: string) {
+  const d = new Date(isoLike)
+  if (Number.isNaN(d.getTime())) return ''
+  return formatInTimeZone(d, APP_TIMEZONE).time.slice(0, 5)
+}
+
+function fromLocalDateTime(date: string, time: string) {
+  return fromLocalInput(`${date}T${time}`)
+}
+
+function dateToLocalInput(d: Date) {
+  const { date, time } = formatInTimeZone(d, APP_TIMEZONE)
+  return `${date}T${time.slice(0, 5)}`
+}
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
 
@@ -1971,24 +2008,11 @@ function isUtcMidnight(date: Date): boolean {
   return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
 }
 
-function startOfUtcDayFromParts(year: number, month0: number, day: number): Date {
-  return new Date(Date.UTC(year, month0, day, 0, 0, 0, 0));
-}
-
-function startOfUtcDayLocal(date: Date): Date {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0));
-}
-
-function startOfUtcDayUTC(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
-}
-
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isoFromDateOnly(value: string): string | null {
   if (!DATE_ONLY_RE.test(value)) return null;
-  const [y, m, d] = value.split('-').map(Number);
-  return startOfUtcDayFromParts(y, m - 1, d).toISOString();
+  return zonedStartOfDayUtc(value, APP_TIMEZONE).toISOString();
 }
 
 function exclusiveIsoFromDateOnly(value: string, minStartIso: string): string {
@@ -1998,7 +2022,7 @@ function exclusiveIsoFromDateOnly(value: string, minStartIso: string): string {
     return new Date(minStart.getTime() + DAY_MS).toISOString();
   }
   const dayUtc = new Date(baseIso);
-  let exclusive = new Date(dayUtc.getTime() + DAY_MS);
+  let exclusive = addDaysUtc(dayUtc, 1);
   if (exclusive <= minStart) exclusive = new Date(minStart.getTime() + DAY_MS);
   return exclusive.toISOString();
 }
@@ -2008,60 +2032,53 @@ function normalizeAllDayIsoValue(value: string): string {
   if (direct) return direct;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return startOfUtcDayUTC(parsed).toISOString();
+  return zonedStartOfDayUtc(formatInTimeZone(parsed, APP_TIMEZONE).date, APP_TIMEZONE).toISOString();
 }
 
 function normalizeDraftBounds(draft: NewEvent): { start: string; end: string } {
-  const startDate = new Date(draft.start);
-  if (Number.isNaN(startDate.getTime())) {
-    const now = new Date();
-    const later = new Date(now.getTime() + 60 * 60 * 1000);
-    return { start: now.toISOString(), end: later.toISOString() };
-  }
-
   if (draft.allDay) {
-    const startMidnight = startOfUtcDayUTC(startDate);
-    let endDateRaw = draft.end ? new Date(draft.end) : null;
-    if (!endDateRaw || Number.isNaN(endDateRaw.getTime())) {
-      endDateRaw = new Date(startMidnight.getTime() + DAY_MS);
+    const start = typeof draft.start === 'string' ? parseAppDateOnly(draft.start, APP_TIMEZONE) : null
+    const startMidnight = start ?? zonedStartOfDayUtc(formatInTimeZone(new Date(), APP_TIMEZONE).date, APP_TIMEZONE)
+    let end = typeof draft.end === 'string' ? parseAppDateOnly(draft.end, APP_TIMEZONE) : null
+    if (!end || end <= startMidnight) {
+      end = addDaysUtc(startMidnight, 1)
     }
-    let endExclusive = startOfUtcDayUTC(endDateRaw);
-    if (endExclusive <= startMidnight) {
-      endExclusive = new Date(startMidnight.getTime() + DAY_MS);
-    }
-    return { start: startMidnight.toISOString(), end: endExclusive.toISOString() };
+    return { start: startMidnight.toISOString(), end: end.toISOString() }
   }
 
-  let endDate = draft.end ? new Date(draft.end) : null;
-  if (!endDate || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
-    endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const startDate = typeof draft.start === 'string' ? parseAppDateTime(draft.start, APP_TIMEZONE) : null
+  const startInstant = startDate && !Number.isNaN(startDate.getTime()) ? startDate : new Date(draft.start)
+  if (Number.isNaN(startInstant.getTime())) {
+    const now = new Date()
+    const later = new Date(now.getTime() + 60 * 60 * 1000)
+    return { start: now.toISOString(), end: later.toISOString() }
   }
-  return { start: startDate.toISOString(), end: endDate.toISOString() };
+
+  const endCandidate = typeof draft.end === 'string' ? parseAppDateTime(draft.end, APP_TIMEZONE) : null
+  let endDate = endCandidate && !Number.isNaN(endCandidate.getTime()) ? endCandidate : new Date(draft.end ?? startInstant)
+  if (Number.isNaN(endDate.getTime()) || endDate <= startInstant) {
+    endDate = new Date(startInstant.getTime() + 60 * 60 * 1000)
+  }
+  return { start: startInstant.toISOString(), end: endDate.toISOString() }
 }
 
 type NormalizeEventInput = { start?: string | Date | null; end?: string | Date | null; allDay?: boolean | null };
 
 function normalizeEventTimes(event: NormalizeEventInput): { start: string; end: string } {
-  const rawStart = event.start instanceof Date ? event.start : (event.start ? new Date(event.start) : new Date());
-  const rawEnd = event.end instanceof Date ? event.end : (event.end ? new Date(event.end) : null);
+  const startInstant = event.start instanceof Date ? event.start : (typeof event.start === 'string' ? parseAppDateTime(event.start, APP_TIMEZONE) : null) ?? new Date(event.start ?? Date.now());
+  const endInstantRaw = event.end instanceof Date ? event.end : (typeof event.end === 'string' ? parseAppDateTime(event.end, APP_TIMEZONE) : null);
 
   if (event.allDay) {
-    const startMidnight = startOfUtcDayLocal(rawStart);
-    let endMidnight: Date;
-    if (rawEnd) {
-      endMidnight = startOfUtcDayLocal(rawEnd);
-      if (endMidnight <= startMidnight) {
-        endMidnight = new Date(startMidnight.getTime() + DAY_MS);
-      }
-    } else {
-      endMidnight = new Date(startMidnight.getTime() + DAY_MS);
+    const startMidnight = (typeof event.start === 'string' ? parseAppDateOnly(event.start, APP_TIMEZONE) : null) ?? zonedStartOfDayUtc(formatInTimeZone(startInstant, APP_TIMEZONE).date, APP_TIMEZONE);
+    let endMidnight = typeof event.end === 'string' ? parseAppDateOnly(event.end, APP_TIMEZONE) : null;
+    if (!endMidnight || endMidnight <= startMidnight) {
+      endMidnight = addDaysUtc(startMidnight, 1);
     }
     return { start: startMidnight.toISOString(), end: endMidnight.toISOString() };
   }
 
-  const startIso = rawStart.toISOString();
-  const endIso = (rawEnd ?? rawStart).toISOString();
-  return { start: startIso, end: endIso };
+  const endInstant = endInstantRaw && !Number.isNaN(endInstantRaw.getTime()) ? endInstantRaw : startInstant;
+  return { start: startInstant.toISOString(), end: endInstant.toISOString() };
 }
 
 function formatDateInputValue(iso: string, { allDay, isEnd = false }: { allDay: boolean; isEnd?: boolean }): string {

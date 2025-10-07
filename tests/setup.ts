@@ -9,6 +9,14 @@ vi.mock('@/lib/dbSafe', () => ({
   },
 }))
 
+vi.mock('@/lib/db', () => ({
+  getPrisma: async () => {
+    const prisma = getMockPrisma()
+    if (!prisma) throw new Error('Mock Prisma not set')
+    return prisma
+  },
+}))
+
 afterEach(() => {
   setMockPrisma(null)
 })

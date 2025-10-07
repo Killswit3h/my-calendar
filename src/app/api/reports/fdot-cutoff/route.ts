@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
     pageSize: result.pageSize,
     totalRows: result.totalRows,
     rows: result.rows,
-    jobTotals: result.jobTotals,
     grandTotal: result.grandTotal,
   })
 }

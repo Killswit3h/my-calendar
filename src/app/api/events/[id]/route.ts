@@ -6,41 +6,7 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
-
-const parseDateTime = (value: unknown): Date | null => {
-  if (value instanceof Date) return new Date(value.getTime())
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const d = new Date(value)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const d = new Date(trimmed)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  return null
-}
-
-const parseDateOnlyUTC = (value: unknown): Date | null => {
-  if (value instanceof Date) {
-    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const iso = trimmed.length === 10 ? `${trimmed}T00:00:00.000Z` : trimmed
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return null
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return null
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-  }
-  return null
-}
+import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
 
 type PatchPayload = {
   title?: string
@@ -85,7 +51,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const targetAllDay = allDayFlag ?? undefined
   if (body.start || body.startsAt) {
     const raw = body.start ?? body.startsAt ?? ''
-    const parsed = targetAllDay ? parseDateOnlyUTC(raw) : parseDateTime(raw)
+    const parsed = targetAllDay ? (typeof raw === 'string' ? parseAppDateOnly(raw) : null) : (typeof raw === 'string' ? parseAppDateTime(raw) : null)
     if (!parsed) {
       return NextResponse.json({ error: 'Invalid startsAt' }, { status: 400, headers: cors as any })
     }
@@ -94,7 +60,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   if (body.end || body.endsAt) {
     const raw = body.end ?? body.endsAt ?? ''
-    const parsed = targetAllDay ? parseDateOnlyUTC(raw) : parseDateTime(raw)
+    const parsed = targetAllDay ? (typeof raw === 'string' ? parseAppDateOnly(raw) : null) : (typeof raw === 'string' ? parseAppDateTime(raw) : null)
     if (!parsed) {
       return NextResponse.json({ error: 'Invalid endsAt' }, { status: 400, headers: cors as any })
     }
@@ -103,7 +69,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   if (targetAllDay && (!body.end && !body.endsAt) && data.startsAt && !data.endsAt) {
     const start = data.startsAt as Date
-    data.endsAt = new Date(start.getTime() + 86_400_000)
+    data.endsAt = addDaysUtc(start, 1)
   }
 
   if (data.startsAt && data.endsAt && data.endsAt <= data.startsAt) {
