@@ -8,6 +8,8 @@ const DEFAULT_YARD_IDS = [
   'jose-santos-diaz',
   'edilberto-acuna',
   'gerardo-oliva',
+  'jose-fernandez',
+  'robert-gomez',
 ]
 
 type YardMap = Record<string, string[]> & {
@@ -43,13 +45,19 @@ export function getYardForDate(dateKey: string): string[] {
   const tracker = ensureSeedTracker(map)
   const current = Array.isArray(map[dateKey]) ? [...map[dateKey]] : []
 
-  if (!tracker[dateKey]) {
-    const missing = DEFAULT_YARD_IDS.filter((id) => !current.includes(id))
-    const next = missing.length ? [...current, ...missing] : current
+  const missing = DEFAULT_YARD_IDS.filter(id => !current.includes(id))
+  if (missing.length) {
+    const next = [...current, ...missing]
     map[dateKey] = next
     tracker[dateKey] = true
     save(map)
     return next.slice()
+  }
+
+  if (!tracker[dateKey]) {
+    tracker[dateKey] = true
+    map[dateKey] = current
+    save(map)
   }
 
   return current

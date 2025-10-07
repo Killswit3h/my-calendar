@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useMemo } from "react";
-import {
-  Autocomplete,
-  TextField,
-  Chip,
-  Avatar,
-  Typography,
-  Box,
-  Button,
-} from "@mui/material";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import Chip from "@mui/material/Chip";
+import Avatar from "@mui/material/Avatar";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import { alpha } from "@mui/material/styles";
 import * as ReactWindow from "react-window";
 import type { Employee } from "../employees";

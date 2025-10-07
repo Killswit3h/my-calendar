@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { CssBaseline } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { CssVarsProvider } from "@mui/material/styles";
 import { createAppTheme, type Accent } from "../theme";
 

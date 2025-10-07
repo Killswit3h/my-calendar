@@ -6,6 +6,7 @@ export const revalidate = 0
 import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
+import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -184,9 +185,28 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const startsAt = new Date(startRaw)
-  const endsAt = new Date(endRaw)
-  if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+  const allDay = !!b.allDay
+  let startsAt: Date | null
+  let endsAt: Date | null
+
+  if (allDay) {
+    startsAt = typeof startRaw === 'string' ? parseAppDateOnly(startRaw) : null
+    endsAt = typeof endRaw === 'string' ? parseAppDateOnly(endRaw) : null
+    if (!startsAt) {
+      return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
+    }
+    if (!endsAt || endsAt <= startsAt) {
+      endsAt = addDaysUtc(startsAt, 1)
+    }
+  } else {
+    startsAt = typeof startRaw === 'string' ? parseAppDateTime(startRaw) : null
+    endsAt = typeof endRaw === 'string' ? parseAppDateTime(endRaw) : null
+    if (!startsAt || !endsAt || endsAt <= startsAt) {
+      return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
+    }
+  }
+
+  if (!startsAt || !endsAt) {
     return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
   }
 
@@ -204,7 +224,7 @@ export async function POST(req: NextRequest) {
         description: (b.description ?? '') || '',
         startsAt,
         endsAt,
-        allDay: !!b.allDay,
+        allDay,
         location: (b.location ?? '') || '',
         type: (b.type ?? null) as EventType | null,
         shift: (b.shift ?? null) as WorkShift | null,

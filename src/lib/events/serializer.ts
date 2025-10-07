@@ -1,7 +1,7 @@
 ﻿import type { EventType, WorkShift } from '@prisma/client'
+import { APP_TIMEZONE } from '@/lib/timezone'
 
 const DAY_IN_MS = 86_400_000
-const DEFAULT_TIME_ZONE = process.env.REPORT_TIMEZONE ?? 'America/New_York'
 
 type MaybeDateInput = string | number | Date | null | undefined
 
@@ -76,7 +76,7 @@ function ensureAllDayEnd(start: Date, end: Date | null): Date {
 }
 
 export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?: string }): CalendarEventPayload {
-  const timezone = options?.timezone ?? DEFAULT_TIME_ZONE
+  const timezone = options?.timezone ?? APP_TIMEZONE
   const allDay = !!row.allDay
   const hasQuantities = !!(row as any).hasQuantities
 

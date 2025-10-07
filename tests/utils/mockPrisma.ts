@@ -143,6 +143,30 @@ export class MockPrisma {
       if (!row) return null
       return project(row, select)
     },
+    findMany: async ({ where, select, orderBy }: any = {}) => {
+      let rows = Array.from(this.events.values())
+      if (where?.endsAt?.gt) {
+        const gt = new Date(where.endsAt.gt)
+        rows = rows.filter(row => row.endsAt > gt)
+      }
+      if (where?.startsAt?.lt) {
+        const lt = new Date(where.startsAt.lt)
+        rows = rows.filter(row => row.startsAt < lt)
+      }
+      if (orderBy?.length) {
+        rows = rows.slice()
+        for (const order of orderBy.slice().reverse()) {
+          const [[key, direction]] = Object.entries(order) as any
+          const dir = String(direction || '').toLowerCase().startsWith('desc') ? -1 : 1
+          rows.sort((a, b) => {
+            if (key === 'title') return dir * (a.title || '').localeCompare(b.title || '')
+            if (key === 'startsAt') return dir * (a.startsAt.getTime() - b.startsAt.getTime())
+            return 0
+          })
+        }
+      }
+      return rows.map(row => project(row, select))
+    },
   }
 
   eventQuantity = {

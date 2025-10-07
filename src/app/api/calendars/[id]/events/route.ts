@@ -8,8 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import type { EventRowLike } from '@/lib/events/serializer'
-
-const DAY_IN_MS = 86_400_000
+import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
 
 type PrismaEventRow = EventRowLike & {
   id: string
@@ -65,47 +64,10 @@ const toISOParam = (value: string | null | undefined): string | null => {
   if (!value) return null
   const trimmed = value.trim()
   if (!trimmed) return null
-  const parsed = new Date(trimmed)
-  if (Number.isNaN(parsed.getTime())) return null
+  const parsed = parseAppDateTime(trimmed)
+  if (!parsed) return null
   return parsed.toISOString()
 }
-
-const parseDateTime = (value: unknown): Date | null => {
-  if (value instanceof Date) return new Date(value.getTime())
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const d = new Date(value)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const d = new Date(trimmed)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  return null
-}
-
-const parseDateOnlyUTC = (value: unknown): Date | null => {
-  if (value instanceof Date) {
-    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const iso = trimmed.length === 10 ? `${trimmed}T00:00:00.000Z` : trimmed
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return null
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return null
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-  }
-  return null
-}
-
-const toExclusiveEnd = (startOfDay: Date): Date => new Date(startOfDay.getTime() + DAY_IN_MS)
 
 // For calendar UI, serialize all-day dates in UTC to avoid client timezone shifts.
 const serialize = (row: PrismaEventRow) => serializeCalendarEvent(row, { timezone: 'UTC' })
@@ -290,23 +252,20 @@ export async function POST(
   let endsAt: Date | null = null
 
   if (allDay) {
-    const startDay = parseDateOnlyUTC(startInput)
+    const startDay = typeof startInput === 'string' ? parseAppDateOnly(startInput) : null
     if (!startDay) {
       return NextResponse.json({ error: 'valid startsAt required for all-day event' }, { status: 400 })
     }
-    // Treat provided all-day end as EXCLUSIVE. If omitted or invalid/<= start, default to +1 day.
-    const endDay = endInput ? parseDateOnlyUTC(endInput) : null
+    const endDay = typeof endInput === 'string' ? parseAppDateOnly(endInput) : null
     startsAt = startDay
     if (endDay && endDay.getTime() > startDay.getTime()) {
-      // endDay is already exclusive
       endsAt = endDay
     } else {
-      // ensure at least one-day duration
-      endsAt = toExclusiveEnd(startDay)
+      endsAt = addDaysUtc(startDay, 1)
     }
   } else {
-    const startDate = parseDateTime(startInput)
-    const endDate = parseDateTime(endInput)
+    const startDate = typeof startInput === 'string' ? parseAppDateTime(startInput) : null
+    const endDate = typeof endInput === 'string' ? parseAppDateTime(endInput) : null
     if (!startDate || !endDate) {
       return NextResponse.json({ error: 'valid startsAt and endsAt required' }, { status: 400 })
     }

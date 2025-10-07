@@ -1,6 +1,14 @@
 // src/server/reports/queries.ts
 import { getPrisma } from "@/lib/db"
 import { getEmployees, displayNameFromEmployeeId } from "@/employees"
+import {
+  APP_TIMEZONE,
+  zonedStartOfDayUtc,
+  zonedEndOfDayUtc,
+  intersectsUtcInterval,
+  formatAppLocalIso,
+  formatInTimeZone,
+} from '@/lib/timezone'
 
 export type ReportRow = {
   project: string
@@ -19,36 +27,6 @@ export type DaySnapshot = {
   dateYmd: string // YYYY-MM-DD in REPORT_TIMEZONE
   vendor: string | null
   rows: ReportRow[]
-}
-
-function getTz(): string {
-  return process.env.REPORT_TIMEZONE || "America/New_York"
-}
-
-function tzOffsetMs(at: Date, tz: string): number {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  })
-  const parts = fmt.formatToParts(at)
-  const get = (t: string) => Number(parts.find(p => p.type === t)?.value || '0')
-  const asUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
-  return asUTC - at.getTime()
-}
-
-function fromZonedYmdToUtc(y: number, m: number, d: number, tz: string): Date {
-  // Pretend local time (in tz) is UTC, then subtract the zone offset at that instant
-  const pretend = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
-  const offset = tzOffsetMs(pretend, tz)
-  return new Date(pretend.getTime() - offset)
-}
-
-function dayStartEnd(date: string, tz = getTz()): { start: Date; end: Date } {
-  const [y, m, d] = date.split('-').map(Number)
-  const start = fromZonedYmdToUtc(y, m, d, tz)
-  const next = fromZonedYmdToUtc(y, m, d + 1, tz)
-  return { start, end: next }
 }
 
 function parseMeta(description: string): {
@@ -101,27 +79,82 @@ function workFromType(type: string | null, notes: string): string {
 }
 
 export async function getEventsForDay(dateYmd: string, vendor?: string | null): Promise<DaySnapshot> {
-  const { start, end } = dayStartEnd(dateYmd)
-  const endInclusive = new Date(end.getTime() - 1)
+  const tz = APP_TIMEZONE
+  const start = zonedStartOfDayUtc(dateYmd, tz)
+  const endExclusive = zonedEndOfDayUtc(dateYmd, tz)
   const p = await getPrisma()
-  const rowsDb = await p.event.findMany({
-    // Treat the report window as 12:00am through 11:59:59.999pm local time
-    // Include any job that overlaps that window, even if it started earlier
+  const rowsDb = (await p.event.findMany({
     where: {
-      startsAt: { lte: endInclusive },
       endsAt: { gt: start },
+      startsAt: { lt: endExclusive },
     },
-    orderBy: [{ title: "asc" }, { startsAt: "asc" }],
-    select: { title: true, description: true, type: true, checklist: true, shift: true },
-  })
+    orderBy: [{ title: 'asc' }, { startsAt: 'asc' }],
+    select: { id: true, title: true, description: true, type: true, checklist: true, shift: true, startsAt: true, endsAt: true },
+  })) as Row[]
 
-  type Row = { title: string | null; description: string | null; type: string | null; checklist: unknown; shift?: string | null }
+  if (process.env.DEBUG_DAILY_REPORT === '1' && process.env.NODE_ENV !== 'production') {
+    const sample = rowsDb.slice(0, 10).map(row => ({
+      id: row.id ?? 'unknown',
+      startsAtUtc: new Date(row.startsAt).toISOString(),
+      startsAtLocal: formatAppLocalIso(new Date(row.startsAt), tz),
+      endsAtUtc: new Date(row.endsAt).toISOString(),
+      endsAtLocal: formatAppLocalIso(new Date(row.endsAt), tz),
+    }))
+
+    const dayStartLocal = `${dateYmd} 00:00:00`
+    const dayEndLocal = formatInTimeZone(endExclusive, tz).date + ' 00:00:00'
+
+    const rawQuery = (await p.$queryRawUnsafe(`
+      SELECT "id"
+      FROM "Event"
+      WHERE ("endsAt" AT TIME ZONE 'UTC' AT TIME ZONE '${tz}') > '${dayStartLocal}'::timestamp
+        AND ("startsAt" AT TIME ZONE 'UTC' AT TIME ZONE '${tz}') < '${dayEndLocal}'::timestamp
+      ORDER BY "startsAt" ASC
+      LIMIT 200
+    `)) as Array<{ id: string }>
+
+    const prismaIds = rowsDb.map(row => row.id ?? '')
+    const rawIds = rawQuery.map(row => row.id)
+    const missingInPrisma = rawIds.filter(id => id && !prismaIds.includes(id))
+    const extraInPrisma = prismaIds.filter(id => id && !rawIds.includes(id))
+
+    console.debug('[daily-report-debug]', {
+      tz,
+      dateYmd,
+      dayStartUtc: start.toISOString(),
+      dayEndUtc: endExclusive.toISOString(),
+      filter: {
+        endsAt: { gt: start.toISOString() },
+        startsAt: { lt: endExclusive.toISOString() },
+      },
+      prismaMatches: prismaIds.length,
+      rawMatches: rawIds.length,
+      missingInPrisma,
+      extraInPrisma,
+      sample,
+    })
+  }
+
+type Row = {
+  id?: string | null
+  title: string | null
+  description: string | null
+  type: string | null
+  checklist: unknown
+  shift?: string | null
+  startsAt: Date
+  endsAt: Date
+}
 
   // Map employee id -> display name for crew listing
   const employees = getEmployees()
   const nameById = new Map<string, string>(employees.map(e => [e.id, `${e.firstName} ${e.lastName}`]))
 
-  const all: ReportRow[] = (rowsDb as Row[]).map((e: Row) => {
+  const overlapping = (rowsDb as Row[]).filter(e =>
+    intersectsUtcInterval(new Date(e.startsAt), new Date(e.endsAt), start, endExclusive),
+  )
+
+  const all: ReportRow[] = overlapping.map((e: Row) => {
     const meta = parseMeta(e.description || "")
     const cl: any = e.checklist as any
     const crewIds: string[] = Array.isArray(cl?.employees) ? (cl.employees as string[]) : []

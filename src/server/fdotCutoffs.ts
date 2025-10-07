@@ -289,34 +289,47 @@ export type AggregatedResult = {
   totalRows: number
   page: number
   pageSize: number
-  jobTotals: Array<{ jobId: string; jobName: string; quantity: number }>
   grandTotal: number
+}
+
+let loggedAggregationDisabled = false
+
+function fdotAggregationDisabled(): boolean {
+  const flag = process.env.FDOT_AGGREGATION_DISABLED ?? process.env.DISABLE_FDOT_AGGREGATION
+  if (!flag) return false
+  const normalized = flag.trim().toLowerCase()
+  return normalized === '1' || normalized === 'true' || normalized === 'yes'
 }
 
 async function runAggregation(
   start: Date,
   endExclusive: Date,
 ): Promise<AggregatedRow[]> {
+  if (fdotAggregationDisabled()) {
+    if (!loggedAggregationDisabled) {
+      console.warn('FDOT aggregation disabled by configuration; returning empty report data')
+      loggedAggregationDisabled = true
+    }
+    return []
+  }
+
   const query = Prisma.sql`
     SELECT
-      j."id" AS job_id,
-      COALESCE(j."name", '') AS job_name,
-      COALESCE(w."pay_item", '') AS pay_item,
-      COALESCE(pi."description", w."pay_item_description", '') AS description,
-      COALESCE(NULLIF(w."unit", ''), pi."unit", '') AS unit,
-      SUM(COALESCE(w."quantity", 0)) AS total_quantity,
-      MIN(w."work_date") AS first_work_date,
-      MAX(w."work_date") AS last_work_date
-    FROM "work_logs" w
-    INNER JOIN "jobs" j ON j."id" = w."job_id"
-    LEFT JOIN "pay_items" pi ON (pi."number" = w."pay_item")
-    WHERE w."work_date" >= ${start} AND w."work_date" < ${endExclusive}
-      AND (
-        COALESCE(j."is_fdot", FALSE) = TRUE OR
-        UPPER(COALESCE(j."client_type", '')) = 'FDOT'
-      )
-    GROUP BY j."id", j."name", w."pay_item", pi."description", pi."unit", w."pay_item_description"
-    ORDER BY j."name" ASC, w."pay_item" ASC
+      e."id" AS job_id,
+      COALESCE(e."title", '') AS job_name,
+      COALESCE(pi."number", '') AS pay_item,
+      COALESCE(pi."description", '') AS description,
+      COALESCE(pi."unit", '') AS unit,
+      SUM(COALESCE(eq."quantity", 0)) AS total_quantity,
+      MIN(e."startsAt") AS first_work_date,
+      MAX(COALESCE(e."endsAt", e."startsAt")) AS last_work_date
+    FROM "Event" e
+    INNER JOIN "EventQuantity" eq ON eq."eventId" = e."id"
+    LEFT JOIN "PayItem" pi ON pi."id" = eq."payItemId"
+    WHERE COALESCE(e."endsAt", e."startsAt") >= ${start}
+      AND e."startsAt" < ${endExclusive}
+    GROUP BY e."id", e."title", pi."number", pi."description", pi."unit"
+    ORDER BY e."title" ASC, pi."number" ASC
   `
 
   try {
@@ -355,7 +368,7 @@ async function runAggregation(
       lastWorkDate: row.last_work_date ? new Date(row.last_work_date).toISOString().slice(0, 10) : '',
     }))
   } catch (error) {
-    console.error('Failed to aggregate FDOT work logs', error)
+    console.error('Failed to aggregate FDOT events', error)
     return []
   }
 }
@@ -374,35 +387,26 @@ export async function generateAggregatedRows(
   const offset = (safePage - 1) * safePageSize
   const rows = allRows.slice(offset, offset + safePageSize)
 
-  const jobTotalsMap = new Map<string, { jobId: string; jobName: string; quantity: number }>()
   let grand = 0
   allRows.forEach(row => {
-    const key = row.jobId || row.jobName
-    const current = jobTotalsMap.get(key) ?? { jobId: row.jobId, jobName: row.jobName, quantity: 0 }
-    current.quantity += row.quantity
-    jobTotalsMap.set(key, current)
     grand += row.quantity
   })
-
-  const jobTotals = Array.from(jobTotalsMap.values()).sort((a, b) => a.jobName.localeCompare(b.jobName))
 
   return {
     rows,
     totalRows,
     page: safePage,
     pageSize: safePageSize,
-    jobTotals,
     grandTotal: grand,
   }
 }
 
 export async function exportAggregatedCsv(window: CutoffWindow): Promise<{ csv: string; rowCount: number }> {
   const rows = await runAggregation(window.startDateUtc, addDays(window.endDateUtc, 1))
-  const header = '"Job Name","Job ID","Pay Item","Description","Unit","Quantity","First Work Date","Last Work Date"'
+  const header = '"Job Name","Pay Item","Description","Unit","Quantity","First Work Date","Last Work Date"'
   const lines = rows.map(row => {
     const cells = [
       row.jobName,
-      row.jobId,
       row.payItem,
       row.description,
       row.unit,
