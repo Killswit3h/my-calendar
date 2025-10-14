@@ -1,8 +1,8 @@
 "use client";
 
 import { ReactNode } from "react";
-import AppSidebar from "../components/shell/AppSidebar";
-import AppTopbar from "../components/shell/AppTopbar";
+import AppSidebar from "@/components/shell/AppSidebar";
+import AppTopbar from "@/components/shell/AppTopbar";
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   return (
