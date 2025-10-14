@@ -1,7 +1,6 @@
 // src/components/shell/KpiTrend.tsx
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/theme'
 
 interface KpiTrendProps {
@@ -22,11 +21,11 @@ export function KpiTrend({ title, data, className }: KpiTrendProps) {
   ]
 
   return (
-    <Card className={cn("glass", className)}>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className={cn("glass rounded-lg", className)}>
+      <div className="p-6 pb-0">
+        <h3 className="text-lg font-semibold">{title}</h3>
+      </div>
+      <div className="p-6 pt-0">
         <div className="h-64 flex items-end justify-between gap-2">
           {mockData.map((item, index) => (
             <div key={item.name} className="flex flex-col items-center gap-2">
@@ -41,7 +40,7 @@ export function KpiTrend({ title, data, className }: KpiTrendProps) {
         <div className="mt-4 text-sm text-muted">
           <p>Performance trend over the last 6 months</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
