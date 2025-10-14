@@ -1,6 +1,6 @@
-import PageHeader from "@/components/PageHeader";
-import StatCard from "@/components/StatCard";
-import BackButton from "@/components/BackButton";
+import PageHeader from "../../../components/PageHeader";
+import StatCard from "../../../components/StatCard";
+import BackButton from "../../../components/BackButton";
 
 const stats = [
   {
