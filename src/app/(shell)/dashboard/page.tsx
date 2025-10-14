@@ -3,7 +3,6 @@ import { PageHeader } from '@/components/shell/PageHeader'
 import { StatCard } from '@/components/shell/StatCard'
 import { KpiTrend } from '@/components/shell/KpiTrend'
 import { DataTable } from '@/components/shell/DataTable'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
   MapPinned, 
@@ -85,11 +84,11 @@ const recentActivity = [
 ]
 
 const activityColumns = [
-  { key: 'type', header: 'Type' },
-  { key: 'description', header: 'Description' },
-  { key: 'time', header: 'Time' },
+  { key: 'type' as const, header: 'Type' },
+  { key: 'description' as const, header: 'Description' },
+  { key: 'time' as const, header: 'Time' },
   { 
-    key: 'status', 
+    key: 'status' as const, 
     header: 'Status',
     render: (status: string) => {
       const variants = {
@@ -113,12 +112,18 @@ export default function DashboardPage() {
         showBackButton={false}
         actions={
           <div className="flex gap-2">
-            <Button asChild>
-              <Link href="/calendar">Open Calendar</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/reports/daily">Daily Report</Link>
-            </Button>
+            <Link 
+              href="/calendar"
+              className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/90"
+            >
+              Open Calendar
+            </Link>
+            <Link 
+              href="/reports/daily"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium hover:opacity-80"
+            >
+              Daily Report
+            </Link>
           </div>
         }
       />

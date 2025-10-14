@@ -1,6 +1,5 @@
 // src/components/shell/EmptyState.tsx
 import { ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/theme'
 
 interface EmptyStateProps {
