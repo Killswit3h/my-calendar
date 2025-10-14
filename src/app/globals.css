@@ -1,155 +1,46 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Import design tokens */
-@import "../styles/tokens.css";
+/* Theme tokens */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 
-/* Base styles */
-@layer base {
-  * {
-    border-color: rgb(var(--border));
-  }
-  
-  html {
-    @apply scroll-smooth;
-  }
-  
-  html:focus-within {
-    @apply scroll-smooth;
-  }
-  
-  body {
-    background-color: rgb(var(--bg));
-    color: rgb(var(--fg));
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-  
-  /* Focus rings */
-  *:focus-visible {
-    outline: 2px solid rgb(var(--accent));
-    outline-offset: 2px;
-  }
-  
-  /* Skip to content link */
-  .skip-link {
-    position: absolute;
-    left: -10000px;
-    top: auto;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-  }
-  
-  .skip-link:focus {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    z-index: 50;
-    padding: 8px 16px;
-    background-color: rgb(var(--accent));
-    color: rgb(var(--accent-fg));
-    border-radius: 6px;
-  }
+  --color-bg: 0 0% 100%;
+  --color-fg: 220 15% 12%;
+  --color-muted: 215 12% 50%;
+  --color-card: 180 8% 96%;
+  --color-accent: 152 63% 45%;
 }
 
-/* Component styles */
-@layer components {
-  /* Glass surfaces */
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-white/10 shadow-glass;
-  }
-  
-  .glass-lg {
-    @apply bg-card/90 backdrop-blur-xl border border-white/10 shadow-glass-lg;
-  }
-  
-  /* Cards */
-  .card {
-    @apply bg-card border border-border rounded-lg shadow-card;
-  }
-  
-  .card-lg {
-    @apply bg-card border border-border rounded-lg shadow-card-lg;
-  }
-  
-  /* Buttons */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
-  }
-  
-  .btn-primary {
-    @apply btn bg-accent text-accent-fg hover:bg-accent/90;
-  }
-  
-  .btn-secondary {
-    @apply btn bg-card text-fg border border-border hover:bg-card/80;
-  }
-  
-  .btn-ghost {
-    @apply btn hover:bg-card/80 hover:text-fg;
-  }
-  
-  /* Inputs */
-  .input {
-    @apply flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-bg file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  
-  /* Navigation */
-  .nav-item {
-    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-card/80 hover:text-fg;
-  }
-  
-  .nav-item-active {
-    @apply nav-item bg-accent/10 text-accent border-r-2 border-accent;
-  }
-  
-  /* Tables */
-  .table {
-    @apply w-full caption-bottom text-sm;
-  }
-  
-  .table-header {
-    @apply [&_tr]:border-b;
-  }
-  
-  .table-body {
-    @apply [&_tr:last-child]:border-0;
-  }
-  
-  .table-row {
-    @apply border-b border-border transition-colors hover:bg-card/50 data-[state=selected]:bg-card;
-  }
-  
-  .table-head {
-    @apply h-12 px-4 text-left align-middle font-medium text-muted [&:has([role=checkbox])]:pr-0;
-  }
-  
-  .table-cell {
-    @apply p-4 align-middle [&:has([role=checkbox])]:pr-0;
-  }
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+html, body { height: 100%; }
+body {
+  @apply antialiased;
+  background-color: hsl(var(--color-bg));
+  color: hsl(var(--color-fg));
+  font-family: var(--font-sans);
 }
 
-/* Utility classes */
-@layer utilities {
-  /* Text colors */
-  .text-primary { @apply text-fg; }
-  .text-secondary { @apply text-muted; }
-  .text-accent { @apply text-accent; }
-  .text-info { @apply text-info; }
-  .text-warn { @apply text-warn; }
-  .text-danger { @apply text-danger; }
-  
-  /* Background colors */
-  .bg-primary { @apply bg-bg; }
-  .bg-secondary { @apply bg-card; }
-  .bg-accent { @apply bg-accent; }
-  .bg-info { @apply bg-info; }
-  .bg-warn { @apply bg-warn; }
-  .bg-danger { @apply bg-danger; }
-  
-  /* Animations */
-  .animate-fade-in { @apply animate-fade-in; }
-  .animate-slide-up { @apply animate-slide-up; }
-  .animate-scale-in { @apply animate-scale-in; }
+/* Glass card + button utilities */
+.card {
+  @apply rounded-[var(--radius-xl)] border border-black/5 bg-[hsl(var(--color-card)/0.7)] backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,.4),0_12px_40px_rgba(0,0,0,.12)];
 }
+.btn {
+  @apply inline-flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 border border-black/10 hover:border-black/20 transition;
+  background: hsl(var(--color-bg));
+  color: hsl(var(--color-fg));
+}
+.btn-primary {
+  background: hsl(var(--color-accent));
+  color: black;
+}
+
+/* Focus ring */
+*:focus-visible { @apply outline-none ring-2 ring-[hsl(var(--color-accent))] ring-offset-2 ring-offset-white; }
+.dark *:focus-visible { @apply ring-offset-black; }
