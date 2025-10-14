@@ -33,7 +33,7 @@ export default function AppSidebar() {
   return (
     <aside className={`sidebar flex h-screen flex-col w-64 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-[rgb(var(--color-border))]">
+      <div className="flex items-center justify-between p-6 border-b border-gray-700">
         {!collapsed && (
           <div className="flex items-center gap-3">
             <button className="text-white hover:text-gray-300">
@@ -41,7 +41,7 @@ export default function AppSidebar() {
             </button>
             <div>
               <h1 className="text-white font-bold text-lg">Control Center</h1>
-              <p className="text-[rgb(var(--color-muted))] text-sm">Operations Dashboard</p>
+              <p className="text-gray-400 text-sm">Operations Dashboard</p>
             </div>
           </div>
         )}
@@ -69,8 +69,8 @@ export default function AppSidebar() {
                       href={item.href}
                       className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                         isActive 
-                          ? "bg-[rgb(var(--color-card))] text-white" 
-                          : "text-[rgb(var(--color-muted))] hover:text-white hover:bg-[rgb(var(--color-card))]"
+                          ? "bg-gray-700 text-white" 
+                          : "text-gray-400 hover:text-white hover:bg-gray-700"
                       }`}
                       aria-current={isActive ? "page" : undefined}
                     >
