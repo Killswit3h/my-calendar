@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Theme tokens */
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --radius-xs: 6px;
@@ -25,27 +24,6 @@ body {
   background-color: hsl(var(--color-bg));
   color: hsl(var(--color-fg));
   font-family: var(--font-sans);
-}
-
-/* Skip to content link */
-.skip-link {
-  position: absolute;
-  left: -10000px;
-  top: auto;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-.skip-link:focus {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 50;
-  padding: 8px 16px;
-  background: hsl(var(--color-accent));
-  color: black;
-  border-radius: var(--radius-sm);
 }
 
 /* Glass card + button utilities */
