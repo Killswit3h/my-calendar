@@ -1,11 +1,24 @@
 "use client";
 import { useState } from "react";
 
-export default function AppTopbar() {
+interface AppTopbarProps {
+  onMenuClick?: () => void;
+}
+
+export default function AppTopbar({ onMenuClick }: AppTopbarProps) {
   const [searchValue, setSearchValue] = useState("");
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-black/10 bg-white/80 backdrop-blur-xl px-6">
+      {/* Mobile menu button */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 transition-colors"
+        aria-label="Open menu"
+      >
+        <span className="text-base">☰</span>
+      </button>
+
       {/* Search */}
       <div className="flex items-center gap-4 flex-1 max-w-md">
         <div className="relative flex-1">
