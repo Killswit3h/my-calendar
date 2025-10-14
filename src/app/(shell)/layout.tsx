@@ -8,7 +8,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[hsl(var(--color-bg))]">
+    <div className="flex h-screen bg-[rgb(var(--color-bg))]">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -26,7 +26,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       
       <div className="flex flex-1 flex-col overflow-hidden">
         <AppTopbar onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-8">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>
