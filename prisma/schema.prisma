@@ -26,24 +26,26 @@ model Calendar {
 }
 
 model Event {
-  id             String          @id @default(cuid())
-  calendarId     String
-  title          String
-  description    String?
-  allDay         Boolean         @default(false)
-  location       String?
-  employees      Json?
-  invoiceNumber  String?
-  type           String?
-  shift          WorkShift?
-  checklist      Json?
-  startsAt       DateTime
-  endsAt         DateTime
-  attachmentData Bytes?
-  attachmentName String?
-  attachmentType String?
-  calendar       Calendar        @relation(fields: [calendarId], references: [id])
-  quantities     EventQuantity[]
+  id                    String                 @id @default(cuid())
+  calendarId            String
+  title                 String
+  description           String?
+  allDay                Boolean                @default(false)
+  location              String?
+  employees             Json?
+  invoiceNumber         String?
+  type                  String?
+  shift                 WorkShift?
+  checklist             Json?
+  startsAt              DateTime
+  endsAt                DateTime
+  attachmentData        Bytes?
+  attachmentName        String?
+  attachmentType        String?
+  calendar              Calendar               @relation(fields: [calendarId], references: [id])
+  quantities            EventQuantity[]
+  inventoryReservations InventoryReservation[]
+  inventoryCheckouts    InventoryCheckout[]    @relation("InventoryCheckoutEvent")
 
   @@index([calendarId, startsAt])
   @@index([endsAt])
@@ -191,6 +193,21 @@ enum WorkShift {
   NIGHT
 }
 
+enum InventoryCheckoutStatus {
+  OPEN
+  CLOSED
+  LOST
+  DAMAGED
+}
+
+enum InventoryLedgerReason {
+  CHECKOUT
+  RETURN
+  ADJUST
+  CONSUME
+  TRANSFER
+}
+
 enum ReportKind {
   DAILY_PDF
   DAILY_XLSX
@@ -201,4 +218,228 @@ enum WeeklyStatus {
   PENDING
   SUCCESS
   ERROR
+}
+
+/**
+ * -------------- Inventory ---------------
+ */
+
+model InventoryCategory {
+  id        String          @id @default(cuid())
+  name      String
+  slug      String          @unique
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  items     InventoryItem[]
+}
+
+model InventoryLocation {
+  id                String              @id @default(cuid())
+  name              String
+  code              String              @unique
+  isTruck           Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  items             InventoryItem[]     @relation("DefaultLocation")
+  stocks            InventoryStock[]
+  checkoutsFrom     InventoryCheckout[] @relation("CheckoutFromLocation")
+  checkoutsTo       InventoryCheckout[] @relation("CheckoutToLocation")
+  returnsToLocation InventoryReturn[]   @relation("ReturnToLocation")
+  ledgerFrom        InventoryLedger[]   @relation("LedgerFromLocation")
+  ledgerTo          InventoryLedger[]   @relation("LedgerToLocation")
+  transfersFrom     InventoryTransfer[] @relation("TransferFromLocation")
+  transfersTo       InventoryTransfer[] @relation("TransferToLocation")
+}
+
+model InventoryItem {
+  id                String                 @id @default(cuid())
+  sku               String                 @unique
+  name              String
+  description       String?
+  unit              String
+  isConsumable      Boolean                @default(false)
+  minStock          Int                    @default(0)
+  barcode           String?                @unique
+  categoryId        String?
+  defaultLocationId String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  deletedAt         DateTime?
+  category          InventoryCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  defaultLocation   InventoryLocation?     @relation("DefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
+  stocks            InventoryStock[]
+  reservations      InventoryReservation[]
+  checkouts         InventoryCheckout[]
+  ledgers           InventoryLedger[]
+  transfers         InventoryTransfer[]
+
+  @@index([name])
+}
+
+model InventoryStock {
+  id         String            @id @default(cuid())
+  itemId     String
+  locationId String
+  qty        Int               @default(0)
+  updatedAt  DateTime          @updatedAt
+  item       InventoryItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([itemId, locationId])
+  @@index([locationId])
+}
+
+model InventoryReservation {
+  id        String        @id @default(cuid())
+  itemId    String
+  eventId   String
+  qty       Int
+  neededAt  DateTime
+  notes     String?
+  createdAt DateTime      @default(now())
+  item      InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, neededAt])
+  @@index([eventId])
+}
+
+model InventoryCheckout {
+  id             String                  @id @default(cuid())
+  itemId         String
+  qty            Int
+  fromLocationId String
+  toEmployeeId   String?
+  toEventId      String?
+  toLocationId   String?
+  dueAt          DateTime?
+  checkedOutById String
+  checkedOutAt   DateTime                @default(now())
+  status         InventoryCheckoutStatus @default(OPEN)
+  closedAt       DateTime?
+  item           InventoryItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation   InventoryLocation       @relation("CheckoutFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation     InventoryLocation?      @relation("CheckoutToLocation", fields: [toLocationId], references: [id], onDelete: SetNull)
+  toEvent        Event?                  @relation("InventoryCheckoutEvent", fields: [toEventId], references: [id], onDelete: SetNull)
+  returns        InventoryReturn[]
+
+  @@index([itemId])
+  @@index([toEventId])
+}
+
+model InventoryReturn {
+  id            String            @id @default(cuid())
+  checkoutId    String
+  qty           Int
+  toLocationId  String
+  condition     String?
+  notes         String?
+  photoUrl      String?
+  checkedInById String
+  checkedInAt   DateTime          @default(now())
+  checkout      InventoryCheckout @relation(fields: [checkoutId], references: [id], onDelete: Restrict)
+  toLocation    InventoryLocation @relation("ReturnToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+
+  @@index([checkoutId])
+}
+
+model InventoryLedger {
+  id             String                @id @default(cuid())
+  itemId         String
+  deltaQty       Int
+  fromLocationId String?
+  toLocationId   String?
+  reason         InventoryLedgerReason
+  refType        String?
+  refId          String?
+  actorId        String?
+  at             DateTime              @default(now())
+  notes          String?
+  item           InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation   InventoryLocation?    @relation("LedgerFromLocation", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocation     InventoryLocation?    @relation("LedgerToLocation", fields: [toLocationId], references: [id], onDelete: SetNull)
+
+  @@index([itemId, at])
+}
+
+model Rfi {
+  id         String    @id @default(cuid())
+  project    String
+  subject    String
+  assignedTo String?
+  status     String
+  dueDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([project, status])
+}
+
+model ChangeOrder {
+  id          String    @id @default(cuid())
+  project     String
+  title       String
+  amount      Decimal?  @db.Decimal(12, 2)
+  status      String
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([project, status])
+}
+
+model PurchaseOrder {
+  id         String    @id @default(cuid())
+  poNumber   String    @unique
+  project    String
+  vendor     String
+  status     String
+  expectedOn DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model InventoryTransfer {
+  id             String            @id @default(cuid())
+  itemId         String
+  fromLocationId String
+  toLocationId   String
+  qty            Int
+  status         String
+  requestedAt    DateTime          @default(now())
+  fulfilledAt    DateTime?
+  notes          String?
+  item           InventoryItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation   InventoryLocation @relation("TransferFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation     InventoryLocation @relation("TransferToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([itemId])
+}
+
+model Certification {
+  id            String    @id @default(cuid())
+  employeeName  String
+  certification String
+  status        String
+  expiresOn     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, expiresOn])
+}
+
+model Vehicle {
+  id            String    @id @default(cuid())
+  unit          String
+  status        String
+  location      String?
+  nextServiceOn DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([nextServiceOn])
 }
