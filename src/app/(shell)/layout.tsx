@@ -1,20 +1,27 @@
-import type { ReactNode } from 'react'
+// src/app/(shell)/layout.tsx
+"use client"
 
-import AppSidebar from '@/components/ui/AppSidebar'
-import TopBar from '@/components/ui/TopBar'
-import { ShellHotkeys } from '@/components/ui/ShellHotkeys'
+import { ReactNode } from 'react'
+import { AppSidebar } from '@/components/shell/AppSidebar'
+import { AppTopbar } from '@/components/shell/AppTopbar'
+import { useTheme } from '@/components/providers/ThemeProvider'
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
+  const { resolvedTheme, setTheme } = useTheme()
+
+  const handleThemeToggle = () => {
+    setTheme(resolvedTheme === 'light' ? 'dark' : 'light')
+  }
+
   return (
-    <div className="relative flex min-h-dvh w-full overflow-hidden bg-background text-foreground">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(63,113,79,0.22),transparent_60%),radial-gradient(circle_at_bottom_right,rgba(47,110,61,0.16),transparent_55%)]" />
+    <div className="flex h-screen bg-bg">
       <AppSidebar />
-      <div className="relative flex min-h-dvh flex-1 flex-col">
-        <TopBar />
-        <ShellHotkeys />
-        <main className="relative flex-1 overflow-x-hidden bg-background">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(63,113,79,0.08),transparent_65%)]" />
-          <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <AppTopbar onThemeToggle={handleThemeToggle} theme={resolvedTheme} />
+        <main id="main-content" className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto max-w-7xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>
