@@ -20,6 +20,7 @@ import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
 import PayItemsManager from '@/components/PayItemsManager';
 import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
+import useOverlayA11y from '@/hooks/useOverlayA11y';
 import {
   APP_TIMEZONE,
   APP_TZ,
@@ -49,6 +50,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import { EllipsisVertical, X } from 'lucide-react';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -175,6 +177,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   }, [searchQuery]);
   const [currentView, setCurrentView] = useState<'dayGridWeek' | 'dayGridMonth'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar | null>(null);
+  const reportPickerRef = useRef<HTMLDivElement>(null);
+  const holidayDialogRef = useRef<HTMLDivElement>(null);
+  const weatherDialogRef = useRef<HTMLDivElement>(null);
+  const payItemsDialogRef = useRef<HTMLDivElement>(null);
+  const todoDialogRef = useRef<HTMLDivElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const [visibleDate, setVisibleDate] = useState<Date | null>(null);
   const [selectedDayYmd, setSelectedDayYmd] = useState<string>('');
   const selectedDay = useMemo(() => (selectedDayYmd ? new Date(`${selectedDayYmd}T00:00:00`) : null), [selectedDayYmd]);
@@ -955,7 +963,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); setDraft(null); setEditId(null); }
       if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); saveDraft(); }
     };
     document.addEventListener('keydown', handler);
@@ -1184,33 +1191,44 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   };
 
   const eventContent = useCallback((arg: EventContentArg) => {
-    const frag = document.createElement('div');
-    frag.style.display = 'flex';
-    frag.style.alignItems = 'center';
-    frag.style.gap = '0.25rem';
-    const span = document.createElement('span');
-    span.className = 'evt-title';
-    span.innerHTML = highlightText(arg.event.title, searchQuery);
-    frag.appendChild(span);
+    const chip = document.createElement('span');
+    chip.className = 'cal-chip';
+
+    const bullet = document.createElement('span');
+    bullet.className = 'cal-chip__bullet';
+    chip.appendChild(bullet);
+
+    const title = document.createElement('span');
+    title.className = 'cal-chip__title';
+    title.innerHTML = highlightText(arg.event.title, searchQuery);
+    chip.appendChild(title);
+
     const hasQuantities = Boolean((arg.event.extendedProps as any)?.hasQuantities);
     if (hasQuantities) {
       const badge = document.createElement('span');
-      badge.className = 'qty-pill';
+      badge.className = 'cal-chip__badge';
       badge.textContent = 'QTY';
-      frag.appendChild(badge);
+      badge.setAttribute('aria-label', 'Quantities attached');
+      badge.setAttribute('title', 'Quantities attached');
+      chip.appendChild(badge);
     }
+
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
     if (loc && loc.trim()) {
-      const a = document.createElement('a');
-      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.title = 'View in Google Maps';
-      a.textContent = '📍';
-      a.className = 'event-gmap-link';
-      frag.appendChild(a);
+      const link = document.createElement('a');
+      link.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'cal-chip__link';
+      link.setAttribute('aria-label', 'Open location in Google Maps');
+      const pin = document.createElement('span');
+      pin.className = 'cal-chip__pin';
+      pin.setAttribute('aria-hidden', 'true');
+      link.appendChild(pin);
+      chip.appendChild(link);
     }
-    return { domNodes: [frag] };
+
+    return { domNodes: [chip] };
   }, [highlightText, searchQuery]);
 
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -1218,6 +1236,18 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
   const [payItemsDialog, setPayItemsDialog] = useState(false);
+  const closeReportPicker = useCallback(() => setReportPickerOpen(false), []);
+  const closeHolidayDialog = useCallback(() => setHolidayDialog(false), []);
+  const closeWeatherDialog = useCallback(() => setWeatherDialog(false), []);
+  const closePayItemsDialog = useCallback(() => setPayItemsDialog(false), []);
+  const closeTodoDialog = useCallback(() => { setTodoEdit(null); setTodoForm(null); }, []);
+  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
+  useOverlayA11y(reportPickerOpen, reportPickerRef, closeReportPicker);
+  useOverlayA11y(holidayDialog, holidayDialogRef, closeHolidayDialog);
+  useOverlayA11y(weatherDialog, weatherDialogRef, closeWeatherDialog);
+  useOverlayA11y(payItemsDialog, payItemsDialogRef, closePayItemsDialog);
+  useOverlayA11y(!!(todoEdit && todoForm), todoDialogRef, closeTodoDialog);
+  useOverlayA11y(mobileSidebarOpen, mobileDrawerRef, closeMobileSidebar);
   const reloadTodos = useCallback(async () => {
     try {
       const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
@@ -1508,13 +1538,23 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
         <div className="flex gap-2 items-center flex-wrap">
           <div className="options-wrap">
-            <button type="button" className="icon-btn" aria-label="Open menu" aria-haspopup="menu" aria-expanded={optsOpen} onClick={() => setOptsOpen(v => !v)}>⋮</button>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Open menu"
+              aria-haspopup="menu"
+              aria-expanded={optsOpen}
+              onClick={() => setOptsOpen(v => !v)}
+            >
+              <EllipsisVertical size={18} aria-hidden="true" />
+            </button>
             {optsOpen ? (
               <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
                 <Link className="menu-row" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛣️</span><span className="menu-text">FDOT Cut-Off Dates</span></Link>
+                <Link className="menu-row" role="menuitem" href="/inventory" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛠️</span><span className="menu-text">Inventory</span></Link>
                 <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
                 <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
               </div>
@@ -1694,11 +1734,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             {freeCount > 0 ? <span className="fab-badge" aria-hidden>{freeCount}</span> : null}
           </button>
           {mobileSidebarOpen ? (
-            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) setMobileSidebarOpen(false); }}>
-              <div className="drawer-panel" role="dialog" aria-modal="true">
+            <div className="drawer-root" onClick={e => { if (e.currentTarget === e.target) closeMobileSidebar(); }}>
+              <div ref={mobileDrawerRef} className="drawer-panel" role="dialog" aria-modal="true" tabIndex={-1}>
                 <div className="drawer-header">
                   <div>Unassigned</div>
-                  <button className="icon-btn" aria-label="Close" onClick={() => setMobileSidebarOpen(false)}>✕</button>
+                  <button className="icon-btn" aria-label="Close" onClick={closeMobileSidebar}>
+                    <X size={18} aria-hidden="true" />
+                  </button>
                 </div>
                 {selectedDay ? (
                   <UnassignedSidebar
@@ -1719,8 +1761,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* daily report date picker */}
       {reportPickerOpen ? (
-        <div className="modal-root">
-          <div className="modal-card" style={{ maxWidth: '360px' }}>
+        <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) closeReportPicker(); }}>
+          <div ref={reportPickerRef} className="modal-card" style={{ maxWidth: '360px' }} tabIndex={-1} role="dialog" aria-modal="true">
             <h3 className="modal-title">Generate Daily Report</h3>
             <div className="form-grid form-compact">
               <label><div className="label">Date</div>
@@ -1728,7 +1770,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </label>
             </div>
             <div className="modal-actions">
-              <button className="btn ghost" onClick={() => setReportPickerOpen(false)}>Cancel</button>
+              <button className="btn ghost" onClick={closeReportPicker}>Cancel</button>
               <button className="btn primary" onClick={async () => {
                 const ymd = reportDate.trim();
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) { alert('Invalid date'); return; }
@@ -1780,7 +1822,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                     }),
                   });
                   const j = await r.json();
-                  if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); setReportPickerOpen(false); }
+                  if (r.ok && j.pdfUrl) { window.open(j.pdfUrl, '_blank'); closeReportPicker(); }
                   else alert(j.error || 'Failed to generate');
                 } catch { alert('Failed to generate'); }
               }}>Generate</button>
@@ -1842,8 +1884,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* Holidays country prompt */}
       {holidayDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setHolidayDialog(false); }}>
-          <div className="modal-card" role="dialog" aria-modal="true">
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeHolidayDialog(); }}>
+          <div ref={holidayDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
             <h3 className="modal-title">Holidays</h3>
             <div className="form-grid">
               <label className="inline span-2"><input type="checkbox" checked={holidayOn} onChange={e => setHolidayOn(e.target.checked)} /><span>Show public holidays</span></label>
@@ -1854,8 +1896,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 </select>
               </label>
               <div className="modal-actions">
-                <button className="btn ghost" onClick={() => setHolidayDialog(false)}>Cancel</button>
-                <button className="btn primary" onClick={() => { setHolidayDialog(false); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
+                <button className="btn ghost" onClick={closeHolidayDialog}>Cancel</button>
+                <button className="btn primary" onClick={() => { closeHolidayDialog(); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
               </div>
             </div>
           </div>
@@ -1864,8 +1906,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* Weather location prompt */}
       {weatherDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setWeatherDialog(false); }}>
-          <div className="modal-card" role="dialog" aria-modal="true">
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeWeatherDialog(); }}>
+          <div ref={weatherDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
             <h3 className="modal-title">Weather</h3>
             <div className="form-grid">
               <label className="span-2">
@@ -1873,13 +1915,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <input type="text" value={weatherQuery} onChange={e => setWeatherQuery(e.target.value)} placeholder="e.g. Orlando, FL or 28.54,-81.38" />
               </label>
               <div className="modal-actions span-2">
-                <button className="btn ghost" onClick={() => setWeatherDialog(false)}>Cancel</button>
+                <button className="btn ghost" onClick={closeWeatherDialog}>Cancel</button>
                 <button className="btn primary" onClick={async () => {
                   const g = await geocode(weatherQuery.trim());
                   if (!g) { alert('Location not found. Try City, State or lat,lng'); return; }
                   setCoords(g);
                   localStorage.setItem('weather.coords', JSON.stringify(g));
-                  setWeatherDialog(false);
+                  closeWeatherDialog();
                   if (visibleRange) fetchWeather(visibleRange.start, visibleRange.end, g);
                 }}>Save</button>
               </div>
@@ -1889,11 +1931,13 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       )}
 
       {payItemsDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setPayItemsDialog(false); }}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closePayItemsDialog(); }}>
+          <div ref={payItemsDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1} style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
             <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Pay Items</span>
-              <button className="icon-btn" aria-label="Close" onClick={() => setPayItemsDialog(false)}>✕</button>
+              <button className="icon-btn" aria-label="Close" onClick={closePayItemsDialog}>
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
             <PayItemsManager condensed />
           </div>
@@ -1902,8 +1946,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* Todo edit prompt */}
       {todoEdit && todoForm && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) { setTodoEdit(null); setTodoForm(null); } }}>
-          <div className="modal-card" role="dialog" aria-modal="true">
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closeTodoDialog(); }}>
+          <div ref={todoDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
             <h3 className="modal-title">Edit To-Do</h3>
             <div className="form-grid form-compact">
               <label className="span-2"><div className="label">Title</div>
@@ -1928,7 +1972,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 </div>
               </div>
               <div className="modal-actions span-2">
-                <button className="btn ghost" onClick={() => { setTodoEdit(null); setTodoForm(null); }}>Cancel</button>
+                <button className="btn ghost" onClick={closeTodoDialog}>Cancel</button>
                 <button className="btn primary" onClick={async () => {
                   if (!todoEdit) return;
                   const payload = { description: todoForm!.description, locate: todoForm!.locate };
@@ -1938,7 +1982,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                     const row = await r.json();
                     setTodos(p => p.map(x => (x.id === row.id ? { id: row.id, title: row.title, notes: row.notes ?? undefined, done: !!row.done, type: row.type } : x)));
                   }
-                  setTodoEdit(null); setTodoForm(null);
+                  closeTodoDialog();
                 }}>Save</button>
               </div>
             </div>
@@ -2045,7 +2089,22 @@ function dateToLocalInput(d: Date) {
   return `${date}T${time.slice(0, 5)}`
 }
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
-function typeToClass(t?: NewEvent['type']) { switch (t) { case 'FENCE': return 'evt-fence'; case 'TEMP_FENCE': return 'evt-temp-fence'; case 'GUARDRAIL': return 'evt-guardrail'; case 'HANDRAIL': return 'evt-handrail'; case 'ATTENUATOR': return 'evt-attenuator'; default: return ''; } }
+function typeToClass(t?: NewEvent['type']) {
+  switch (t) {
+    case 'FENCE':
+      return 'cal-event-chip evt-fence';
+    case 'TEMP_FENCE':
+      return 'cal-event-chip evt-temp-fence';
+    case 'GUARDRAIL':
+      return 'cal-event-chip evt-guardrail';
+    case 'HANDRAIL':
+      return 'cal-event-chip evt-handrail';
+    case 'ATTENUATOR':
+      return 'cal-event-chip evt-attenuator';
+    default:
+      return 'cal-event-chip';
+  }
+}
 
 function isUtcMidnight(date: Date): boolean {
   return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;

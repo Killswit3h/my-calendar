@@ -22,10 +22,10 @@
     @apply bg-card/90 shadow-card border border-white/10 rounded-xl2;
   }
   .hairline { @apply border-b border-white/10; }
-  .token-bg { background-color: theme(colors.bg); }
-  .token-fg { color: theme(colors.fg); }
-  .token-muted { color: theme(colors.muted); }
-  .token-accent { background-color: theme(colors.accent); color: theme(colors.accentFg); }
+  .token-bg { background-color: rgb(var(--bg)); }
+  .token-fg { color: rgb(var(--fg)); }
+  .token-muted { color: rgb(var(--muted)); }
+  .token-accent { background-color: rgb(var(--accent)); color: rgb(var(--accent-fg)); }
   
   /* Additional design tokens */
   .border-border { border-color: rgb(var(--muted) / 0.2); }
