@@ -1,107 +1,68 @@
-// src/app/(shell)/dashboard/page.tsx
-import { PageHeader } from '@/components/shell/PageHeader'
-import { StatCard } from '@/components/shell/StatCard'
-import { KpiTrend } from '@/components/shell/KpiTrend'
-import { DataTable } from '@/components/shell/DataTable'
-import { Badge } from '@/components/ui/badge'
-import { 
-  MapPinned, 
-  Timer, 
-  ArrowDownRight, 
-  ArrowUpRight, 
-  Compass, 
-  CalendarDays,
-  TrendingUp,
-  Users,
-  FileText,
-  AlertTriangle
-} from 'lucide-react'
-import Link from 'next/link'
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
+import Link from "next/link";
 
-export const revalidate = 60
-
-// Mock data - replace with actual data fetching
 const stats = [
   {
-    title: 'Jobs Active',
-    value: '11',
+    title: "Jobs Active",
+    value: "11",
     change: 12.4,
-    changeLabel: 'last month',
-    icon: <MapPinned className="h-6 w-6" />
+    changeLabel: "last month",
+    icon: "📊",
   },
   {
-    title: 'Crews Dispatched',
-    value: '8',
+    title: "Crews Dispatched",
+    value: "8",
     change: 5.7,
-    changeLabel: 'last week',
-    icon: <Users className="h-6 w-6" />
+    changeLabel: "last week",
+    icon: "👥",
   },
   {
-    title: 'Invoices Pending',
-    value: '107',
+    title: "Invoices Pending",
+    value: "107",
     change: -2.1,
-    changeLabel: 'last week',
-    icon: <FileText className="h-6 w-6" />
+    changeLabel: "last week",
+    icon: "📄",
   },
   {
-    title: 'Safety Alerts',
-    value: '2',
+    title: "Safety Alerts",
+    value: "2",
     change: 0,
-    changeLabel: 'last week',
-    icon: <AlertTriangle className="h-6 w-6" />
-  }
-]
+    changeLabel: "last week",
+    icon: "⚠️",
+  },
+];
 
 const recentActivity = [
   {
-    id: '1',
-    type: 'Project Update',
-    description: 'I-95 Sound Barrier Segment 4 - Panel installation complete',
-    time: '2 hours ago',
-    status: 'completed'
+    id: "1",
+    type: "Project Update",
+    description: "I-95 Sound Barrier Segment 4 - Panel installation complete",
+    time: "2 hours ago",
+    status: "completed",
   },
   {
-    id: '2',
-    type: 'RFI',
-    description: 'Port Everglades Fence - Material specification clarification',
-    time: '4 hours ago',
-    status: 'pending'
+    id: "2",
+    type: "RFI",
+    description: "Port Everglades Fence - Material specification clarification",
+    time: "4 hours ago",
+    status: "pending",
   },
   {
-    id: '3',
-    type: 'Safety Incident',
-    description: 'Near miss report - Guardrail panel lift',
-    time: '6 hours ago',
-    status: 'investigation'
+    id: "3",
+    type: "Safety Incident",
+    description: "Near miss report - Guardrail panel lift",
+    time: "6 hours ago",
+    status: "investigation",
   },
   {
-    id: '4',
-    type: 'Inventory Alert',
-    description: 'Low stock alert - 9ga Fence Fabric',
-    time: '8 hours ago',
-    status: 'warning'
-  }
-]
-
-const activityColumns = [
-  { key: 'type' as const, header: 'Type' },
-  { key: 'description' as const, header: 'Description' },
-  { key: 'time' as const, header: 'Time' },
-  { 
-    key: 'status' as const, 
-    header: 'Status',
-    render: (status: string) => {
-      const variants = {
-        completed: 'success',
-        pending: 'info',
-        investigation: 'warning',
-        warning: 'warning'
-      } as const
-      
-      return <Badge variant={variants[status as keyof typeof variants] || 'default'}>{status}</Badge>
-    }
-  }
-]
+    id: "4",
+    type: "Inventory Alert",
+    description: "Low stock alert - 9ga Fence Fabric",
+    time: "8 hours ago",
+    status: "warning",
+  },
+];
 
 export default function DashboardPage() {
   return (
@@ -112,16 +73,10 @@ export default function DashboardPage() {
         showBackButton={false}
         actions={
           <div className="flex gap-2">
-            <Link 
-              href="/calendar"
-              className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/90"
-            >
+            <Link href="/calendar" className="btn btn-primary">
               Open Calendar
             </Link>
-            <Link 
-              href="/reports/daily"
-              className="inline-flex items-center justify-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium hover:opacity-80"
-            >
+            <Link href="/reports/daily" className="btn">
               Daily Report
             </Link>
           </div>
@@ -142,26 +97,31 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts and Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <KpiTrend 
-          title="Performance Trend" 
-          data={[
-            { name: 'Jan', value: 65 },
-            { name: 'Feb', value: 72 },
-            { name: 'Mar', value: 68 },
-            { name: 'Apr', value: 75 },
-            { name: 'May', value: 82 },
-            { name: 'Jun', value: 78 },
-          ]}
-        />
-        
-        <DataTable
-          title="Recent Activity"
-          data={recentActivity}
-          columns={activityColumns}
-        />
+      {/* Recent Activity */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        <div className="space-y-3">
+          {recentActivity.map((activity) => (
+            <div key={activity.id} className="flex items-center justify-between p-3 rounded-md hover:bg-black/5 transition-colors">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{activity.type}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    activity.status === "completed" ? "bg-green-100 text-green-800" :
+                    activity.status === "pending" ? "bg-blue-100 text-blue-800" :
+                    activity.status === "investigation" ? "bg-yellow-100 text-yellow-800" :
+                    "bg-red-100 text-red-800"
+                  }`}>
+                    {activity.status}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-600 mt-1">{activity.description}</p>
+                <p className="text-xs text-neutral-500 mt-1">{activity.time}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  )
+  );
 }
