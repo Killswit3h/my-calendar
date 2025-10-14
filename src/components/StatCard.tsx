@@ -17,10 +17,10 @@ export default function StatCard({ title, value, change, changeLabel, icon }: St
   };
 
   const getTrendColor = () => {
-    if (change === undefined) return "text-[rgb(var(--color-muted))]";
-    if (change > 0) return "text-[rgb(var(--color-accent))]";
+    if (change === undefined) return "text-gray-400";
+    if (change > 0) return "text-green-500";
     if (change < 0) return "text-red-400";
-    return "text-[rgb(var(--color-muted))]";
+    return "text-gray-400";
   };
 
   return (
@@ -32,7 +32,7 @@ export default function StatCard({ title, value, change, changeLabel, icon }: St
           <div className={`flex items-center gap-1 text-sm ${getTrendColor()}`}>
             <span>{getTrendIcon()}</span>
             <span>{Math.abs(change)}%</span>
-            {changeLabel && <span className="text-[rgb(var(--color-muted))]">vs {changeLabel}</span>}
+            {changeLabel && <span className="text-gray-400">vs {changeLabel}</span>}
           </div>
         )}
       </div>

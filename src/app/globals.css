@@ -1,22 +1,5 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
-
-  --color-bg: 33 33 33;        /* #212121 - main background */
-  --color-sidebar: 26 26 26;   /* #1A1A1A - sidebar background */
-  --color-fg: 255 255 255;    /* #FFFFFF - primary text */
-  --color-muted: 160 160 160;  /* #A0A0A0 - muted text */
-  --color-card: 44 44 44;      /* #2C2C2C - card background */
-  --color-accent: 34 197 94;   /* #22c55e - accent green */
-  --color-border: 60 60 60;    /* #3C3C3C - borders */
-}
-
 :root { 
   color-scheme: dark; 
 }
@@ -26,62 +9,33 @@ html, body {
 }
 
 body {
-  @apply antialiased;
-  background-color: rgb(var(--color-bg));
-  color: rgb(var(--color-fg));
-  font-family: var(--font-sans);
+  @apply antialiased bg-gray-900 text-white;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 /* Dark theme utilities */
 .sidebar {
-  background-color: rgb(var(--color-sidebar));
-  border-right: 1px solid rgb(var(--color-border));
+  @apply bg-gray-800 border-r border-gray-700;
 }
 
 .card {
-  @apply rounded-lg border;
-  background-color: rgb(var(--color-card));
-  border-color: rgb(var(--color-border));
+  @apply rounded-lg border bg-gray-800 border-gray-700;
 }
 
 .btn {
-  @apply inline-flex items-center gap-2 rounded-md px-3 py-2 border transition;
-  background-color: rgb(var(--color-card));
-  border-color: rgb(var(--color-border));
-  color: rgb(var(--color-fg));
-}
-
-.btn:hover {
-  background-color: rgb(var(--color-sidebar));
+  @apply inline-flex items-center gap-2 rounded-md px-3 py-2 border border-gray-700 bg-gray-800 text-white transition hover:bg-gray-700;
 }
 
 .btn-primary {
-  background-color: rgb(var(--color-accent));
-  color: black;
-  border-color: rgb(var(--color-accent));
-}
-
-.btn-primary:hover {
-  background-color: rgb(var(--color-accent) / 0.9);
+  @apply bg-green-500 text-black border-green-500 hover:bg-green-600;
 }
 
 /* Focus ring */
 *:focus-visible { 
-  @apply outline-none ring-2 ring-[rgb(var(--color-accent))] ring-offset-2 ring-offset-[rgb(var(--color-bg))]; 
+  @apply outline-none ring-2 ring-green-500 ring-offset-2 ring-offset-gray-900; 
 }
 
 /* Input styling */
 .input {
-  @apply flex h-10 w-full rounded-md border px-3 py-2 text-sm;
-  background-color: rgb(var(--color-card));
-  border-color: rgb(var(--color-border));
-  color: rgb(var(--color-fg));
-}
-
-.input::placeholder {
-  color: rgb(var(--color-muted));
-}
-
-.input:focus {
-  @apply outline-none ring-2 ring-[rgb(var(--color-accent))] ring-offset-2 ring-offset-[rgb(var(--color-bg))];
+  @apply flex h-10 w-full rounded-md border border-gray-700 bg-gray-800 text-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900;
 }

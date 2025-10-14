@@ -29,7 +29,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-white text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-[rgb(var(--color-muted))] text-lg">Unified view of jobs, crews, RFIs, and POs</p>
+        <p className="text-gray-400 text-lg">Unified view of jobs, crews, RFIs, and POs</p>
       </div>
 
       {/* Stats Grid */}
@@ -49,7 +49,7 @@ export default function DashboardPage() {
       <div className="card p-8">
         <h3 className="text-white text-lg font-semibold mb-4">Alerts</h3>
         <div className="flex items-center justify-center py-12">
-          <p className="text-[rgb(var(--color-muted))] text-lg">No recent activity</p>
+          <p className="text-gray-400 text-lg">No recent activity</p>
         </div>
       </div>
 

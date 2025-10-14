@@ -8,7 +8,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[rgb(var(--color-bg))]">
+    <div className="flex h-screen bg-gray-900">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
