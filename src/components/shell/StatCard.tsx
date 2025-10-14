@@ -1,6 +1,5 @@
 // src/components/shell/StatCard.tsx
 import { ReactNode } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/theme'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
@@ -29,8 +28,8 @@ export function StatCard({ title, value, change, changeLabel, icon, className }:
   }
 
   return (
-    <Card className={cn("glass", className)}>
-      <CardContent className="p-6">
+    <div className={cn("glass rounded-lg", className)}>
+      <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted">{title}</p>
@@ -49,7 +48,7 @@ export function StatCard({ title, value, change, changeLabel, icon, className }:
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

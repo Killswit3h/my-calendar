@@ -3,7 +3,6 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/theme'
 
 interface BackButtonProps {
@@ -24,13 +23,12 @@ export function BackButton({ href = '/dashboard', className, children }: BackBut
   }
 
   return (
-    <Button
-      variant="ghost"
+    <button
       onClick={handleClick}
-      className={cn("gap-2", className)}
+      className={cn("inline-flex items-center gap-2 px-3 py-2 rounded-md hover:bg-card/80 transition-colors", className)}
     >
       <ArrowLeft className="h-4 w-4" />
       {children || 'Back to Dashboard'}
-    </Button>
+    </button>
   )
 }

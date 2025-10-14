@@ -1,6 +1,5 @@
 // src/components/shell/DataTable.tsx
 import { ReactNode } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/theme'
 
@@ -24,13 +23,13 @@ export function DataTable<T extends Record<string, any>>({
   className
 }: DataTableProps<T>) {
   return (
-    <Card className={cn("glass", className)}>
+    <div className={cn("glass rounded-lg", className)}>
       {title && (
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-        </CardHeader>
+        <div className="p-6 pb-0">
+          <h3 className="text-lg font-semibold">{title}</h3>
+        </div>
       )}
-      <CardContent className="p-0">
+      <div className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-border">
@@ -68,7 +67,7 @@ export function DataTable<T extends Record<string, any>>({
             <p>No data available</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
