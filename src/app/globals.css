@@ -2,37 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tokens only live in src/styles/tokens.css */
+/* Import design tokens */
 @import "../styles/tokens.css";
 
-/* Base reset only. No global colors here. */
+/* Base styles */
 @layer base {
-  html:focus-within { scroll-behavior: smooth; }
-  *,
-  *::before,
-  *::after { @apply border-transparent; }
-}
-
-/* Design-system utilities */
-@layer utilities {
-  .glass {
-    @apply bg-card/70 backdrop-blur-xs shadow-glass border border-white/10 rounded-xl3;
+  * {
+    @apply border-border;
   }
-  .card {
-    @apply bg-card/90 shadow-card border border-white/10 rounded-xl2;
-  }
-  .hairline { @apply border-b border-white/10; }
-  .token-bg { background-color: rgb(var(--bg)); }
-  .token-fg { color: rgb(var(--fg)); }
-  .token-muted { color: rgb(var(--muted)); }
-  .token-accent { background-color: rgb(var(--accent)); color: rgb(var(--accent-fg)); }
   
-  /* Additional design tokens */
-  .border-border { border-color: rgb(var(--muted) / 0.2); }
-  .bg-surface { background-color: rgb(var(--card)); }
-  .text-foreground { color: rgb(var(--fg)); }
-  .text-muted { color: rgb(var(--muted)); }
+  html {
+    @apply scroll-smooth;
+  }
+  
+  html:focus-within {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-bg text-fg antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Focus rings */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+  
+  /* Skip to content link */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-accent-fg focus:rounded-md;
+  }
 }
 
-/* Remove all prior :root/.dark/body/a/.btn/.surface/.fc/... rules from here. 
-   Move calendar-specific rules into src/styles/calendar.css and scope under a wrapper like .calendar-root */
+/* Component styles */
+@layer components {
+  /* Glass surfaces */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-white/10 shadow-glass;
+  }
+  
+  .glass-lg {
+    @apply bg-card/90 backdrop-blur-xl border border-white/10 shadow-glass-lg;
+  }
+  
+  /* Cards */
+  .card {
+    @apply bg-card border border-border rounded-lg shadow-card;
+  }
+  
+  .card-lg {
+    @apply bg-card border border-border rounded-lg shadow-card-lg;
+  }
+  
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  
+  .btn-primary {
+    @apply btn bg-accent text-accent-fg hover:bg-accent/90;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-card text-fg border border-border hover:bg-card/80;
+  }
+  
+  .btn-ghost {
+    @apply btn hover:bg-card/80 hover:text-fg;
+  }
+  
+  /* Inputs */
+  .input {
+    @apply flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-bg file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  
+  /* Navigation */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-card/80 hover:text-fg;
+  }
+  
+  .nav-item-active {
+    @apply nav-item bg-accent/10 text-accent border-r-2 border-accent;
+  }
+  
+  /* Tables */
+  .table {
+    @apply w-full caption-bottom text-sm;
+  }
+  
+  .table-header {
+    @apply [&_tr]:border-b;
+  }
+  
+  .table-body {
+    @apply [&_tr:last-child]:border-0;
+  }
+  
+  .table-row {
+    @apply border-b border-border transition-colors hover:bg-card/50 data-[state=selected]:bg-card;
+  }
+  
+  .table-head {
+    @apply h-12 px-4 text-left align-middle font-medium text-muted [&:has([role=checkbox])]:pr-0;
+  }
+  
+  .table-cell {
+    @apply p-4 align-middle [&:has([role=checkbox])]:pr-0;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Text colors */
+  .text-primary { @apply text-fg; }
+  .text-secondary { @apply text-muted; }
+  .text-accent { @apply text-accent; }
+  .text-info { @apply text-info; }
+  .text-warn { @apply text-warn; }
+  .text-danger { @apply text-danger; }
+  
+  /* Background colors */
+  .bg-primary { @apply bg-bg; }
+  .bg-secondary { @apply bg-card; }
+  .bg-accent { @apply bg-accent; }
+  .bg-info { @apply bg-info; }
+  .bg-warn { @apply bg-warn; }
+  .bg-danger { @apply bg-danger; }
+  
+  /* Animations */
+  .animate-fade-in { @apply animate-fade-in; }
+  .animate-slide-up { @apply animate-slide-up; }
+  .animate-scale-in { @apply animate-scale-in; }
+}

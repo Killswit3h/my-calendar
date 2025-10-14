@@ -3,8 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
-import Providers from "./providers";
-import { cn } from "@/lib/theme";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { ToasterProvider } from "@/components/providers/ToasterProvider";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
@@ -16,12 +16,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* Use token-driven colors, not old background/foreground keys */}
-      <body className={cn("min-h-dvh antialiased bg-[rgb(var(--bg))] text-[rgb(var(--fg))]", inter.variable)}>
-        {/* Page container (adjust max-w as needed) */}
-        <div className="mx-auto max-w-7xl p-4 sm:p-6">
-          <Providers>{children}</Providers>
-        </div>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <ThemeProvider>
+          <ToasterProvider />
+          <a href="#main-content" className="skip-link">
+            Skip to main content
+          </a>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
