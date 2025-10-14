@@ -1,57 +1,162 @@
 // src/app/(shell)/dashboard/page.tsx
-import { PageHeader } from "../../../components/ui/PageHeader";
-import KpiGrid from "../../../components/ui/KpiGrid";
-import KpiCard from "../../../components/ui/KpiCard";
-import ActionQueue from "../../../components/ui/ActionQueue";
+import { PageHeader } from '@/components/shell/PageHeader'
+import { StatCard } from '@/components/shell/StatCard'
+import { KpiTrend } from '@/components/shell/KpiTrend'
+import { DataTable } from '@/components/shell/DataTable'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { 
+  MapPinned, 
+  Timer, 
+  ArrowDownRight, 
+  ArrowUpRight, 
+  Compass, 
+  CalendarDays,
+  TrendingUp,
+  Users,
+  FileText,
+  AlertTriangle
+} from 'lucide-react'
+import Link from 'next/link'
 
-import { getActionQueueGroups, getDashboardMetrics } from "../../../lib/dashboard/metrics";
-import { CALENDAR_HOME_PATH } from "../../../lib/calendar/constants";
-import Link from "next/link";
+export const revalidate = 60
 
-export const revalidate = 60;
+// Mock data - replace with actual data fetching
+const stats = [
+  {
+    title: 'Jobs Active',
+    value: '11',
+    change: 12.4,
+    changeLabel: 'last month',
+    icon: <MapPinned className="h-6 w-6" />
+  },
+  {
+    title: 'Crews Dispatched',
+    value: '8',
+    change: 5.7,
+    changeLabel: 'last week',
+    icon: <Users className="h-6 w-6" />
+  },
+  {
+    title: 'Invoices Pending',
+    value: '107',
+    change: -2.1,
+    changeLabel: 'last week',
+    icon: <FileText className="h-6 w-6" />
+  },
+  {
+    title: 'Safety Alerts',
+    value: '2',
+    change: 0,
+    changeLabel: 'last week',
+    icon: <AlertTriangle className="h-6 w-6" />
+  }
+]
 
+const recentActivity = [
+  {
+    id: '1',
+    type: 'Project Update',
+    description: 'I-95 Sound Barrier Segment 4 - Panel installation complete',
+    time: '2 hours ago',
+    status: 'completed'
+  },
+  {
+    id: '2',
+    type: 'RFI',
+    description: 'Port Everglades Fence - Material specification clarification',
+    time: '4 hours ago',
+    status: 'pending'
+  },
+  {
+    id: '3',
+    type: 'Safety Incident',
+    description: 'Near miss report - Guardrail panel lift',
+    time: '6 hours ago',
+    status: 'investigation'
+  },
+  {
+    id: '4',
+    type: 'Inventory Alert',
+    description: 'Low stock alert - 9ga Fence Fabric',
+    time: '8 hours ago',
+    status: 'warning'
+  }
+]
 
-const KPI_LABELS = [
-  { key: "jobsActive", label: "Jobs active", helper: "Crews dispatched across markets", iconName: "MapPinned", change: 12.4, trend: "up" as const },
-  { key: "invoicesPending", label: "Invoices pending", helper: "Awaiting signatures or submission", iconName: "Timer", change: 4.1, trend: "up" as const },
-  { key: "inventoryLowStock", label: "Inventory low stock", helper: "Below reorder targets", iconName: "ArrowDownRight", change: 6.0, trend: "down" as const },
-  { key: "crewHoursThisWeek", label: "Crew hours this week", helper: "Tracked from scheduled work orders", iconName: "ArrowUpRight", change: 5.7, trend: "up" as const, suffix: "hrs" },
-  { key: "projectsBehindSchedule", label: "Projects behind", helper: "Needs recovery plans this week", iconName: "Compass", change: 2.1, trend: "down" as const },
-  { key: "safetyAlertsOpen", label: "Safety alerts open", helper: "Incidents awaiting closeout", iconName: "CalendarDays", change: 1.8, trend: "neutral" as const },
-] as const;
+const activityColumns = [
+  { key: 'type', header: 'Type' },
+  { key: 'description', header: 'Description' },
+  { key: 'time', header: 'Time' },
+  { 
+    key: 'status', 
+    header: 'Status',
+    render: (status: string) => {
+      const variants = {
+        completed: 'success',
+        pending: 'info',
+        investigation: 'warning',
+        warning: 'warning'
+      } as const
+      
+      return <Badge variant={variants[status as keyof typeof variants] || 'default'}>{status}</Badge>
+    }
+  }
+]
 
-export default async function DashboardPage() {
-  const [metrics, groups] = await Promise.all([getDashboardMetrics(), getActionQueueGroups()]);
-
+export default function DashboardPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Unified view of jobs, crews, RFIs, and POs"
+        description="Unified view of jobs, crews, RFIs, and operations"
+        showBackButton={false}
         actions={
           <div className="flex gap-2">
-            <Link href={CALENDAR_HOME_PATH} className="px-3 py-1.5 rounded-lg token-accent text-sm">Open calendar</Link>
-            <Link href="/reports/daily" className="px-3 py-1.5 rounded-lg bg-muted/10 text-sm token-fg border border-white/10">Daily report</Link>
+            <Button asChild>
+              <Link href="/calendar">Open Calendar</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/reports/daily">Daily Report</Link>
+            </Button>
           </div>
         }
       />
 
-      <KpiGrid>
-        {KPI_LABELS.map((k) => (
-          <KpiCard
-            key={k.key}
-            label={k.label}
-            value={Number((metrics as any)[k.key] ?? 0)}
-            hint={k.helper}
-            suffix={(k as any).suffix}
-            change={k.change}
-            trend={k.trend}
-            iconName={k.iconName}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <StatCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            change={stat.change}
+            changeLabel={stat.changeLabel}
+            icon={stat.icon}
           />
         ))}
-      </KpiGrid>
+      </div>
 
-      <ActionQueue groups={groups} />
+      {/* Charts and Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <KpiTrend 
+          title="Performance Trend" 
+          data={[
+            { name: 'Jan', value: 65 },
+            { name: 'Feb', value: 72 },
+            { name: 'Mar', value: 68 },
+            { name: 'Apr', value: 75 },
+            { name: 'May', value: 82 },
+            { name: 'Jun', value: 78 },
+          ]}
+        />
+        
+        <DataTable
+          title="Recent Activity"
+          data={recentActivity}
+          columns={activityColumns}
+        />
+      </div>
     </div>
-  );
+  )
 }
