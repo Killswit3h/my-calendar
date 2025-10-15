@@ -2,32 +2,26 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import CalendarWithData from '@/components/CalendarWithData'
 import BackButton from '@/components/BackButton'
 import MonthView from '@/components/calendar/MonthView'
-import RBCMonth from '@/components/calendar/RBCMonth'
 import { getEventsOverlapping } from '@/lib/events'
 import { startOfMonth, endOfMonth, addDays } from 'date-fns'
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ view?: string; d?: string }> }) {
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   const params = await searchParams
-  const view = params?.view || 'fullcalendar'
   const base = params?.d ? new Date(params.d) : new Date()
   
-  // For month/rbc views, fetch events with proper overlap query
-  let monthEvents: any[] = []
-  if (view === 'month' || view === 'rbc') {
-    const start = addDays(startOfMonth(base), -7) // buffer for leading week
-    const end = addDays(endOfMonth(base), 7)      // buffer for trailing week
-    const events = await getEventsOverlapping(start, end)
-    monthEvents = events.map((e: any) => ({
-      id: e.id,
-      title: e.title,
-      startsAt: e.startsAt,
-      endsAt: e.endsAt,
-      color: e.type ? getColorForType(e.type) : undefined
-    }))
-  }
+  // Fetch events with proper overlap query
+  const start = addDays(startOfMonth(base), -7) // buffer for leading week
+  const end = addDays(endOfMonth(base), 7)      // buffer for trailing week
+  const events = await getEventsOverlapping(start, end)
+  const monthEvents = events.map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    startsAt: e.startsAt,
+    endsAt: e.endsAt,
+    color: e.type ? getColorForType(e.type) : undefined
+  }))
 
   return (
     <main className="w-full max-w-full space-y-6">
@@ -37,37 +31,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <p className="text-muted">Manage your events and schedule</p>
       </header>
       
-      {/* View selector */}
-      <div className="flex gap-2">
-        <a 
-          href="?view=fullcalendar" 
-          className={`btn ${view === 'fullcalendar' ? 'btn-primary' : ''}`}
-        >
-          Full Calendar
-        </a>
-        <a 
-          href="?view=month" 
-          className={`btn ${view === 'month' ? 'btn-primary' : ''}`}
-        >
-          Month Grid
-        </a>
-        <a 
-          href="?view=rbc" 
-          className={`btn ${view === 'rbc' ? 'btn-primary' : ''}`}
-        >
-          React Big Calendar
-        </a>
-      </div>
-      
       <section className="card p-2 md:p-4 overflow-hidden">
         <div className="w-full">
-          {view === 'month' ? (
-            <MonthView monthDate={base} events={monthEvents} />
-          ) : view === 'rbc' ? (
-            <RBCMonth events={monthEvents} />
-          ) : (
-            <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
-          )}
+          <MonthView monthDate={base} events={monthEvents} />
         </div>
       </section>
     </main>
