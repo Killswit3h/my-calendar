@@ -5,7 +5,7 @@ import AppSidebar from "@/components/shell/AppSidebar";
 import AppTopbar from "@/components/shell/AppTopbar";
 import BackButton from "@/components/BackButton";
 
-const CalendarWithData = dynamicImport(() => import("@/components/CalendarWithData"), {
+const CalendarWithData = dynamicImport(() => import("@/components/calendar/CalendarView"), {
   ssr: false,
   loading: () => <div className="card p-6">Loading calendar…</div>,
 });
@@ -23,7 +23,7 @@ export default function CalendarPage() {
             <p className="text-muted">Manage your events and schedule</p>
           </header>
           <section className="card p-4">
-            <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
+            <CalendarWithData />
           </section>
         </main>
       </div>
