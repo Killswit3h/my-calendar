@@ -1,89 +1,49 @@
-"use client";
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
-const navSections = [
-  {
-    title: "Workspace",
-    items: [
-      { name: "Dashboard", href: "/dashboard", icon: "⊞" },
-      { name: "Calendar", href: "/calendar", icon: "📅" },
-      { name: "Projects", href: "/projects", icon: "📁" },
-      { name: "Documents", href: "/documents", icon: "📄" },
-      { name: "Finance", href: "/finance", icon: "⚙️" },
-      { name: "Procurement", href: "/procurement", icon: "🎯" },
-      { name: "HR", href: "/hr", icon: "☑️" },
-      { name: "Fleet", href: "/fleet", icon: "🚛" },
-    ],
-  },
-  {
-    title: "Oversight",
-    items: [
-      { name: "Compliance", href: "/compliance", icon: "👤" },
-      { name: "Admin", href: "/admin", icon: "📊" },
-    ],
-  },
+const sections = [
+  { title: "Workspace", items: [
+    ["Dashboard","/"], ["Calendar","/calendar"], ["Projects","/projects"],
+    ["Documents","/documents"], ["Finance","/finance"], ["Inventory","/inventory"],
+    ["Procurement","/procurement"], ["HR","/hr"], ["Fleet","/fleet"],
+  ]},
+  { title: "Oversight", items: [
+    ["Compliance","/compliance"], ["Reports","/reports"],
+  ]},
+  { title: "Administration", items: [
+    ["Admin","/admin"],
+  ]},
 ];
 
-export default function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const pathname = usePathname();
-
+export default function AppSidebar({ current = "/" }: { current?: string }) {
   return (
-    <aside className={`sidebar flex h-screen flex-col w-64 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-700">
-        {!collapsed && (
-          <div className="flex items-center gap-3">
-            <button className="text-white hover:text-gray-300">
-              ←
-            </button>
-            <div>
-              <h1 className="text-white font-bold text-lg">Control Center</h1>
-              <p className="text-gray-400 text-sm">Operations Dashboard</p>
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <button className="text-white hover:text-gray-300 text-lg">
-            ←
-          </button>
-        )}
+    <aside className="hidden md:flex md:flex-col w-64 shrink-0 p-4 gap-4">
+      <div className="card p-4">
+        <div className="text-xl font-semibold">Control Center</div>
+        <div className="text-sm text-muted">Operations Dashboard</div>
       </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-6">
-        {navSections.map((section) => (
-          <div key={section.title}>
-            <h3 className="text-white font-bold text-sm mb-3">
-              {section.title}
-            </h3>
+      <nav className="flex-1 space-y-6">
+        {sections.map((s) => (
+          <div key={s.title}>
+            <div className="text-sm uppercase tracking-wide text-muted mb-2">{s.title}</div>
             <ul className="space-y-1">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                        isActive 
-                          ? "bg-gray-700 text-white" 
-                          : "text-gray-400 hover:text-white hover:bg-gray-700"
-                      }`}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      <span className="text-base">{item.icon}</span>
-                      {!collapsed && <span>{item.name}</span>}
-                    </Link>
-                  </li>
-                );
-              })}
+              {s.items.map(([label, href]) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    aria-current={current === href ? "page" : undefined}
+                    className={`block px-3 py-2 rounded-md hover:bg-white/5 ${
+                      current === href ? "bg-white/10" : ""
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         ))}
       </nav>
+      <div className="text-xs text-muted">© {new Date().getFullYear()} GFC</div>
     </aside>
   );
 }

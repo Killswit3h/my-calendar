@@ -5,9 +5,9 @@ export default function BackButton({ href = "/" }: { href?: string }) {
   const router = useRouter();
   return (
     <button
-      onClick={() => { history.length > 1 ? router.back() : router.push(href); }}
+      onClick={() => (history.length > 1 ? router.back() : router.push(href))}
       className="btn"
-      aria-label="Back to previous"
+      aria-label="Back"
     >
       ← Back
     </button>
