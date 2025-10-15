@@ -1184,22 +1184,65 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   };
 
   const eventContent = useCallback((arg: EventContentArg) => {
+    // Import job type colors and normalization
+    const { JOB_TYPE_COLOR, normalizeJobType } = require('@/components/calendar/colors');
+    
     const frag = document.createElement('div');
     frag.style.display = 'flex';
     frag.style.alignItems = 'center';
-    frag.style.gap = '0.25rem';
+    frag.style.gap = '8px';
+    frag.style.padding = '4px 8px';
+    frag.style.borderRadius = '10px';
+    frag.style.backdropFilter = 'blur(6px)';
+    frag.style.overflow = 'hidden';
+    
+    // Get job type from event extended props
+    const eventProps = arg.event.extendedProps as any;
+    const jobType = normalizeJobType(eventProps?.type || eventProps?.jobType || '');
+    const colors = JOB_TYPE_COLOR[jobType];
+    
+    // Set translucent background and border
+    frag.style.backgroundColor = colors.glass;
+    frag.style.border = `1px solid ${colors.solid}22`;
+    
+    // Create colored dot
+    const dot = document.createElement('span');
+    dot.style.width = '8px';
+    dot.style.height = '8px';
+    dot.style.borderRadius = '9999px';
+    dot.style.backgroundColor = colors.dot;
+    dot.style.boxShadow = `0 0 0 2px ${colors.solid}33`;
+    dot.style.flexShrink = '0';
+    frag.appendChild(dot);
+    
+    // Create title span
     const span = document.createElement('span');
     span.className = 'evt-title';
+    span.style.whiteSpace = 'nowrap';
+    span.style.overflow = 'hidden';
+    span.style.textOverflow = 'ellipsis';
+    span.style.fontWeight = '600';
+    span.style.color = '#e7e9ea';
     span.innerHTML = highlightText(arg.event.title, searchQuery);
     frag.appendChild(span);
-    const hasQuantities = Boolean((arg.event.extendedProps as any)?.hasQuantities);
+    
+    // Add quantities badge if present
+    const hasQuantities = Boolean(eventProps?.hasQuantities);
     if (hasQuantities) {
       const badge = document.createElement('span');
       badge.className = 'qty-pill';
       badge.textContent = 'QTY';
+      badge.style.fontSize = '10px';
+      badge.style.padding = '2px 4px';
+      badge.style.backgroundColor = colors.solid;
+      badge.style.color = '#000';
+      badge.style.borderRadius = '4px';
+      badge.style.fontWeight = 'bold';
       frag.appendChild(badge);
     }
-    const loc = (arg.event.extendedProps as any)?.location as string | undefined;
+    
+    // Add location link if present
+    const loc = eventProps?.location as string | undefined;
     if (loc && loc.trim()) {
       const a = document.createElement('a');
       a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
@@ -1208,10 +1251,20 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       a.title = 'View in Google Maps';
       a.textContent = '📍';
       a.className = 'event-gmap-link';
+      a.style.fontSize = '12px';
       frag.appendChild(a);
     }
+    
     return { domNodes: [frag] };
   }, [highlightText, searchQuery]);
+
+  const eventDidMount = useCallback((info: any) => {
+    // Disable FullCalendar's default blue styling
+    info.el.style.backgroundColor = 'transparent';
+    info.el.style.border = 'none';
+    info.el.style.boxShadow = 'none';
+    info.el.style.padding = '0';
+  }, []);
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
@@ -1580,6 +1633,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
+              eventDidMount={eventDidMount}
               displayEventTime={false}
               expandRows
               handleWindowResize
@@ -1640,6 +1694,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
+              eventDidMount={eventDidMount}
               displayEventTime={false}
               expandRows
               handleWindowResize
