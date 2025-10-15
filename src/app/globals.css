@@ -42,3 +42,10 @@ main { position: relative; z-index: 0; }
 /* Remove background gradients */
 body { background: #0b1110 !important; }
 html { background: #0b1110 !important; }
+
+/* Darker calendar header */
+.fc .fc-toolbar { background: rgba(18,24,22,0.8) !important; border-bottom: 1px solid rgba(255,255,255,0.1) !important; }
+.fc .fc-toolbar-title { color: #e7e9ea !important; }
+.fc .fc-button { background: rgba(18,24,22,0.9) !important; border-color: rgba(255,255,255,0.2) !important; color: #e7e9ea !important; }
+.fc .fc-button:hover { background: rgba(18,24,22,1) !important; }
+.fc .fc-button-primary { background: #3ddc84 !important; border-color: #3ddc84 !important; color: #000000 !important; }
