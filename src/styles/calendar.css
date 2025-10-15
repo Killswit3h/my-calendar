@@ -21,6 +21,8 @@
   --card-2: #242426;
   --elev-1: #232325;
   --elev-2: #2a2a2c;
+  --elevated: #2c2c2e;
+  --surface: #2c2c2e;
 
   --text: #f2f2f7;
   --text-dim: #aeaeb2;
@@ -33,6 +35,10 @@
   --primary-contrast: #ffffff;
   --danger: #ff453a;
   --ok: #30d158;
+
+  /* Glass blur effects */
+  --glass-blur-12: 12px;
+  --glass-blur-16: 16px;
 
   /* === Job type colors (original mapping) === */
   --evt-guardrail:  #16a34a; /* green */
@@ -276,6 +282,19 @@
 /* ===== Modal: Add event ===== */
 .modal-root { position: fixed; inset: 0; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 1rem; backdrop-filter: blur(var(--glass-blur-16)); }
 .modal-card { width: min(720px, 96vw); max-height: 90vh; overflow: auto; background: var(--elevated); color: var(--text); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); padding: 1rem 1.25rem; backdrop-filter: blur(var(--glass-blur-16)); -webkit-backdrop-filter: blur(var(--glass-blur-16)); }
+
+/* Daily Report Modal Styling */
+.daily-report-modal {
+  background: color-mix(in srgb, #000 60%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.daily-report-card {
+  background: #2a2a2c;
+  border: 1px solid #3a3a3c;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6);
+}
 .modal-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
 .form-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; align-items: start; }
 .form-grid * { box-sizing: border-box; min-width: 0; }

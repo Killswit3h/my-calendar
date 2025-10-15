@@ -211,9 +211,10 @@ export default function MonthView({ monthDate, events }: { monthDate: Date; even
         .month-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
-          grid-template-rows: repeat(6, 120px);
+          grid-template-rows: repeat(6, minmax(100px, 1fr));
           gap: 1px;
           background: #3a3a3c;
+          min-height: 600px;
         }
         
         .day-cell {
@@ -222,7 +223,8 @@ export default function MonthView({ monthDate, events }: { monthDate: Date; even
           padding: 8px;
           display: flex;
           flex-direction: column;
-          min-height: 120px;
+          min-height: 100px;
+          overflow: visible;
         }
         
         .day-cell.other-month {
