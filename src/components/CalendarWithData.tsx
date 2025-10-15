@@ -1790,8 +1790,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
       {/* daily report date picker */}
       {reportPickerOpen ? (
-        <div className="modal-root">
-          <div className="modal-card" style={{ maxWidth: '360px' }}>
+        <div className="modal-root daily-report-modal">
+          <div className="modal-card daily-report-card" style={{ maxWidth: '360px' }}>
             <h3 className="modal-title">Generate Daily Report</h3>
             <div className="form-grid form-compact">
               <label><div className="label">Date</div>
