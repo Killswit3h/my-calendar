@@ -118,10 +118,28 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
   const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
   const start = cast(startRaw, fallbackStart)
   
-  // If no end date provided, create a single-day event
+  // Handle end date properly for multi-day events
   let end: string
   if (endRaw) {
     end = cast(endRaw, start)
+    
+    // For FullCalendar, ensure proper end date handling
+    if (allDay) {
+      // For all-day events, if end is same as start, make it span to next day
+      if (end === start) {
+        const startDate = new Date(start)
+        startDate.setDate(startDate.getDate() + 1)
+        end = startDate.toISOString().slice(0, 10) // YYYY-MM-DD format
+      }
+    } else {
+      // For timed events, ensure end is after start
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      if (endDate <= startDate) {
+        endDate.setDate(startDate.getDate() + 1)
+        end = endDate.toISOString()
+      }
+    }
   } else {
     // For single-day events, set end to start + 1 day
     const startDate = new Date(start)
@@ -1666,6 +1684,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventContent={eventContent}
               eventDidMount={eventDidMount}
               displayEventTime={false}
+              displayEventEnd={true}
               expandRows
               handleWindowResize
               windowResizeDelay={100}
@@ -1727,6 +1746,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventContent={eventContent}
               eventDidMount={eventDidMount}
               displayEventTime={false}
+              displayEventEnd={true}
               expandRows
               handleWindowResize
               windowResizeDelay={100}
