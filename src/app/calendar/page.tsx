@@ -1,29 +1,26 @@
-// src/app/calendar/page.tsx
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+import BackButton from "@/components/BackButton";
+import CalendarView from "@/components/calendar/CalendarView";
+import JobTodos from "@/components/jobs/JobTodos"; // keep or remove if not used
 
-import CalendarWithData from '@/components/CalendarWithData'
-import AppSidebar from '@/components/shell/AppSidebar'
-import AppTopbar from '@/components/shell/AppTopbar'
-import BackButton from '@/components/BackButton'
+export const dynamic = "force-dynamic";
 
 export default function CalendarPage() {
   return (
-    <div className="min-h-dvh flex">
-      <AppSidebar current="/calendar" />
-      <div className="flex-1">
-        <AppTopbar />
-        <main className="mx-auto max-w-7xl p-4 md:p-8 space-y-6">
-          <BackButton />
-          <header>
-            <h1 className="text-3xl font-semibold">Calendar</h1>
-            <p className="text-muted">Manage your events and schedule</p>
-          </header>
-          <section className="card p-4">
-            <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
-          </section>
-        </main>
-      </div>
-    </div>
-  )
+    <main className="mx-auto w-full max-w-[1600px] space-y-6">
+      <BackButton />
+      <header>
+        <h1 className="text-3xl font-semibold">Calendar</h1>
+        <p className="text-neutral-400">Manage your events and schedule</p>
+      </header>
+
+      <section className="card p-3 md:p-4 relative z-0">
+        {/* Never absolute-position this wrapper. Let FullCalendar size inside. */}
+        <CalendarView />
+      </section>
+
+      <section className="card p-4">
+        <JobTodos />
+      </section>
+    </main>
+  );
 }
