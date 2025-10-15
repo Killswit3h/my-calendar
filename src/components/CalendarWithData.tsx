@@ -101,7 +101,7 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
     const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
     return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>
   }
-  const endRaw = obj.end ?? obj.endsAt ?? startRaw
+  const endRaw = obj.end ?? obj.endsAt
   const allDay = Boolean((obj as { allDay?: boolean }).allDay)
 
   const cast = (value: string | Date | null | undefined, fallback: string): string => {
@@ -117,7 +117,22 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
 
   const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
   const start = cast(startRaw, fallbackStart)
-  const end = cast(endRaw, start)
+  
+  // If no end date provided, create a single-day event
+  let end: string
+  if (endRaw) {
+    end = cast(endRaw, start)
+  } else {
+    // For single-day events, set end to start + 1 day
+    const startDate = new Date(start)
+    if (allDay) {
+      startDate.setDate(startDate.getDate() + 1)
+      end = startDate.toISOString().slice(0, 10) // YYYY-MM-DD format
+    } else {
+      startDate.setDate(startDate.getDate() + 1)
+      end = startDate.toISOString()
+    }
+  }
 
   return { ...obj, start, end } as NormalizedEvent<T>
 }
@@ -235,29 +250,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             originalRow: row
           });
           
-          // Ensure events have proper start and end dates for multi-day spanning
-          let startDate = normalized.start;
-          let endDate = normalized.end;
-          
-          // If start and end are the same, make it a single-day event
-          if (startDate === endDate) {
-            const start = new Date(startDate);
-            if (normalized.allDay) {
-              // For all-day events, set end to next day
-              start.setDate(start.getDate() + 1);
-              endDate = start.toISOString().slice(0, 10); // YYYY-MM-DD format
-            } else {
-              // For timed events, set end to next day
-              start.setDate(start.getDate() + 1);
-              endDate = start.toISOString();
-            }
-          }
-          
           return {
             id: normalized.id,
             title: normalized.title,
-            start: startDate,
-            end: endDate,
+            start: normalized.start,
+            end: normalized.end,
             allDay: !!normalized.allDay,
             extendedProps: {
               location: normalized.location ?? '',
