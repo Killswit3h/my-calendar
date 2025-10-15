@@ -105,6 +105,35 @@ main { position: relative; z-index: 0; }
 .fc .fc-daygrid-event-harness {
   background: transparent !important;
 }
+
+/* Multi-day event spanning - ensure events span across days */
+.fc .fc-daygrid-event.fc-event-start {
+  border-top-left-radius: 10px !important;
+  border-bottom-left-radius: 10px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.fc .fc-daygrid-event.fc-event-end {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-top-right-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
+}
+
+.fc .fc-daygrid-event.fc-event-continue {
+  border-radius: 0 !important;
+}
+
+/* Ensure multi-day events maintain consistent styling */
+.fc .fc-daygrid-event.fc-event-start .fc-event-main-frame,
+.fc .fc-daygrid-event.fc-event-end .fc-event-main-frame,
+.fc .fc-daygrid-event.fc-event-continue .fc-event-main-frame {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
 .fc .fc-daygrid-event .fc-event-title { 
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -141,3 +170,14 @@ html { background: #0b1110 !important; }
 .fc .fc-button { background: rgba(18,24,22,0.9) !important; border-color: rgba(255,255,255,0.2) !important; color: #e7e9ea !important; }
 .fc .fc-button:hover { background: rgba(18,24,22,1) !important; }
 .fc .fc-button-primary { background: #3ddc84 !important; border-color: #3ddc84 !important; color: #000000 !important; }
+
+/* Day-of-week headers - darker with white text */
+.fc .fc-col-header-cell { 
+  background: rgba(18,24,22,0.9) !important; 
+  border-color: rgba(255,255,255,0.1) !important;
+}
+.fc .fc-col-header-cell-cushion { 
+  color: #ffffff !important; 
+  font-weight: 600 !important;
+  padding: 8px 4px !important;
+}
