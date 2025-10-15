@@ -1266,6 +1266,11 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     info.el.style.padding = '0';
   }, []);
 
+  // FullCalendar configuration variables
+  const dayMaxEventRows = 3; // Allow up to 3 events per day before showing "+X more"
+  const eventStartEditable = true; // Allow events to be resized from start
+  const eventDurationEditable = true; // Allow events to be resized from end
+
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
