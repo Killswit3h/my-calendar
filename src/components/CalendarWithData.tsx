@@ -224,11 +224,40 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           const normalized = normalizeEvent(row);
           const hasQuantities = !!(row.hasQuantities ?? (row._count?.quantities ?? 0) > 0)
           const { invoice, payment, vendor, payroll, rest } = splitInvoice(normalized.description ?? '');
-          return {
+          
+          // Debug logging to see what we're getting
+          console.log('Event data:', {
             id: normalized.id,
             title: normalized.title,
             start: normalized.start,
             end: normalized.end,
+            allDay: normalized.allDay,
+            originalRow: row
+          });
+          
+          // Ensure events have proper start and end dates for multi-day spanning
+          let startDate = normalized.start;
+          let endDate = normalized.end;
+          
+          // If start and end are the same, make it a single-day event
+          if (startDate === endDate) {
+            const start = new Date(startDate);
+            if (normalized.allDay) {
+              // For all-day events, set end to next day
+              start.setDate(start.getDate() + 1);
+              endDate = start.toISOString().slice(0, 10); // YYYY-MM-DD format
+            } else {
+              // For timed events, set end to next day
+              start.setDate(start.getDate() + 1);
+              endDate = start.toISOString();
+            }
+          }
+          
+          return {
+            id: normalized.id,
+            title: normalized.title,
+            start: startDate,
+            end: endDate,
             allDay: !!normalized.allDay,
             extendedProps: {
               location: normalized.location ?? '',
