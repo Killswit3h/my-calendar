@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
-import useOverlayA11y from '@/hooks/useOverlayA11y';
 
 type NewEvent = {
   title: string;
@@ -38,15 +37,6 @@ export default function Calendar({ initialDate }: Props) {
   const [weatherDialog, setWeatherDialog] = useState(false);
   // country already defined above; remove accidental duplicate
   const [weatherQuery, setWeatherQuery] = useState('');
-  const eventModalRef = useRef<HTMLDivElement>(null);
-  const holidayDialogRef = useRef<HTMLDivElement>(null);
-  const weatherDialogRef = useRef<HTMLDivElement>(null);
-  const closeEventModal = useCallback(() => { setOpen(false); setDraft(null); setEditId(null); }, []);
-  const closeHolidayDialog = useCallback(() => setHolidayDialog(false), []);
-  const closeWeatherDialog = useCallback(() => setWeatherDialog(false), []);
-  useOverlayA11y(open && !!draft, eventModalRef, closeEventModal);
-  useOverlayA11y(holidayDialog, holidayDialogRef, closeHolidayDialog);
-  useOverlayA11y(weatherDialog, weatherDialogRef, closeWeatherDialog);
 
   useEffect(() => {
     const m = window.matchMedia('(max-width: 640px)');
@@ -289,14 +279,18 @@ export default function Calendar({ initialDate }: Props) {
         },
       ]);
     }
-    closeEventModal();
-  }, [draft, editId, closeEventModal]);
+    setOpen(false);
+    setDraft(null);
+    setEditId(null);
+  }, [draft, editId]);
 
   const deleteCurrent = useCallback(() => {
     if (!editId) return;
     setEvents(prev => prev.filter(e => e.id !== editId));
-    closeEventModal();
-  }, [editId, closeEventModal]);
+    setOpen(false);
+    setDraft(null);
+    setEditId(null);
+  }, [editId]);
 
   const duplicateCurrent = useCallback(() => {
     if (!draft) return;
@@ -325,34 +319,26 @@ export default function Calendar({ initialDate }: Props) {
   );
 
   const eventContent = useCallback((arg: EventContentArg) => {
-    const chip = document.createElement('span');
-    chip.className = 'cal-chip';
-
-    const bullet = document.createElement('span');
-    bullet.className = 'cal-chip__bullet';
-    chip.appendChild(bullet);
-
-    const title = document.createElement('span');
-    title.className = 'cal-chip__title';
-    title.textContent = arg.event.title;
-    chip.appendChild(title);
-
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.alignItems = 'center';
+    frag.style.gap = '0.25rem';
+    const span = document.createElement('span');
+    span.className = 'evt-title';
+    span.textContent = arg.event.title;
+    frag.appendChild(span);
     const loc = (arg.event.extendedProps as any)?.location as string | undefined;
     if (loc && loc.trim()) {
-      const link = document.createElement('a');
-      link.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.className = 'cal-chip__link';
-      link.setAttribute('aria-label', 'Open location in Google Maps');
-      const pin = document.createElement('span');
-      pin.className = 'cal-chip__pin';
-      pin.setAttribute('aria-hidden', 'true');
-      link.appendChild(pin);
-      chip.appendChild(link);
+      const a = document.createElement('a');
+      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'View in Google Maps';
+      a.textContent = '📍';
+      a.className = 'event-gmap-link';
+      frag.appendChild(a);
     }
-
-    return { domNodes: [chip] };
+    return { domNodes: [frag] };
   }, []);
 
   return (
@@ -396,8 +382,8 @@ export default function Calendar({ initialDate }: Props) {
       </div>
 
       {open && draft ? (
-        <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) closeEventModal(); }}>
-          <div ref={eventModalRef} className="modal-card max-w-xl w-[640px]" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root">
+          <div className="modal-card max-w-xl w-[640px]">
             <h3 className="modal-title">{editId ? 'Edit event' : 'Add event'}</h3>
 
             <div className="form-grid">
@@ -547,7 +533,7 @@ export default function Calendar({ initialDate }: Props) {
                     <button className="btn ghost" onClick={deleteCurrent}>Delete</button>
                   </>
                 ) : null}
-                <button className="btn ghost" onClick={closeEventModal}>
+                <button className="btn ghost" onClick={() => { setOpen(false); setDraft(null); setEditId(null); }}>
                   Cancel
                 </button>
                 <button className="btn primary" onClick={saveDraft}>Save</button>
@@ -558,8 +544,8 @@ export default function Calendar({ initialDate }: Props) {
       ) : null}
 
       {holidayDialog && (
-        <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) closeHolidayDialog(); }}>
-          <div ref={holidayDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setHolidayDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
             <h3 className="modal-title">Holiday Country</h3>
             <div className="form-grid">
               <label>
@@ -569,8 +555,8 @@ export default function Calendar({ initialDate }: Props) {
                 </select>
               </label>
               <div className="modal-actions">
-                <button className="btn ghost" onClick={closeHolidayDialog}>Cancel</button>
-                <button className="btn primary" onClick={() => { closeHolidayDialog(); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
+                <button className="btn ghost" onClick={() => setHolidayDialog(false)}>Cancel</button>
+                <button className="btn primary" onClick={() => { setHolidayDialog(false); const yr = (visibleRange ? new Date((visibleRange.start.getTime()+visibleRange.end.getTime())/2).getUTCFullYear() : new Date().getUTCFullYear()); fetchHolidays(yr, country); }}>Apply</button>
               </div>
             </div>
           </div>
@@ -578,8 +564,8 @@ export default function Calendar({ initialDate }: Props) {
       )}
 
       {weatherDialog && (
-        <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) closeWeatherDialog(); }}>
-          <div ref={weatherDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setWeatherDialog(false); }}>
+          <div className="modal-card" role="dialog" aria-modal="true">
             <h3 className="modal-title">Weather Location</h3>
             <div className="form-grid">
               <label className="span-2">
@@ -587,13 +573,13 @@ export default function Calendar({ initialDate }: Props) {
                 <input type="text" value={weatherQuery} onChange={e => setWeatherQuery(e.target.value)} placeholder="e.g. Orlando, FL or 28.54,-81.38" />
               </label>
               <div className="modal-actions span-2">
-                <button className="btn ghost" onClick={closeWeatherDialog}>Cancel</button>
+                <button className="btn ghost" onClick={() => setWeatherDialog(false)}>Cancel</button>
                 <button className="btn primary" onClick={async () => {
                   const g = await geocode(weatherQuery.trim());
                   if (!g) { alert('Location not found. Try City, State or lat,lng'); return; }
                   setCoords(g);
                   localStorage.setItem('weather.coords', JSON.stringify(g));
-                  closeWeatherDialog();
+                  setWeatherDialog(false);
                   if (visibleRange) fetchWeather(visibleRange.start, visibleRange.end, g);
                 }}>Save</button>
               </div>
@@ -619,12 +605,12 @@ function fromLocalDateTime(date: string, time: string) { return fromLocalInput(`
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 function typeToClass(t?: NewEvent['type']) {
   switch (t) {
-    case 'FENCE': return 'cal-event-chip evt-fence';
-    case 'TEMP_FENCE': return 'cal-event-chip evt-temp-fence';
-    case 'GUARDRAIL': return 'cal-event-chip evt-guardrail';
-    case 'HANDRAIL': return 'cal-event-chip evt-handrail';
-    case 'ATTENUATOR': return 'cal-event-chip evt-attenuator';
-    default: return 'cal-event-chip';
+    case 'FENCE': return 'evt-fence';
+    case 'TEMP_FENCE': return 'evt-temp-fence';
+    case 'GUARDRAIL': return 'evt-guardrail';
+    case 'HANDRAIL': return 'evt-handrail';
+    case 'ATTENUATOR': return 'evt-attenuator';
+    default: return '';
   }
 }
 

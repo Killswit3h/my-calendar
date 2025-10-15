@@ -2,7 +2,7 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import CalendarWithData from '../../../components/CalendarWithData'
+import CalendarWithData from '@/components/CalendarWithData'
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
