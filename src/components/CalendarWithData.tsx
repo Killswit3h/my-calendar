@@ -8,19 +8,19 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
-import '@/styles/calendar.css';
+import '../styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
-import { getEmployees } from '@/employees';
-import { eventOverlapsLocalDay } from '@/lib/dateUtils';
-import { getYardForDate } from '@/lib/yard';
-import { getAbsentForDate } from '@/lib/absent';
-import UnassignedSidebar from '@/components/UnassignedSidebar';
-import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
-import { Toast } from '@/components/Toast';
-import PayItemsManager from '@/components/PayItemsManager';
-import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
-import useOverlayA11y from '@/hooks/useOverlayA11y';
+import { getEmployees } from '../employees';
+import { eventOverlapsLocalDay } from '../lib/dateUtils';
+import { getYardForDate } from '../lib/yard';
+import { getAbsentForDate } from '../lib/absent';
+import UnassignedSidebar from './UnassignedSidebar';
+import EventQuantitiesEditor from './EventQuantitiesEditor';
+import { Toast } from './Toast';
+import PayItemsManager from './PayItemsManager';
+import { CutoffReportDialog } from './reports/CutoffReportDialog';
+import useOverlayA11y from '../hooks/useOverlayA11y';
 import {
   APP_TIMEZONE,
   APP_TZ,
@@ -29,7 +29,7 @@ import {
   formatInTimeZone,
   zonedStartOfDayUtc,
   addDaysUtc,
-} from '@/lib/timezone';
+} from '../lib/timezone';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
