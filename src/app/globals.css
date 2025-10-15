@@ -22,3 +22,9 @@ body {
 .fc .fc-scrollgrid,
 .fc .fc-theme-standard td, .fc .fc-theme-standard th { border-color: rgba(255,255,255,0.08); }
 .fc .fc-toolbar-title { font-weight: 600; }
+
+/* Layout + calendar layering */
+main { position: relative; z-index: 0; }
+.fc { position: relative; z-index: 0; }
+.fc .fc-scrollgrid,
+.fc .fc-theme-standard td, .fc .fc-theme-standard th { border-color: rgba(255,255,255,0.08); }
