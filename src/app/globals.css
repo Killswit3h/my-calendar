@@ -29,15 +29,80 @@ main { position: relative; z-index: 0; }
 .fc .fc-scrollgrid,
 .fc .fc-theme-standard td, .fc .fc-theme-standard th { border-color: rgba(255,255,255,0.08); }
 
-/* Calendar sizing and overflow fixes */
-.fc { width: 100% !important; max-width: 100% !important; }
+/* Responsive calendar sizing and overflow fixes */
+.fc { 
+  width: 100% !important; 
+  max-width: 100% !important; 
+  font-size: clamp(11px, 1.2vw, 14px) !important;
+}
 .fc .fc-scrollgrid { width: 100% !important; }
 .fc .fc-scrollgrid-sync-table { width: 100% !important; }
-.fc .fc-daygrid-day { min-width: 0 !important; }
-.fc .fc-daygrid-day-frame { min-width: 0 !important; }
-.fc .fc-daygrid-day-events { overflow: hidden !important; }
-.fc .fc-daygrid-day-top { overflow: hidden !important; }
-.fc .fc-daygrid-day-number { overflow: hidden !important; text-overflow: ellipsis !important; }
+.fc .fc-daygrid-day { 
+  min-width: 0 !important; 
+  width: calc(100% / 7) !important;
+  max-width: calc(100% / 7) !important;
+}
+.fc .fc-daygrid-day-frame { 
+  min-width: 0 !important; 
+  width: 100% !important;
+  min-height: 3.25rem !important;
+}
+.fc .fc-daygrid-day-events { 
+  overflow: hidden !important; 
+  padding-bottom: 26px !important;
+  min-height: 2rem !important;
+}
+.fc .fc-daygrid-day-top { 
+  overflow: hidden !important; 
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+  padding: 2px 4px !important;
+}
+.fc .fc-daygrid-day-number { 
+  overflow: hidden !important; 
+  text-overflow: ellipsis !important;
+  font-size: clamp(10px, 1vw, 12px) !important;
+  color: #aeaeb2 !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Event block responsive sizing */
+.fc .fc-daygrid-event { 
+  padding: 0 !important; 
+  background: transparent !important; 
+  border: none !important;
+  margin: 1px 0 !important;
+  font-size: clamp(9px, 0.9vw, 11px) !important;
+  line-height: 1.2 !important;
+}
+.fc .fc-daygrid-event .fc-event-title { 
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Responsive toolbar */
+.fc .fc-toolbar { 
+  display: flex !important; 
+  flex-wrap: wrap !important; 
+  gap: 0.5rem !important; 
+  align-items: center !important;
+  padding: 0.5rem !important;
+}
+.fc .fc-toolbar-title { 
+  font-size: clamp(14px, 1.4vw, 18px) !important; 
+  color: #e7e9ea !important; 
+  font-weight: 700 !important;
+}
+.fc .fc-button { 
+  padding: 0.25rem 0.5rem !important; 
+  line-height: 1 !important; 
+  font-size: clamp(10px, 0.9vw, 12px) !important;
+}
 
 /* Remove background gradients */
 body { background: #0b1110 !important; }
