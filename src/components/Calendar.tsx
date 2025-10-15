@@ -167,6 +167,8 @@ export default function Calendar({ initialDate }: Props) {
   // create
   const handleSelect = useCallback((sel: DateSelectArg) => {
     setEditId(null);
+    // FullCalendar selection provides exclusive end date (day after)
+    // We keep it as-is for proper multi-day spanning
     setDraft({
       title: '',
       start: sel.startStr,
@@ -237,6 +239,20 @@ export default function Calendar({ initialDate }: Props) {
   const saveDraft = useCallback(() => {
     if (!draft?.title) return;
 
+    // For multi-day events: ensure end date is properly set
+    // FullCalendar uses exclusive end dates (the day after the last displayed day)
+    let finalEnd = draft.end;
+    if (draft.allDay && draft.end) {
+      const startDate = new Date(draft.start);
+      const endDate = new Date(draft.end);
+      // If user selected same day for start and end, or end is before start, add one day
+      if (endDate <= startDate) {
+        const nextDay = new Date(startDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        finalEnd = nextDay.toISOString().slice(0, 10);
+      }
+    }
+
     if (editId) {
       // update
       setEvents(prev =>
@@ -246,7 +262,7 @@ export default function Calendar({ initialDate }: Props) {
                 ...ev,
                 title: draft.title,
                 start: draft.start,
-                end: draft.end,
+                end: finalEnd,
                 allDay: draft.allDay,
                 extendedProps: {
                   ...ev.extendedProps,
@@ -268,7 +284,7 @@ export default function Calendar({ initialDate }: Props) {
           id,
           title: draft.title,
           start: draft.start,
-          end: draft.end,
+          end: finalEnd,
           allDay: draft.allDay,
           extendedProps: {
             location: draft.location,

@@ -9,12 +9,14 @@
   display: block !important;
   width: auto !important;
   min-width: 100% !important;
+  position: relative !important;
 }
 
 .fc .fc-daygrid-event.fc-event-multiday {
   display: block !important;
   width: auto !important;
   min-width: 100% !important;
+  position: relative !important;
 }
 
 /* Ensure multi-day events span across days */
@@ -34,6 +36,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Force multi-day events to span properly */
+.fc .fc-daygrid-event.fc-event-multiday {
+  background-color: rgba(34, 197, 94, 0.8) !important;
+  border: 1px solid rgba(34, 197, 94, 1) !important;
+  color: white !important;
+}
+
+/* Ensure events are clickable and draggable */
+.fc .fc-event {
+  cursor: pointer;
+  user-select: none;
+}
+
+.fc .fc-event:hover {
+  opacity: 0.8;
 }
 
 /* ===== Theme tokens (dark, macOS-aligned) ===== */
