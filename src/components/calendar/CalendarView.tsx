@@ -16,18 +16,19 @@ type Event = {
   jobType?: string; // expect one of: GUARDRAIL, FENCE, HANDRAIL, TEMP_FENCE, ATTENUATOR (or loose strings we'll normalize)
 };
 
-export default function CalendarView() {
+export default function CalendarView({ calendarId = "cme9wqhpe0000ht8sr5o3a6wf" }: { calendarId?: string }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   const endpoints = useMemo(
     () => [
+      `/api/calendars/${calendarId}/events`,
       "/api/events",
       "/api/calendar/events",
       "/api/calendars/default/events",
       "/api/calendars/primary/events",
     ],
-    []
+    [calendarId]
   );
 
   useEffect(() => {
