@@ -1,6 +1,7 @@
 import PageHeader from "../../../components/PageHeader";
 import StatCard from "../../../components/StatCard";
 import BackButton from "../../../components/BackButton";
+import Link from "next/link";
 
 const stats = [
   {
@@ -27,9 +28,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-white text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-gray-400 text-lg">Unified view of jobs, crews, RFIs, and POs</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-white text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-gray-400 text-lg">Unified view of jobs, crews, RFIs, and POs</p>
+        </div>
+        <div className="flex gap-3">
+          <Link href="/calendar" className="btn btn-primary">
+            📅 Open Calendar
+          </Link>
+          <Link href="/reports/daily" className="btn">
+            📊 Daily Report
+          </Link>
+        </div>
       </div>
 
       {/* Stats Grid */}
