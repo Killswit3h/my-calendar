@@ -4,6 +4,38 @@
   white-space: nowrap;
 }
 
+/* FullCalendar multi-day event spanning */
+.fc .fc-event.fc-event-multiday {
+  display: block !important;
+  width: auto !important;
+  min-width: 100% !important;
+}
+
+.fc .fc-daygrid-event.fc-event-multiday {
+  display: block !important;
+  width: auto !important;
+  min-width: 100% !important;
+}
+
+/* Ensure multi-day events span across days */
+.fc .fc-daygrid-event-harness {
+  position: relative;
+}
+
+.fc .fc-daygrid-event {
+  position: relative;
+  z-index: 1;
+}
+
+/* Multi-day event styling */
+.fc .fc-event.fc-event-multiday .fc-event-main {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ===== Theme tokens (dark, macOS-aligned) ===== */
 :root {
   --bg: #1c1c1e;
