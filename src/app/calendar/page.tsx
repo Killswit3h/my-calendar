@@ -1,14 +1,11 @@
-"use client";
+// src/app/calendar/page.tsx
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
-import dynamicImport from "next/dynamic";
-import AppSidebar from "@/components/shell/AppSidebar";
-import AppTopbar from "@/components/shell/AppTopbar";
-import BackButton from "@/components/BackButton";
-
-const CalendarWithData = dynamicImport(() => import("@/components/calendar/CalendarView"), {
-  ssr: false,
-  loading: () => <div className="card p-6">Loading calendar…</div>,
-});
+import CalendarWithData from '@/components/CalendarWithData'
+import AppSidebar from '@/components/shell/AppSidebar'
+import AppTopbar from '@/components/shell/AppTopbar'
+import BackButton from '@/components/BackButton'
 
 export default function CalendarPage() {
   return (
@@ -23,10 +20,10 @@ export default function CalendarPage() {
             <p className="text-muted">Manage your events and schedule</p>
           </header>
           <section className="card p-4">
-            <CalendarWithData />
+            <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
           </section>
         </main>
       </div>
     </div>
-  );
+  )
 }
