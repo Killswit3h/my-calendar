@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic'
 
 import CalendarWithData from '@/components/CalendarWithData'
 import BackButton from '@/components/BackButton'
-import { MonthGrid } from '@/components/calendar/MonthGrid'
-import { getEventsOverlappingRange } from '@/lib/events'
+import MonthView from '@/components/calendar/MonthView'
+import { getEventsOverlapping } from '@/lib/events'
 import { startOfMonth, endOfMonth, addDays } from 'date-fns'
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ view?: string; d?: string }> }) {
@@ -16,11 +16,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // For month view, fetch events with proper overlap query
   let monthEvents = []
   if (view === 'month') {
-    const rangeStart = startOfMonth(base)
-    const rangeEnd = endOfMonth(base)
-    const bufferedStart = addDays(rangeStart, -7)
-    const bufferedEnd = addDays(rangeEnd, 7)
-    const events = await getEventsOverlappingRange(bufferedStart, bufferedEnd)
+    const start = addDays(startOfMonth(base), -7) // buffer for leading week
+    const end = addDays(endOfMonth(base), 7)      // buffer for trailing week
+    const events = await getEventsOverlapping(start, end)
     monthEvents = events.map((e: any) => ({
       id: e.id,
       title: e.title,
@@ -57,7 +55,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <section className="card p-2 md:p-4 overflow-hidden">
         <div className="w-full">
           {view === 'month' ? (
-            <MonthGrid monthDate={base} events={monthEvents} />
+            <MonthView monthDate={base} events={monthEvents} />
           ) : (
             <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
           )}
