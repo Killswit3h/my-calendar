@@ -28,3 +28,17 @@ main { position: relative; z-index: 0; }
 .fc { position: relative; z-index: 0; }
 .fc .fc-scrollgrid,
 .fc .fc-theme-standard td, .fc .fc-theme-standard th { border-color: rgba(255,255,255,0.08); }
+
+/* Calendar sizing and overflow fixes */
+.fc { width: 100% !important; max-width: 100% !important; }
+.fc .fc-scrollgrid { width: 100% !important; }
+.fc .fc-scrollgrid-sync-table { width: 100% !important; }
+.fc .fc-daygrid-day { min-width: 0 !important; }
+.fc .fc-daygrid-day-frame { min-width: 0 !important; }
+.fc .fc-daygrid-day-events { overflow: hidden !important; }
+.fc .fc-daygrid-day-top { overflow: hidden !important; }
+.fc .fc-daygrid-day-number { overflow: hidden !important; text-overflow: ellipsis !important; }
+
+/* Remove background gradients */
+body { background: #0b1110 !important; }
+html { background: #0b1110 !important; }
