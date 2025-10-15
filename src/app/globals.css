@@ -78,6 +78,19 @@ main { position: relative; z-index: 0; }
   font-size: clamp(9px, 0.9vw, 11px) !important;
   line-height: 1.2 !important;
 }
+
+/* Custom event styling - ensure our custom events override FullCalendar defaults */
+.fc .fc-daygrid-event .fc-event-main {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.fc .fc-daygrid-event .fc-event-main-frame {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
 .fc .fc-daygrid-event .fc-event-title { 
   white-space: nowrap !important;
   overflow: hidden !important;
