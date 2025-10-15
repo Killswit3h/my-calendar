@@ -1,26 +1,21 @@
-import BackButton from "@/components/BackButton";
-import CalendarView from "@/components/calendar/CalendarView";
-import JobTodos from "@/components/jobs/JobTodos"; // keep or remove if not used
+// src/app/calendar/page.tsx
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
-export const dynamic = "force-dynamic";
+import CalendarWithData from '@/components/CalendarWithData'
+import BackButton from '@/components/BackButton'
 
 export default function CalendarPage() {
   return (
-    <main className="mx-auto w-full max-w-[1600px] space-y-6">
+    <main className="mx-auto max-w-7xl space-y-6">
       <BackButton />
       <header>
         <h1 className="text-3xl font-semibold">Calendar</h1>
-        <p className="text-neutral-400">Manage your events and schedule</p>
+        <p className="text-muted">Manage your events and schedule</p>
       </header>
-
-      <section className="card p-3 md:p-4 relative z-0">
-        {/* Never absolute-position this wrapper. Let FullCalendar size inside. */}
-        <CalendarView />
-      </section>
-
       <section className="card p-4">
-        <JobTodos />
+        <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
       </section>
     </main>
-  );
+  )
 }
