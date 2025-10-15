@@ -14,6 +14,8 @@ type Props = {
   onEventClick?: (e: CalEvent) => void;
 };
 
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export default function MonthView({ monthDate, events, onEventClick }: Props) {
   const monthStart = startOfMonth(monthDate);
   const monthEnd   = endOfMonth(monthDate);
@@ -55,40 +57,66 @@ export default function MonthView({ monthDate, events, onEventClick }: Props) {
   }, [events, firstGridDay]);
 
   return (
-    <div className="grid grid-cols-7 gap-px border border-neutral-700 bg-neutral-700">
-      {days.map((d, i) => (
-        <div key={i} className="min-h-28 bg-neutral-900 p-1 relative">
-          <div className="text-[10px] opacity-70">{d.getDate()}</div>
+    <div className="w-full">
+      {/* Day of week headers */}
+      <div className="grid grid-cols-7 gap-px border border-neutral-700 bg-neutral-700 mb-0">
+        {DAYS_OF_WEEK.map((day) => (
+          <div key={day} className="bg-neutral-800 text-white text-center py-2 text-sm font-medium">
+            {day}
+          </div>
+        ))}
+      </div>
+      
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-px border border-neutral-700 bg-neutral-700">
+        {days.map((d, i) => {
+          const isToday = d.toDateString() === new Date().toDateString();
+          const isCurrentMonth = d.getMonth() === monthDate.getMonth();
+          
+          return (
+            <div key={i} className={`min-h-28 p-1 relative ${isCurrentMonth ? 'bg-neutral-900' : 'bg-neutral-800'}`}>
+              {/* Date number */}
+              <div className={`text-[10px] opacity-70 ${isToday ? 'text-green-400 font-bold' : ''}`}>
+                {d.getDate()}
+              </div>
+              
+              {/* Add event button */}
+              <button className="absolute top-1 right-1 w-4 h-4 bg-neutral-700 hover:bg-neutral-600 rounded text-white text-xs flex items-center justify-center">
+                +
+              </button>
 
-          {i % 7 === 0 && (() => {
-            const row = weekRows[Math.floor(i / 7)];
-            const lanes = Array.from(new Set(row.bars.map(b => (b as any).lane)));
-            return (
-              <div className="absolute left-1 right-1 top-5">
-                {lanes.map(lane => (
-                  <div className="grid grid-cols-7 gap-1 mb-1" key={lane}>
-                    {row.bars.filter(b => (b as any).lane === lane).map(b => (
-                      <button
-                        key={b.id}
-                        onClick={() => onEventClick?.(b.e)}
-                        className="h-6 rounded px-2 text-[11px] truncate"
-                        style={{
-                          gridColumn: `${b.startCol} / span ${b.span}`,
-                          background: b.color ?? "rgba(0,140,120,0.35)",
-                          border: "1px solid rgba(0,140,120,0.7)",
-                        }}
-                        title={b.title}
-                      >
-                        {b.title}
-                      </button>
+              {/* Events for this week */}
+              {i % 7 === 0 && (() => {
+                const row = weekRows[Math.floor(i / 7)];
+                const lanes = Array.from(new Set(row.bars.map(b => (b as any).lane)));
+                return (
+                  <div className="absolute left-1 right-1 top-5">
+                    {lanes.map(lane => (
+                      <div className="grid grid-cols-7 gap-1 mb-1" key={lane}>
+                        {row.bars.filter(b => (b as any).lane === lane).map(b => (
+                          <button
+                            key={b.id}
+                            onClick={() => onEventClick?.(b.e)}
+                            className="h-6 rounded px-2 text-[11px] truncate text-white hover:opacity-80 transition-opacity"
+                            style={{
+                              gridColumn: `${b.startCol} / span ${b.span}`,
+                              background: b.color ?? "rgba(0,140,120,0.35)",
+                              border: "1px solid rgba(0,140,120,0.7)",
+                            }}
+                            title={b.title}
+                          >
+                            {b.title}
+                          </button>
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
-      ))}
+                );
+              })()}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
