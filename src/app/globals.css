@@ -16,3 +16,9 @@ body {
 
 /* Focus */
 *:focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg; }
+
+/* FullCalendar polish */
+.fc .fc-daygrid-event { padding: 0 !important; background: transparent !important; border: none !important; }
+.fc .fc-scrollgrid,
+.fc .fc-theme-standard td, .fc .fc-theme-standard th { border-color: rgba(255,255,255,0.08); }
+.fc .fc-toolbar-title { font-weight: 600; }
