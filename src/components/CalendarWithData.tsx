@@ -101,7 +101,7 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
     const fallback = (obj as { allDay?: boolean }).allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
     return { ...obj, start: fallback, end: fallback } as NormalizedEvent<T>
   }
-  const endRaw = obj.end ?? obj.endsAt
+  const endRaw = obj.end ?? obj.endsAt ?? startRaw
   const allDay = Boolean((obj as { allDay?: boolean }).allDay)
 
   const cast = (value: string | Date | null | undefined, fallback: string): string => {
@@ -117,41 +117,7 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
 
   const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
   const start = cast(startRaw, fallbackStart)
-  
-  // Handle end date properly for multi-day events
-  let end: string
-  if (endRaw) {
-    end = cast(endRaw, start)
-    
-    // For FullCalendar multi-day spanning, ensure proper end date handling
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    
-    // If end date is before or equal to start date, make it span at least one day
-    if (endDate <= startDate) {
-      if (allDay) {
-        // For all-day events, set end to next day
-        const nextDay = new Date(startDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        end = nextDay.toISOString().slice(0, 10) // YYYY-MM-DD format
-      } else {
-        // For timed events, set end to next day
-        const nextDay = new Date(startDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        end = nextDay.toISOString()
-      }
-    }
-  } else {
-    // For single-day events, set end to start + 1 day
-    const startDate = new Date(start)
-    if (allDay) {
-      startDate.setDate(startDate.getDate() + 1)
-      end = startDate.toISOString().slice(0, 10) // YYYY-MM-DD format
-    } else {
-      startDate.setDate(startDate.getDate() + 1)
-      end = startDate.toISOString()
-    }
-  }
+  const end = cast(endRaw, start)
 
   return { ...obj, start, end } as NormalizedEvent<T>
 }
@@ -275,9 +241,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             start: normalized.start,
             end: normalized.end,
             allDay: !!normalized.allDay,
-            // Ensure FullCalendar recognizes this as a multi-day event
-            display: 'block',
-            className: `${typeToClass(normalized.type)} fc-event-multiday`,
             extendedProps: {
               location: normalized.location ?? '',
               description: rest,
@@ -291,6 +254,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               calendarId: normalized.calendarId ?? '',
               hasQuantities,
             },
+            className: typeToClass(normalized.type),
+            display: 'block',
           } as EventInput;
         });
         setEvents(mapped);
@@ -1686,9 +1651,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventContent={eventContent}
               eventDidMount={eventDidMount}
               displayEventTime={false}
-              displayEventEnd={true}
-              dayMaxEvents={false}
-              moreLinkClick="popover"
               expandRows
               handleWindowResize
               windowResizeDelay={100}
@@ -1750,9 +1712,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               eventContent={eventContent}
               eventDidMount={eventDidMount}
               displayEventTime={false}
-              displayEventEnd={true}
-              dayMaxEvents={false}
-              moreLinkClick="popover"
               expandRows
               handleWindowResize
               windowResizeDelay={100}
