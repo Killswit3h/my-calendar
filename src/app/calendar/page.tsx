@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import CalendarWithData from '@/components/CalendarWithData'
 import BackButton from '@/components/BackButton'
 import MonthView from '@/components/calendar/MonthView'
+import RBCMonth from '@/components/calendar/RBCMonth'
 import { getEventsOverlapping } from '@/lib/events'
 import { startOfMonth, endOfMonth, addDays } from 'date-fns'
 
@@ -13,9 +14,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const view = params?.view || 'fullcalendar'
   const base = params?.d ? new Date(params.d) : new Date()
   
-  // For month view, fetch events with proper overlap query
+  // For month/rbc views, fetch events with proper overlap query
   let monthEvents: any[] = []
-  if (view === 'month') {
+  if (view === 'month' || view === 'rbc') {
     const start = addDays(startOfMonth(base), -7) // buffer for leading week
     const end = addDays(endOfMonth(base), 7)      // buffer for trailing week
     const events = await getEventsOverlapping(start, end)
@@ -50,12 +51,20 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         >
           Month Grid
         </a>
+        <a 
+          href="?view=rbc" 
+          className={`btn ${view === 'rbc' ? 'btn-primary' : ''}`}
+        >
+          React Big Calendar
+        </a>
       </div>
       
       <section className="card p-2 md:p-4 overflow-hidden">
         <div className="w-full">
           {view === 'month' ? (
             <MonthView monthDate={base} events={monthEvents} />
+          ) : view === 'rbc' ? (
+            <RBCMonth events={monthEvents} />
           ) : (
             <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
           )}
