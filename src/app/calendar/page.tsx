@@ -7,14 +7,14 @@ import BackButton from '@/components/BackButton'
 
 export default function CalendarPage() {
   return (
-    <main className="mx-auto max-w-full space-y-6">
+    <main className="w-full max-w-full space-y-6">
       <BackButton />
       <header>
         <h1 className="text-3xl font-semibold">Calendar</h1>
         <p className="text-muted">Manage your events and schedule</p>
       </header>
-      <section className="card p-4 overflow-hidden">
-        <div className="w-full overflow-x-auto">
+      <section className="card p-2 md:p-4 overflow-hidden">
+        <div className="w-full">
           <CalendarWithData calendarId="cme9wqhpe0000ht8sr5o3a6wf" />
         </div>
       </section>
