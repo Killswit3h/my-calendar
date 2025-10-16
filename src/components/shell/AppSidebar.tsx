@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 const sections = [
   { title: "Workspace", items: [
-    ["Dashboard","/"], ["Calendar","/calendar"], ["Projects","/(shell)/projects"], ["Documents","/(shell)/documents"], 
+    ["Dashboard","/"], ["Calendar","/calendar-fullscreen"], ["Projects","/(shell)/projects"], ["Documents","/(shell)/documents"], 
     ["Finance","/(shell)/finance"], ["Inventory","/(shell)/inventory"], ["Procurement","/(shell)/procurement"], 
     ["HR","/(shell)/hr"], ["Fleet","/(shell)/fleet"],
   ]},

@@ -195,8 +195,107 @@
   gap: 0.5rem;
 }
 
+/* Full-Screen Calendar Layout */
+.fullscreen-calendar-container {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.calendar-header-info {
+  flex: 1;
+}
+
+.calendar-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.calendar-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.5rem 0;
+}
+
+.calendar-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.calendar-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+/* Full-screen calendar adjustments */
+.fullscreen-calendar-container .calendar-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.fullscreen-calendar-container .calendar-wrapper {
+  flex: 1;
+  min-height: 600px;
+}
+
+.fullscreen-calendar-container .calendar-pane {
+  flex: 1;
+  min-height: 500px;
+}
+
+.fullscreen-calendar-container .details-pane {
+  flex: 0 0 350px;
+  min-width: 350px;
+}
+
+/* Enhanced FullCalendar for full-screen */
+.fullscreen-calendar-container .fc {
+  height: 100% !important;
+  min-height: 600px;
+}
+
+.fullscreen-calendar-container .fc .fc-scrollgrid {
+  height: 100% !important;
+}
+
+.fullscreen-calendar-container .fc .fc-scrollgrid-sync-table {
+  height: 100% !important;
+}
+
+.fullscreen-calendar-container .fc .fc-daygrid-day {
+  min-height: 120px !important;
+}
+
+.fullscreen-calendar-container .fc .fc-daygrid-day-events {
+  min-height: 80px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
+  .fullscreen-calendar-container {
+    padding: 0.5rem;
+  }
+  
+  .calendar-title {
+    font-size: 2rem;
+  }
+  
   .calendar-wrapper {
     flex-direction: column;
   }
@@ -213,6 +312,25 @@
   
   .search-input {
     max-width: none;
+  }
+  
+  .fullscreen-calendar-container .calendar-wrapper {
+    min-height: 400px;
+  }
+  
+  .fullscreen-calendar-container .fc {
+    min-height: 400px;
+  }
+  
+  .fullscreen-calendar-container .fc .fc-daygrid-day {
+    min-height: 80px !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .fullscreen-calendar-container .details-pane {
+    flex: 0 0 300px;
+    min-width: 300px;
   }
 }
 
