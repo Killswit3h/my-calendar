@@ -1,18 +1,19 @@
-import type { Metadata } from "next";
 import "./globals.css";
-import 'leaflet/dist/leaflet.css';
-import Providers from "./providers";
+import type { Metadata } from "next";
+import AppSidebar from "@/components/shell/AppSidebar";
+import AppTopbar from "@/components/shell/AppTopbar";
+import ConditionalLayout from "@/components/ConditionalLayout";
 
 export const metadata: Metadata = {
-  title: "GFC Calendar",
-  description: "Scheduling and job planning for Guaranteed Fence Corp.",
+  title: "GFC Control Center",
+  description: "Operations Dashboard",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <Providers>{children}</Providers>
+      <body className="min-h-dvh">
+        <ConditionalLayout>{children}</ConditionalLayout>
       </body>
     </html>
   );

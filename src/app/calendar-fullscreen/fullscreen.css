@@ -1,0 +1,25 @@
+/* Full-screen layout override */
+.fullscreen-layout {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Override the main layout for full-screen */
+.fullscreen-layout body {
+  margin: 0;
+  padding: 0;
+}
+
+.fullscreen-layout .flex {
+  display: block !important;
+}
+
+.fullscreen-layout .min-h-dvh {
+  min-height: 100vh !important;
+}

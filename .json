@@ -1,0 +1,6 @@
+{
+  "name": "read_file",
+  "arguments": {
+    "filepath": "/Users/pedrogarcia/Documents/my-calendar"
+  }
+}

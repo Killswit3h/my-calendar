@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 import { Toast } from '@/components/Toast'
+import useOverlayA11y from '@/hooks/useOverlayA11y'
 
 const START_OF_YEAR = '__start_of_year__'
 const PAGE_SIZE = 1000
@@ -74,6 +76,7 @@ export function CutoffReportDialog({ open, onClose }: Props) {
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' })
   const [page, setPage] = useState(1)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const showToast = useCallback((message: string) => setToast({ open: true, message }), [])
   const closeToast = useCallback(() => setToast({ open: false, message: '' }), [])
@@ -344,6 +347,7 @@ export function CutoffReportDialog({ open, onClose }: Props) {
     setPage(1)
     onClose()
   }, [onClose])
+  useOverlayA11y(open, panelRef, handleClose)
 
   const totalRows = preview?.totalRows ?? 0
   const pageSize = preview?.pageSize ?? PAGE_SIZE
@@ -358,11 +362,18 @@ export function CutoffReportDialog({ open, onClose }: Props) {
   return (
     <div className="modal-root" onClick={e => { if (e.currentTarget === e.target) handleClose() }}>
       <Toast open={toast.open} message={toast.message} onClose={closeToast} />
-      <div className="modal-card" style={{ width: 'min(960px, 94vw)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div
+        ref={panelRef}
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        style={{ width: 'min(960px, 94vw)', maxHeight: '90vh', overflowY: 'auto' }}
+      >
         <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Generate Cut-Off Report</span>
           <button className="icon-btn" aria-label="Close" onClick={handleClose}>
-            ✕
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="form-grid" style={{ gap: '16px' }}>

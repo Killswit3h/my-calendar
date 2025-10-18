@@ -96,6 +96,12 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
             key={option.id}
             label={`${option.firstName} ${option.lastName}`}
             size="small"
+            sx={{
+              color: 'white',
+              '& .MuiChip-label': {
+                color: 'white',
+              },
+            }}
           />
         ))
       }

@@ -107,8 +107,10 @@ export function serializeCalendarEvent(row: EventRowLike, options?: { timezone?:
     let startText = formatAllDay(startDate, timezone)
     let endText = formatAllDay(endDate, timezone)
 
+    // For FullCalendar, end date should be exclusive for all-day events
+    // Only bump single-day events (where start equals end) to make them exclusive
     if (startText === endText) {
-      const bumped = new Date(startDate.getTime() + DAY_IN_MS)
+      const bumped = new Date(endDate.getTime() + DAY_IN_MS)
       endDate = bumped
       endText = formatAllDay(endDate, timezone)
     }
