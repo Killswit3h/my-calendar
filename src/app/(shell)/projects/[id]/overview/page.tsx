@@ -14,10 +14,10 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
   return (
     <div className="flex flex-col gap-6">
       <StatGrid>
-        <KpiCard label="Schedule" value={78} suffix="%" change={1.6} trend="up" hint="Percent complete" />
-        <KpiCard label="Budget" value={92} suffix="%" change={-2.1} trend="down" hint="Spent vs budget" />
-        <KpiCard label="RFIs" value={4} suffix="open" trend="neutral" hint="Linked to this project" />
-        <KpiCard label="Submittals" value={3} suffix="pending" trend="neutral" hint="Awaiting review" />
+        <KpiCard title="Schedule" value={78} suffix="%" change={1.6} trend="up" helper="Percent complete" />
+        <KpiCard title="Budget" value={92} suffix="%" change={-2.1} trend="down" helper="Spent vs budget" />
+        <KpiCard title="RFIs" value={4} suffix="open" trend="neutral" helper="Linked to this project" />
+        <KpiCard title="Submittals" value={3} suffix="pending" trend="neutral" helper="Awaiting review" />
       </StatGrid>
       <section className="rounded-2xl border border-border bg-surface p-6 shadow-glass">
         <h2 className="text-base font-semibold text-foreground">Highlights</h2>

@@ -1,8 +1,6 @@
-import "./fullscreen.css";
-
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fullscreen-layout">
+    <div className="min-h-screen bg-neutral-900">
       {children}
     </div>
   );

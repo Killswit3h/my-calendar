@@ -45,6 +45,7 @@ async function resolveClient(client?: PrismaTx): Promise<PrismaTx> {
 
 function buildCreateData(input: InventoryItemCreateParsed): Prisma.InventoryItemUncheckedCreateInput {
   return {
+    id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     sku: input.sku,
     name: input.name,
     description: input.description ?? null,
@@ -54,6 +55,7 @@ function buildCreateData(input: InventoryItemCreateParsed): Prisma.InventoryItem
     barcode: input.barcode ?? null,
     categoryId: input.categoryId ?? null,
     defaultLocationId: input.defaultLocationId ?? null,
+    updatedAt: new Date(),
   }
 }
 
