@@ -1,99 +1,52 @@
-/* Design tokens mapped to CSS custom properties (dark by default) */
+/* src/styles/tokens.css */
+/* Liquid Glass Design System - Apple + Material-3 inspired */
+
 :root {
-  /* Canvas & text (dark) */
-  --bg: #0b0e14;
-  --fg: #eef1f6;
-  --fg-muted: #9aa3b2;
-
-  /* Glass base tokens */
-  --glass-surface: rgba(21, 24, 33, 0.94); /* ~94% opaque */
-  --glass-elevated: rgba(27, 31, 43, 0.96);
-  --glass-hairline: rgba(255, 255, 255, 0.08);
-  --glass-hairline-strong: rgba(255, 255, 255, 0.12);
-  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
-  --glass-blur-8: 8px;
-  --glass-blur-12: 12px;
-  --glass-blur-16: 16px;
-
-  /* Surfaces */
-  --surface: var(--glass-surface);
-  --elevated: var(--glass-elevated);
-  --border: var(--glass-hairline-strong);
-  --border-subtle: var(--glass-hairline);
-
-  /* Accent scale */
-  --accent-400: #5cd67d;
-  --accent-500: #35c062;
-  --accent-600: #27934b;
-  --vibrancy-tint: color-mix(in srgb, var(--accent-500) 8%, transparent);
-
-  /* Status */
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --success: #22c55e;
-
-  /* Focus ring (outer 2px) */
-  --ring-outline: 0 0 0 3px color-mix(in srgb, var(--accent-400) 40%, transparent);
+  /* Light theme */
+  --bg: 250 250 250;        /* #fafafa - clean background */
+  --fg: 15 23 42;           /* #0f172a - primary text */
+  --muted: 100 116 139;     /* #64748b - muted text */
+  --card: 255 255 255;      /* #ffffff - glass surfaces */
+  --border: 226 232 240;    /* #e2e8f0 - subtle borders */
+  
+  /* Semantic colors */
+  --accent: 34 197 94;      /* #22c55e - success green */
+  --accent-fg: 255 255 255;  /* #ffffff - on accent text */
+  --info: 59 130 246;       /* #3b82f6 - info blue */
+  --warn: 245 158 11;       /* #f59e0b - warning amber */
+  --danger: 239 68 68;      /* #ef4444 - danger red */
+  
+  /* Radius scale */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  
+  /* Spacing scale (base 4px) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
 }
 
-/* Light theme (opt-in via .light class on html or body) */
-.light {
-  --bg: #f7f8fb;
-  --fg: #0e1530;
-  --fg-muted: #51607d;
-
-  --glass-surface: rgba(255, 255, 255, 0.88);
-  --glass-elevated: rgba(255, 255, 255, 0.92);
-  --glass-hairline: rgba(13, 20, 40, 0.12);
-  --glass-hairline-strong: rgba(13, 20, 40, 0.18);
-  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
-
-  --surface: var(--glass-surface);
-  --elevated: var(--glass-elevated);
-  --border: var(--glass-hairline-strong);
-  --border-subtle: var(--glass-hairline);
-
-  --accent-400: #4fb86b;
-  --accent-500: #2ea357;
-  --accent-600: #1f7b40;
-
-  --danger: #dc2626;
-  --warn: #d97706;
-  --success: #16a34a;
-
-  --ring-outline: 0 0 0 3px color-mix(in srgb, var(--accent-400) 40%, transparent);
+.dark {
+  /* Dark theme */
+  --bg: 10 15 13;           /* #0a0f0d - dark background */
+  --fg: 231 233 234;        /* #e7e9ea - light text */
+  --muted: 154 163 167;     /* #9aa3a7 - muted text */
+  --card: 15 20 18;         /* #0f1412 - glass surfaces */
+  --border: 39 39 42;       /* #27272a - dark borders */
+  
+  /* Semantic colors (adjusted for dark) */
+  --accent: 61 220 132;     /* #3ddc84 - bright success */
+  --accent-fg: 0 0 0;       /* #000000 - on accent text */
+  --info: 122 162 255;      /* #7aa2ff - bright info */
+  --warn: 255 204 102;      /* #ffcc66 - bright warning */
+  --danger: 255 107 107;    /* #ff6b6b - bright danger */
 }
-
-/* Motion preference */
-@media (prefers-reduced-motion: reduce) {
-  :root { --motion-ms: 0ms; }
-}
-
-/* Utility classes for glass surfaces */
-.glass-surface {
-  background: var(--surface);
-  backdrop-filter: blur(var(--glass-blur-12));
-  -webkit-backdrop-filter: blur(var(--glass-blur-12));
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.3);
-  position: relative;
-}
-.glass-surface::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: var(--glass-highlight);
-  border-radius: inherit;
-}
-.glass-elevated {
-  background: var(--elevated);
-  backdrop-filter: blur(var(--glass-blur-12));
-  -webkit-backdrop-filter: blur(var(--glass-blur-12));
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,.35);
-}
-.hairline { border: 1px solid var(--border); }
-.vibrancy { background: var(--vibrancy-tint); }

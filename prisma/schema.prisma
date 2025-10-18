@@ -8,60 +8,117 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Customer {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Calendar {
+  id         String       @id
+  name       String
+  isPrivate  Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  Event      Event[]
+  ShareToken ShareToken[]
+  Todo       Todo[]
 }
 
-model Calendar {
-  id          String       @id @default(cuid())
-  name        String
-  isPrivate   Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  events      Event[]
-  shareTokens ShareToken[]
-  todos       Todo[]
+model Certification {
+  id            String    @id
+  employeeName  String
+  certification String
+  status        String
+  expiresOn     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now())
+
+  @@index([status, expiresOn], map: "Certification_status_expires_idx")
+}
+
+model ChangeOrder {
+  id          String    @id
+  project     String
+  title       String
+  amount      Decimal?  @db.Decimal(12, 2)
+  status      String
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+
+  @@index([project, status])
+}
+
+model Customer {
+  id        String   @id
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model DailyReportSnapshot {
+  id          String   @id
+  reportDate  DateTime
+  vendor      String?
+  payloadJson String
+  createdAt   DateTime @default(now())
+
+  @@index([reportDate, vendor])
 }
 
 model Event {
-  id             String          @id @default(cuid())
-  calendarId     String
-  title          String
-  description    String?
-  allDay         Boolean         @default(false)
-  location       String?
-  employees      Json?
-  invoiceNumber  String?
-  type           String?
-  shift          WorkShift?
-  checklist      Json?
-  startsAt       DateTime
-  endsAt         DateTime
-  attachmentData Bytes?
-  attachmentName String?
-  attachmentType String?
-  calendar       Calendar        @relation(fields: [calendarId], references: [id])
-  quantities     EventQuantity[]
+  id                   String                 @id
+  calendarId           String
+  title                String
+  description          String?
+  allDay               Boolean                @default(false)
+  location             String?
+  employees            Json?
+  invoiceNumber        String?
+  type                 String?
+  shift                WorkShift?
+  checklist            Json?
+  startsAt             DateTime               @db.Timestamptz(6)
+  endsAt               DateTime               @db.Timestamptz(6)
+  attachmentData       Bytes?
+  attachmentName       String?
+  attachmentType       String?
+  Calendar             Calendar               @relation(fields: [calendarId], references: [id])
+  EventQuantity        EventQuantity[]
+  InventoryCheckout    InventoryCheckout[]
+  InventoryReservation InventoryReservation[]
 
   @@index([calendarId, startsAt])
   @@index([endsAt])
-  @@map("Event")
 }
 
-model PayItem {
-  id          String          @id @default(cuid())
-  number      String          @unique
-  description String
-  unit        String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  quantities  EventQuantity[]
+enum PlacementType {
+  FREE
+  YARD_SHOP
+  NO_WORK
+}
+
+model Employee {
+  id        String   @id
+  name      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  overrides Placement[]
+}
+
+model Placement {
+  id         String         @id @default(cuid())
+  employeeId String
+  dayKey     String
+  placement  PlacementType
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  employee   Employee?      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, dayKey], name: "employeeId_dayKey")
+  @@index([dayKey])
+  @@index([placement])
 }
 
 model EventQuantity {
-  id          String   @id @default(cuid())
+  id          String   @id
   eventId     String
   payItemId   String
   quantity    Decimal  @db.Decimal(18, 6)
@@ -69,38 +126,16 @@ model EventQuantity {
   stationTo   String?
   notes       String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  payItem     PayItem  @relation(fields: [payItemId], references: [id])
+  updatedAt   DateTime
+  Event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  PayItem     PayItem  @relation(fields: [payItemId], references: [id])
 
   @@index([eventId])
   @@index([payItemId])
 }
 
-model Todo {
-  id         String    @id @default(cuid())
-  calendarId String
-  title      String
-  notes      String?
-  done       Boolean   @default(false)
-  type       EventType
-  createdAt  DateTime  @default(now())
-  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
-
-  @@index([calendarId, createdAt])
-}
-
-model ShareToken {
-  id         String    @id @default(cuid())
-  calendarId String
-  role       ShareRole
-  expiresAt  DateTime?
-  createdAt  DateTime  @default(now())
-  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
-}
-
 model Holiday {
-  id          String   @id @default(cuid())
+  id          String   @id
   date        DateTime
   localName   String
   name        String
@@ -108,22 +143,194 @@ model Holiday {
   regions     String?
   types       String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime
 
   @@unique([date, countryCode])
 }
 
-model UserSetting {
-  id           String  @id @default(cuid())
-  userId       String  @unique
-  showHolidays Boolean @default(true)
-  countryCode  String  @default("US")
-  useIcs       Boolean @default(false)
-  icsUrl       String?
+model InventoryCategory {
+  id            String          @id
+  name          String
+  slug          String          @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  InventoryItem InventoryItem[]
+}
+
+model InventoryCheckout {
+  id                                                                    String                  @id
+  itemId                                                                String
+  qty                                                                   Int
+  fromLocationId                                                        String
+  toEmployeeId                                                          String?
+  toEventId                                                             String?
+  toLocationId                                                          String?
+  dueAt                                                                 DateTime?
+  checkedOutById                                                        String
+  checkedOutAt                                                          DateTime                @default(now())
+  status                                                                InventoryCheckoutStatus @default(OPEN)
+  closedAt                                                              DateTime?
+  InventoryLocation_InventoryCheckout_fromLocationIdToInventoryLocation InventoryLocation       @relation("InventoryCheckout_fromLocationIdToInventoryLocation", fields: [fromLocationId], references: [id])
+  InventoryItem                                                         InventoryItem           @relation(fields: [itemId], references: [id])
+  Event                                                                 Event?                  @relation(fields: [toEventId], references: [id])
+  InventoryLocation_InventoryCheckout_toLocationIdToInventoryLocation   InventoryLocation?      @relation("InventoryCheckout_toLocationIdToInventoryLocation", fields: [toLocationId], references: [id])
+  InventoryReturn                                                       InventoryReturn[]
+
+  @@index([itemId])
+  @@index([toEventId])
+}
+
+model InventoryItem {
+  id                   String                 @id
+  sku                  String                 @unique
+  name                 String
+  description          String?
+  unit                 String
+  isConsumable         Boolean                @default(false)
+  minStock             Int                    @default(0)
+  barcode              String?                @unique
+  categoryId           String?
+  defaultLocationId    String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  deletedAt            DateTime?
+  InventoryCheckout    InventoryCheckout[]
+  InventoryCategory    InventoryCategory?     @relation(fields: [categoryId], references: [id])
+  InventoryLocation    InventoryLocation?     @relation(fields: [defaultLocationId], references: [id])
+  InventoryLedger      InventoryLedger[]
+  InventoryReservation InventoryReservation[]
+  InventoryStock       InventoryStock[]
+  transfers            InventoryTransfer[]
+
+  @@index([name])
+}
+
+model InventoryLedger {
+  id                                                                  String                @id
+  itemId                                                              String
+  deltaQty                                                            Int
+  fromLocationId                                                      String?
+  toLocationId                                                        String?
+  reason                                                              InventoryLedgerReason
+  refType                                                             String?
+  refId                                                               String?
+  actorId                                                             String?
+  at                                                                  DateTime              @default(now())
+  notes                                                               String?
+  InventoryLocation_InventoryLedger_fromLocationIdToInventoryLocation InventoryLocation?    @relation("InventoryLedger_fromLocationIdToInventoryLocation", fields: [fromLocationId], references: [id])
+  InventoryItem                                                       InventoryItem         @relation(fields: [itemId], references: [id])
+  InventoryLocation_InventoryLedger_toLocationIdToInventoryLocation   InventoryLocation?    @relation("InventoryLedger_toLocationIdToInventoryLocation", fields: [toLocationId], references: [id])
+
+  @@index([itemId, at])
+}
+
+model InventoryLocation {
+  id                                                                    String              @id
+  name                                                                  String
+  code                                                                  String              @unique
+  isTruck                                                               Boolean             @default(false)
+  createdAt                                                             DateTime            @default(now())
+  updatedAt                                                             DateTime
+  InventoryCheckout_InventoryCheckout_fromLocationIdToInventoryLocation InventoryCheckout[] @relation("InventoryCheckout_fromLocationIdToInventoryLocation")
+  InventoryCheckout_InventoryCheckout_toLocationIdToInventoryLocation   InventoryCheckout[] @relation("InventoryCheckout_toLocationIdToInventoryLocation")
+  InventoryItem                                                         InventoryItem[]
+  InventoryLedger_InventoryLedger_fromLocationIdToInventoryLocation     InventoryLedger[]   @relation("InventoryLedger_fromLocationIdToInventoryLocation")
+  InventoryLedger_InventoryLedger_toLocationIdToInventoryLocation       InventoryLedger[]   @relation("InventoryLedger_toLocationIdToInventoryLocation")
+  InventoryReturn                                                       InventoryReturn[]
+  InventoryStock                                                        InventoryStock[]
+  transfersFrom                                                         InventoryTransfer[] @relation("TransferFrom")
+  transfersTo                                                           InventoryTransfer[] @relation("TransferTo")
+}
+
+model InventoryReservation {
+  id            String        @id
+  itemId        String
+  eventId       String
+  qty           Int
+  neededAt      DateTime
+  notes         String?
+  createdAt     DateTime      @default(now())
+  Event         Event         @relation(fields: [eventId], references: [id])
+  InventoryItem InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([eventId])
+  @@index([itemId, neededAt])
+}
+
+model InventoryReturn {
+  id                String            @id
+  checkoutId        String
+  qty               Int
+  toLocationId      String
+  condition         String?
+  notes             String?
+  photoUrl          String?
+  checkedInById     String
+  checkedInAt       DateTime          @default(now())
+  InventoryCheckout InventoryCheckout @relation(fields: [checkoutId], references: [id])
+  InventoryLocation InventoryLocation @relation(fields: [toLocationId], references: [id])
+
+  @@index([checkoutId])
+}
+
+model InventoryStock {
+  id                String            @id
+  itemId            String
+  locationId        String
+  qty               Int               @default(0)
+  updatedAt         DateTime
+  InventoryItem     InventoryItem     @relation(fields: [itemId], references: [id])
+  InventoryLocation InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([itemId, locationId])
+  @@index([locationId])
+}
+
+model InventoryTransfer {
+  id             String    @id
+  itemId         String
+  fromLocationId String
+  toLocationId   String
+  qty            Int
+  status         String
+  requestedAt    DateTime  @default(now())
+  fulfilledAt    DateTime?
+  notes          String?
+
+  // Clean relation field names
+  item         InventoryItem     @relation(fields: [itemId], references: [id])
+  fromLocation InventoryLocation @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  toLocation   InventoryLocation @relation("TransferTo", fields: [toLocationId], references: [id])
+
+  @@index([itemId])
+  @@index([status])
+}
+
+model PayItem {
+  id            String          @id
+  number        String          @unique
+  description   String
+  unit          String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  EventQuantity EventQuantity[]
+}
+
+model PurchaseOrder {
+  id         String    @id
+  poNumber   String    @unique
+  project    String
+  vendor     String
+  status     String
+  expectedOn DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now())
+
+  @@index([status])
 }
 
 model ReportFile {
-  id         String     @id @default(cuid())
+  id         String     @id
   kind       ReportKind
   reportDate DateTime?
   weekStart  DateTime?
@@ -137,18 +344,65 @@ model ReportFile {
   @@index([weekStart, weekEnd, vendor], map: "ReportFile_week_vendor_idx")
 }
 
-model DailyReportSnapshot {
-  id          String   @id @default(cuid())
-  reportDate  DateTime
-  vendor      String?
-  payloadJson String
-  createdAt   DateTime @default(now())
+model Rfi {
+  id         String    @id
+  project    String
+  subject    String
+  assignedTo String?
+  status     String
+  dueDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now())
 
-  @@index([reportDate, vendor])
+  @@index([project, status])
+}
+
+model ShareToken {
+  id         String    @id
+  calendarId String
+  role       ShareRole
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  Calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+}
+
+model Todo {
+  id         String    @id
+  calendarId String
+  title      String
+  notes      String?
+  done       Boolean   @default(false)
+  type       EventType
+  createdAt  DateTime  @default(now())
+  Calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId, createdAt])
+}
+
+model UserSetting {
+  id           String  @id
+  userId       String  @unique
+  showHolidays Boolean @default(true)
+  countryCode  String  @default("US")
+  useIcs       Boolean @default(false)
+  icsUrl       String?
+}
+
+model Vehicle {
+  id            String    @id
+  unit          String
+  status        String
+  location      String?
+  nextServiceOn DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now())
+
+  @@index([nextServiceOn], map: "Vehicle_nextService_idx")
+  @@index([status])
 }
 
 model WeeklyReportRequest {
-  id         String       @id @default(cuid())
+  id         String       @id
   weekStart  DateTime
   weekEnd    DateTime
   vendor     String?
@@ -160,22 +414,16 @@ model WeeklyReportRequest {
   @@index([weekStart, weekEnd, vendor], map: "WeeklyReportRequest_week_vendor_idx")
 }
 
-model FdotCutoff {
-  id         String   @id @default(cuid())
-  year       Int
-  cutoffDate DateTime @map("cutoff_date")
-  label      String?
-  createdBy  String?  @map("created_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+model fdot_cutoffs {
+  id          String   @id
+  year        Int
+  cutoff_date DateTime
+  label       String?
+  created_by  String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
 
-  @@unique([year, cutoffDate])
-  @@map("fdot_cutoffs")
-}
-
-enum ShareRole {
-  VIEWER
-  EDITOR
+  @@unique([year, cutoff_date])
 }
 
 enum EventType {
@@ -186,9 +434,19 @@ enum EventType {
   ATTENUATOR
 }
 
-enum WorkShift {
-  DAY
-  NIGHT
+enum InventoryCheckoutStatus {
+  OPEN
+  CLOSED
+  LOST
+  DAMAGED
+}
+
+enum InventoryLedgerReason {
+  CHECKOUT
+  RETURN
+  ADJUST
+  CONSUME
+  TRANSFER
 }
 
 enum ReportKind {
@@ -197,8 +455,18 @@ enum ReportKind {
   WEEKLY_PDF
 }
 
+enum ShareRole {
+  VIEWER
+  EDITOR
+}
+
 enum WeeklyStatus {
   PENDING
   SUCCESS
   ERROR
+}
+
+enum WorkShift {
+  DAY
+  NIGHT
 }

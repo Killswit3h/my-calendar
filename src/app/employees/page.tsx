@@ -11,8 +11,8 @@ import {
   type Employee,
   type Team,
 } from "../../employees";
-import { alpha } from "@mui/material/styles";
 import * as ReactWindow from "react-window";
+import { ArrowLeft, RotateCcw, Trash2, Plus, Search, UserX } from "lucide-react";
 import AccentColorSelect from "../../components/AccentColorSelect";
 
 import AppBar from "@mui/material/AppBar";
@@ -39,12 +39,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Snackbar from "@mui/material/Snackbar";
-import SearchIcon from "@mui/icons-material/Search";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
-import PersonOffIcon from "@mui/icons-material/PersonOff";
 
 const FixedSizeList = ReactWindow.FixedSizeList;
 type ListChildComponentProps = ReactWindow.ListChildComponentProps;
@@ -153,7 +147,7 @@ function EmployeesPageContent() {
       >
         <Toolbar>
           <IconButton edge="start" component={Link} href={back} aria-label="back">
-            <ArrowBackIcon />
+            <ArrowLeft size={20} aria-hidden="true" />
           </IconButton>
           <Typography
             variant="h5"
@@ -163,7 +157,7 @@ function EmployeesPageContent() {
             Employees
           </Typography>
           <IconButton edge="end" aria-label="reset" onClick={handleReset}>
-            <RestartAltIcon />
+            <RotateCcw size={20} aria-hidden="true" />
           </IconButton>
         </Toolbar>
       </AppBar>
@@ -184,7 +178,7 @@ function EmployeesPageContent() {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
+                <Search size={16} aria-hidden="true" />
               </InputAdornment>
             ),
           }}
@@ -201,7 +195,7 @@ function EmployeesPageContent() {
           <MenuItem value="Central">Central</MenuItem>
         </TextField>
         <Button
-          startIcon={<AddIcon />}
+          startIcon={<Plus size={16} aria-hidden="true" />}
           variant="contained"
           size="small"
           onClick={openAdd}
@@ -212,7 +206,9 @@ function EmployeesPageContent() {
 
       {filtered.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 6 }}>
-          <PersonOffIcon sx={{ fontSize: 48, mb: 1, color: "text.secondary" }} />
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 1, color: "text.secondary" }}>
+            <UserX size={48} aria-hidden="true" />
+          </Box>
           <Typography variant="h6" sx={{ typography: "headlineSmall" }} gutterBottom>
             No employees yet
           </Typography>
@@ -249,7 +245,7 @@ function EmployeesPageContent() {
                             sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
                             onClick={() => setToDelete(e)}
                           >
-                            <DeleteIcon />
+                            <Trash2 size={20} aria-hidden="true" />
                           </IconButton>
                         </Tooltip>
                       </Box>
@@ -305,7 +301,7 @@ function EmployeesPageContent() {
                         sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
                         onClick={() => setToDelete(e)}
                       >
-                        <DeleteIcon />
+                        <Trash2 size={20} aria-hidden="true" />
                       </IconButton>
                     </Tooltip>
                   </Box>

@@ -1,74 +1,90 @@
-import { extendTheme } from '@mui/material/styles';
+import { createTheme, responsiveFontSizes, type Theme } from '@mui/material/styles'
 
-export type Accent = 'forest' | 'blue' | 'gray';
+export type Accent = 'forest' | 'blue' | 'gray'
 
 const ACCENTS: Record<
   Accent,
   {
-    primary: string;
-    primaryContainer: string;
-    secondary: string;
-    tertiary: string;
+    primary: string
+    primaryDark: string
+    secondary: string
+    accent: string
   }
 > = {
   forest: {
-    primary: '#1B5E20',
-    primaryContainer: '#0D2B12',
-    secondary: '#2E7D32',
-    tertiary: '#4CAF50',
+    primary: '#2F6E3D',
+    primaryDark: '#244F2E',
+    secondary: '#9ADBA9',
+    accent: '#4FAD64',
   },
   blue: {
-    primary: '#0D47A1',
-    primaryContainer: '#082567',
-    secondary: '#1976D2',
-    tertiary: '#64B5F6',
+    primary: '#1565C0',
+    primaryDark: '#0B3B73',
+    secondary: '#90CAF9',
+    accent: '#5E92F3',
   },
   gray: {
-    primary: '#37474F',
-    primaryContainer: '#1C2529',
-    secondary: '#607D8B',
-    tertiary: '#B0BEC5',
+    primary: '#546E7A',
+    primaryDark: '#29404A',
+    secondary: '#B0BEC5',
+    accent: '#90A4AE',
   },
-};
+}
 
-export function createAppTheme(accent: Accent) {
-  const tones = ACCENTS[accent];
-  const options = {
-    colorSchemes: {
-      dark: {
-        palette: {
-          mode: 'dark',
-          primary: {
-            main: tones.primary,
-            light: tones.primary,
-            dark: tones.primaryContainer,
-          },
-          secondary: {
-            main: tones.secondary,
-          },
-          tertiary: {
-            main: tones.tertiary,
-          },
-          error: {
-            main: '#F2B8B5',
-            dark: '#B3261E',
-          },
-          background: {
-            default: '#101418',
-            paper: '#141A1F',
-          },
-          surface: '#141A1F',
-          surfaceContainer: '#1A1F24',
-          surfaceContainerHigh: '#1F2429',
-          outline: '#8E9199',
-        },
+const LIGHT_COMMON = {
+  background: {
+    default: '#F7F9F7',
+    paper: '#FFFFFF',
+  },
+  text: {
+    primary: '#0f1d13',
+    secondary: '#4C6252',
+  },
+}
+
+const DARK_COMMON = {
+  background: {
+    default: '#0c1510',
+    paper: '#131F16',
+  },
+  text: {
+    primary: '#F0F5F1',
+    secondary: '#9AB6A3',
+  },
+}
+
+export function createAppTheme(accent: Accent, mode: 'light' | 'dark'): Theme {
+  const tones = ACCENTS[accent]
+
+  const base = createTheme({
+    palette: {
+      mode,
+      primary: {
+        main: tones.primary,
+        light: tones.accent,
+        dark: tones.primaryDark,
+        contrastText: mode === 'light' ? '#F2FBF4' : '#0F1D13',
       },
+      secondary: {
+        main: tones.secondary,
+      },
+      success: {
+        main: '#2E8F55',
+      },
+      warning: {
+        main: '#B06F00',
+      },
+      error: {
+        main: '#C73C3C',
+      },
+      background: mode === 'light' ? LIGHT_COMMON.background : DARK_COMMON.background,
+      text: mode === 'light' ? LIGHT_COMMON.text : DARK_COMMON.text,
     },
     shape: {
-      borderRadius: 16,
+      borderRadius: 18,
     },
     typography: {
-      fontFamily: '"Roboto Flex", "Roboto", "Helvetica", "Arial", sans-serif',
+      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
       button: {
         textTransform: 'none',
         fontWeight: 600,
@@ -86,7 +102,7 @@ export function createAppTheme(accent: Accent) {
         },
         styleOverrides: {
           root: {
-            borderRadius: 18,
+            borderRadius: 999,
             paddingInline: '1.2rem',
           },
         },
@@ -114,14 +130,22 @@ export function createAppTheme(accent: Accent) {
           },
         },
       },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backdropFilter: 'blur(16px)',
+            backgroundColor: mode === 'light' ? 'rgba(255,255,255,0.72)' : 'rgba(19,31,22,0.8)',
+          },
+        },
+      },
     },
-  };
+  })
 
-  return extendTheme(options as any);
+  return responsiveFontSizes(base)
 }
 
 export const ACCENT_PRESETS: { label: string; value: Accent }[] = [
-  { label: 'Forest Green', value: 'forest' },
-  { label: 'Blue', value: 'blue' },
-  { label: 'Gray', value: 'gray' },
-];
+  { label: 'GFC Green', value: 'forest' },
+  { label: 'Ocean Blue', value: 'blue' },
+  { label: 'Steel Gray', value: 'gray' },
+]

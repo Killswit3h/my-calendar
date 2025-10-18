@@ -46,5 +46,14 @@ export function removeAbsent(dateKey: string, id: string): void {
   const arr = Array.isArray(map[dateKey]) ? map[dateKey] : []
   map[dateKey] = arr.filter((x) => x !== id)
   save(map)
+  
+  // Dispatch custom event for immediate UI updates
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('yard-changed', { 
+        detail: { dateKey, action: 'remove', employeeId: id } 
+      }))
+    } catch {}
+  }
 }
 

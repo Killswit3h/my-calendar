@@ -22,7 +22,7 @@ type PrismaEventRow = EventRowLike & {
   type: EventType | null
   shift: WorkShift | null
   checklist: unknown | null
-  _count?: { quantities: number }
+  _count?: { EventQuantity: number }
 }
 
 const hasEventTypeEvent = (() => {
@@ -217,7 +217,7 @@ export async function GET(
           type: true,
           shift: true,
           checklist: true,
-          _count: { select: { quantities: true } },
+          _count: { select: { EventQuantity: true } },
         },
       })) as PrismaEventRow[],
     [] as PrismaEventRow[],
@@ -226,7 +226,7 @@ export async function GET(
   const events = rows.map(row =>
     serialize({
       ...row,
-      hasQuantities: !!row._count && row._count.quantities > 0,
+      hasQuantities: !!row._count && row._count.EventQuantity > 0,
     } as PrismaEventRow),
   )
   return NextResponse.json({ events }, { status: 200 })

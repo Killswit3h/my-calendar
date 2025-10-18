@@ -1,75 +1,77 @@
-// Date utilities for week computation and event/day overlap
-// - Computes local week dates respecting weekStartsOn
-// - Checks overlap of an event [start,end) with a local day range [00:00, 24:00)
+// utils/dates.ts
+import { addDays, differenceInCalendarDays, endOfDay, isAfter, isBefore, isSameDay, max, min, startOfDay } from "date-fns";
 
-export type MinimalEvent = {
-  start: string | Date
-  end: string | Date
-  allDay?: boolean | null
+export const toLocal = (d: Date | string) => new Date(d);
+
+export function overlapsDay(eventStart: Date, eventEnd: Date, day: Date) {
+  const s = startOfDay(eventStart);
+  const e = endOfDay(eventEnd);
+  return !(isAfter(s, endOfDay(day)) || isBefore(e, startOfDay(day)));
 }
 
-// Returns new Date at local midnight for the provided date
-export function startOfLocalDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+export function clampToRange(eventStart: Date, eventEnd: Date, rangeStart: Date, rangeEnd: Date) {
+  const s = max([eventStart, rangeStart]);
+  const e = min([eventEnd, rangeEnd]);
+  return { s, e };
 }
 
-// Add days (local)
-export function addDaysLocal(d: Date, days: number): Date {
-  const copy = new Date(d.getTime())
-  copy.setDate(copy.getDate() + days)
-  return copy
+export function daySpanInclusive(eventStart: Date, eventEnd: Date) {
+  return differenceInCalendarDays(endOfDay(eventEnd), startOfDay(eventStart)) + 1;
 }
 
-// Format as ISO YYYY-MM-DD using local date parts
-export function ymdLocal(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+export function weekStart(d: Date) {
+  // Sunday week start; change if your app uses Monday
+  const day = d.getDay();
+  const s = new Date(d);
+  s.setDate(d.getDate() - day);
+  s.setHours(0,0,0,0);
+  return s;
 }
 
-// Week dates for anyDateInView; weekStartsOn: 0 (Sun) | 1 (Mon)
-export function weekDates(anyDateInView: Date, weekStartsOn: 0 | 1 = 1): Date[] {
-  const base = startOfLocalDay(anyDateInView)
-  const dow = base.getDay() // 0..6 (Sun..Sat)
-  const offset = weekStartsOn === 1 ? ((dow + 6) % 7) : dow // days since week start
-  const start = addDaysLocal(base, -offset)
-  const days: Date[] = []
-  for (let i = 0; i < 7; i++) days.push(addDaysLocal(start, i))
-  return days
+export function addDaysUTC(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(d.getDate() + n);
+  return x;
 }
 
-// Return [startInclusive, endExclusive) bounds for a local day
-export function dayBoundsLocal(day: Date): { start: Date; end: Date } {
-  const start = startOfLocalDay(day)
-  const end = addDaysLocal(start, 1)
-  return { start, end }
-}
-
-// Parse event timestamps into Dates. For allDay date-only strings (YYYY-MM-DD),
-// treat them as local midnight, with end as exclusive next day when same.
-function parseEventRange(e: MinimalEvent): { start: Date; end: Date } {
-  const isAllDay = !!e.allDay
-  const toDate = (v: string | Date): Date => (v instanceof Date ? new Date(v.getTime()) : new Date(v))
-  let s = toDate(e.start)
-  let t = toDate(e.end)
-  // Detect date-only strings (length === 10) and coerce to local midnight
-  const isDateOnly = (v: string | Date) => typeof v === 'string' && v.length === 10 && /\d{4}-\d{2}-\d{2}/.test(v)
-  if (isAllDay || isDateOnly(e.start) || isDateOnly(e.end)) {
-    const sLocal = typeof e.start === 'string' ? new Date(e.start + 'T00:00:00') : s
-    const eLocal = typeof e.end === 'string' ? new Date(e.end + 'T00:00:00') : t
-    s = new Date(sLocal.getFullYear(), sLocal.getMonth(), sLocal.getDate())
-    t = new Date(eLocal.getFullYear(), eLocal.getMonth(), eLocal.getDate())
-    // Ensure exclusive end is after start
-    if (t.getTime() <= s.getTime()) t = addDaysLocal(s, 1)
+// Additional functions needed by existing components
+export function eventOverlapsLocalDay(event: { start: Date | string; end: Date | string; allDay?: boolean }, day: Date) {
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+  const dayStart = startOfDay(day);
+  const dayEnd = endOfDay(day);
+  
+  if (event.allDay) {
+    // For all-day events, check if the event overlaps with the day
+    const eventStart = startOfDay(start);
+    const eventEnd = endOfDay(end);
+    return !(eventEnd < dayStart || eventStart > dayEnd);
+  } else {
+    // For timed events, check if the event overlaps with the day
+    return !(end <= dayStart || start >= dayEnd);
   }
-  return { start: s, end: t }
 }
 
-// Overlap test: event [start,end) overlaps local day [00:00,24:00)
-export function eventOverlapsLocalDay(e: MinimalEvent, day: Date): boolean {
-  const { start, end } = parseEventRange(e)
-  const { start: ds, end: de } = dayBoundsLocal(day)
-  return start < de && end > ds
+export function ymdLocal(d: Date | string) {
+  const date = new Date(d);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
+export function weekDates(anyDateInView: Date, weekStartsOn: number = 0) {
+  const startOfWeek = new Date(anyDateInView);
+  const day = startOfWeek.getDay();
+  const diff = day - weekStartsOn;
+  startOfWeek.setDate(startOfWeek.getDate() - diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(startOfWeek);
+    date.setDate(startOfWeek.getDate() + i);
+    dates.push(date);
+  }
+  return dates;
+}
