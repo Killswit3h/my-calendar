@@ -1,91 +1,64 @@
-// src/components/ui/KpiCard.tsx
-"use client";
+import type { ComponentType } from 'react'
+import { ArrowDown, ArrowRight, ArrowUp } from 'lucide-react'
 
-import type { ComponentType } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, MapPinned, Timer, ArrowDownRight, ArrowUpRight, Compass, CalendarDays } from "lucide-react";
-import { formatNumber } from "@/lib/theme";
+import { formatNumber } from '@/lib/theme'
 
-export type KpiTrend = "up" | "down" | "neutral";
-
-const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
-  MapPinned,
-  Timer,
-  ArrowDownRight,
-  ArrowUpRight,
-  Compass,
-  CalendarDays,
-};
+export type KpiTrend = 'up' | 'down' | 'neutral'
 
 export type KpiCardProps = {
-  label: string;
-  value: number | string;
-  hint?: string;
-  suffix?: string;
-  change?: number;
-  trend?: KpiTrend;
-  iconName?: string;
-};
+  title: string
+  value: number
+  suffix?: string
+  change?: number
+  trend?: KpiTrend
+  helper?: string
+  icon?: ComponentType<{ className?: string }>
+}
 
-function KpiCard({
-  label,
-  value,
-  hint,
-  suffix,
-  change,
-  trend = "neutral",
-  iconName,
-}: KpiCardProps) {
-  const Icon = iconName ? ICON_MAP[iconName] : undefined;
-  
+export function KpiCard({ title, value, suffix, change, trend = 'neutral', helper, icon: Icon }: KpiCardProps) {
   return (
-    <article className="card p-4 flex flex-col gap-3">
-      <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] token-muted">
+    <article className="flex min-w-[220px] flex-1 flex-col gap-3 rounded-3xl border border-border/50 bg-surface/95 px-6 py-5 shadow-[0_14px_32px_rgba(7,17,11,0.28)]">
+      <header className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-muted/90">
         {Icon ? (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-card/70 text-[rgb(var(--accent))]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 text-accent-600 bg-surface-soft/70">
             <Icon className="h-3.5 w-3.5" />
           </span>
         ) : null}
-        <span>{label}</span>
+        <span>{title}</span>
       </header>
-
       <div className="flex flex-col gap-2">
-        <span className="text-2xl font-semibold token-fg">
-          {typeof value === "number" ? formatNumber(value) : value}
-          {suffix ? <span className="ml-1 text-base font-medium token-muted">{suffix}</span> : null}
+        <span className="text-[30px] font-semibold leading-tight text-foreground">
+          {formatNumber(value)}
+          {suffix ? <span className="ml-1 text-base font-medium text-muted">{suffix}</span> : null}
         </span>
-
-        {typeof change === "number" ? <TrendPill value={change} trend={trend} /> : null}
-        {hint ? <p className="text-xs token-muted">{hint}</p> : null}
+        {typeof change === 'number' ? <TrendPill value={change} trend={trend} /> : null}
+        {helper ? <p className="text-xs text-muted/90">{helper}</p> : null}
       </div>
     </article>
-  );
+  )
 }
 
-type TrendPillProps = { value: number; trend: KpiTrend };
+type TrendPillProps = { value: number; trend: KpiTrend }
 
 function TrendPill({ value, trend }: TrendPillProps) {
-  const formatted = `${formatNumber(Math.abs(value))}% vs last period`;
-  if (trend === "neutral") {
+  const formatted = `${formatNumber(Math.abs(value))}% vs last period`
+  if (trend === 'neutral') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium token-muted">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
         <ArrowRight className="h-3 w-3" /> {formatted}
       </span>
-    );
+    )
   }
-  if (trend === "down") {
+  if (trend === 'down') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-[rgb(var(--accent))]/70">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-danger">
         <ArrowDown className="h-3 w-3" /> {formatted}
       </span>
-    );
+    )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-[rgb(var(--accent))]">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
       <ArrowUp className="h-3 w-3" /> {formatted}
     </span>
-  );
+  )
 }
-
-export default KpiCard;
-// also provide a named export so existing pages importing { KpiCard } continue to work
-export { KpiCard };

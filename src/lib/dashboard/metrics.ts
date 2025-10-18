@@ -106,7 +106,7 @@ export const getDashboardMetrics = cache(async (): Promise<DashboardMetrics> => 
     prisma.event.count({ where: { OR: [{ invoiceNumber: null }, { invoiceNumber: '' }] } }),
     prisma.inventoryItem.findMany({
       where: { deletedAt: null, minStock: { gt: 0 } },
-      select: { minStock: true, stocks: { select: { qty: true } } },
+      select: { minStock: true, InventoryStock: { select: { qty: true } } },
     }),
     prisma.event.findMany({
       where: { startsAt: { gte: weekStart, lt: weekEnd } },

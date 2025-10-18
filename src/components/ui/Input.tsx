@@ -1,38 +1,25 @@
-"use client";
+// src/components/ui/input.tsx
+import * as React from "react"
+import { cn } from "@/lib/theme"
 
-import React from 'react';
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  help?: string;
-  error?: string;
-}
-
-export function Input({ label, help, error, className = '', id, ...rest }: InputProps) {
-  const inputId = id || React.useId();
-  const describedBy: string[] = [];
-  if (help) describedBy.push(`${inputId}-help`);
-  if (error) describedBy.push(`${inputId}-error`);
-  return (
-    <label className="grid gap-1 text-sm text-fg">
-      {label ? <div className="text-[var(--fg-muted)]">{label}</div> : null}
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
       <input
-        id={inputId}
-        className={[
-          'w-full min-h-[44px] rounded-control border border-border bg-[var(--surface)] text-fg',
-          'px-3 py-2 focus:outline-none focus:[box-shadow:var(--ring-outline)]',
-          error ? 'border-status-danger' : '',
-          className,
-        ].join(' ')}
-        aria-describedby={describedBy.join(' ') || undefined}
-        aria-invalid={!!error || undefined}
-        {...rest}
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-bg file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
       />
-      {help ? <div id={`${inputId}-help`} className="text-xs text-[var(--fg-muted)]">{help}</div> : null}
-      {error ? <div id={`${inputId}-error`} className="text-xs text-status-danger">{error}</div> : null}
-    </label>
-  );
-}
+    )
+  }
+)
+Input.displayName = "Input"
 
-export default Input;
-
+export { Input }

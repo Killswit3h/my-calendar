@@ -1,25 +1,44 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useTransition } from "react";
+import useSWR from "swr";
 import type { Employee } from "@/employees";
 import type { EventInput } from "@fullcalendar/core";
 import { weekDates, ymdLocal, eventOverlapsLocalDay } from "@/lib/dateUtils";
 import { getYardForDate, addYard, removeYard } from "@/lib/yard";
 import { getAbsentForDate, addAbsent, removeAbsent } from "@/lib/absent";
 import { EMPLOYEE_MIME, buildEmployeePayload } from "@/lib/dragAssign";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   employees: Employee[];
   events: EventInput[];
-  anyDateInView?: Date | null; // optional (for week mode)
-  selectedDate?: Date | null;  // if provided, show only this day
-  weekStartsOn?: 0 | 1; // 0=Sunday, 1=Monday (default)
+  anyDateInView?: Date | null;
+  selectedDate?: Date | null;
+  weekStartsOn?: 0 | 1;
   onQuickAdd?: (employeeId: string, date: Date) => void;
   onSetYard?: (employeeId: string, date: Date) => void;
 };
 
 function formatDayLabel(d: Date): string {
   return new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(d);
+}
+
+type RosterSection = "YARD_SHOP" | "NO_WORK";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+async function apiMoveToFree(input: { employeeId: string; dateISO: string; from: RosterSection }) {
+  const res = await fetch(`/api/roster/move-to-free`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || "Failed to move employee");
+  }
+  return res.json();
 }
 
 export default function UnassignedSidebar({ employees, events, anyDateInView = null, selectedDate = null, weekStartsOn = 1, onQuickAdd }: Props) {
@@ -33,9 +52,24 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
     return anyDateInView ? weekDates(anyDateInView, weekStartsOn) : [];
   }, [selectedDate, anyDateInView, weekStartsOn]);
 
-  // simple version counter to refresh when mutating yard store
   const [yardVersion, setYardVersion] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const bump = () => setYardVersion(v => v + 1);
+  
+  // Use SWR to revalidate roster data for the selected date
+  const selectedDateKey = selectedDate ? `/api/roster?date=${encodeURIComponent(ymdLocal(selectedDate))}` : null;
+  const { mutate: mutateRoster } = useSWR(selectedDateKey, fetcher, {
+    revalidateOnFocus: false,
+  });
+  
+  useEffect(() => {
+    const handleYardChange = () => {
+      bump();
+    };
+    
+    window.addEventListener('yard-changed', handleYardChange);
+    return () => window.removeEventListener('yard-changed', handleYardChange);
+  }, []);
 
   // Map of dateKey -> Set of assigned employeeIds
   const { assignedByDay, eventAssignedByDay } = useMemo(() => {
@@ -68,16 +102,12 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
       const employeeIds: string[] = Array.isArray(checklist?.employees) ? checklist.employees : [];
       if (!employeeIds.length) continue;
 
-      // Skip events fully outside the week window quickly
       const minimal = { start: ev.start as any, end: ev.end as any, allDay: !!ev.allDay };
-      // Quick reject by range bounds using overlap with entire week
       const weekSpanOverlaps = (() => {
-        // Sample a few days to quickly reject clearly outside events
         const pick = daysToShow.length >= 3 ? [daysToShow[0], daysToShow[Math.floor(daysToShow.length/2)], daysToShow[daysToShow.length-1]] : daysToShow;
         return pick.some(d => eventOverlapsLocalDay(minimal as any, d));
       })();
       if (!weekSpanOverlaps) {
-        // Might still miss super long events that skip exact sample days, fallback to coarse bound check
         const evStart = minimal.start instanceof Date ? minimal.start : new Date(minimal.start);
         const evEnd = minimal.end instanceof Date ? minimal.end : new Date(minimal.end);
         if (evEnd <= rangeStart || evStart >= rangeEnd) continue;
@@ -101,6 +131,42 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
   }, [events, daysToShow, yardVersion]);
 
   const isEmpty = employees.length === 0;
+
+  // Force re-render by accessing yardVersion in render
+  const _ = yardVersion; // eslint-disable-line @typescript-eslint/no-unused-vars
+
+  async function handleRemove({ employeeId, fromSection, dateISO }: { employeeId: string; fromSection: RosterSection; dateISO: string }) {
+    console.log("remove click", { employeeId, fromSection, dateISO });
+    
+    // Optimistic update: remove from localStorage immediately
+    if (fromSection === "YARD_SHOP") {
+      removeYard(dateISO, employeeId);
+    } else if (fromSection === "NO_WORK") {
+      removeAbsent(dateISO, employeeId);
+    }
+    
+    // Trigger UI update
+    bump();
+    
+    // Persist to database
+    startTransition(async () => {
+      try {
+        await apiMoveToFree({ employeeId, dateISO, from: fromSection });
+        console.log("Successfully moved employee to free");
+        // Revalidate roster data for this date
+        if (mutateRoster) await mutateRoster();
+      } catch (err: any) {
+        console.error("Failed to move employee:", err);
+        // Revert optimistic update on failure
+        if (fromSection === "YARD_SHOP") {
+          addYard(dateISO, employeeId);
+        } else if (fromSection === "NO_WORK") {
+          addAbsent(dateISO, employeeId);
+        }
+        bump();
+      }
+    });
+  }
 
   return (
     <div className="unassigned-sidebar" aria-label="Unassigned employees by day">
@@ -177,9 +243,20 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           return (
                             <div key={id} className="yard-row" role="listitem">
                               <div className="emp-name">{label}</div>
-                              <button className="btn tiny" onClick={() => { removeYard(key, id); bump(); try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {} }} aria-label={`Remove ${label} from Yard/Shop`}>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRemove({ employeeId: id, fromSection: "YARD_SHOP", dateISO: key });
+                                }}
+                                disabled={isPending}
+                                aria-label={`Remove ${label} from Yard/Shop`}
+                              >
                                 Remove
-                              </button>
+                              </Button>
                             </div>
                           );
                         });
@@ -192,9 +269,12 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                         ))}
                       </select>
-                      <button
-                        className="btn tiny"
+                      <Button
+                        type="button"
+                        size="sm"
                         onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           const sel = (e.currentTarget.previousSibling as HTMLSelectElement | null);
                           const val = sel?.value || '';
                           if (!val) return;
@@ -203,7 +283,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           bump();
                           try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {}
                         }}
-                      >Add</button>
+                      >Add</Button>
                     </div>
                   </div>
                 ) : null}
@@ -220,9 +300,20 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           return (
                             <div key={id} className="yard-row" role="listitem">
                               <div className="emp-name">{label}</div>
-                              <button className="btn tiny" onClick={() => { removeAbsent(key, id); bump(); try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {} }} aria-label={`Remove ${label} from No Work`}>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRemove({ employeeId: id, fromSection: "NO_WORK", dateISO: key });
+                                }}
+                                disabled={isPending}
+                                aria-label={`Remove ${label} from No Work`}
+                              >
                                 Remove
-                              </button>
+                              </Button>
                             </div>
                           );
                         })
@@ -237,9 +328,12 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                         ))}
                       </select>
-                      <button
-                        className="btn tiny"
+                      <Button
+                        type="button"
+                        size="sm"
                         onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           const sel = (e.currentTarget.previousSibling as HTMLSelectElement | null);
                           const val = sel?.value || '';
                           if (!val) return;
@@ -248,7 +342,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
                           bump();
                           try { window.dispatchEvent(new CustomEvent('yard-changed')); } catch {}
                         }}
-                      >Add</button>
+                      >Add</Button>
                     </div>
                   </div>
                 ) : null}

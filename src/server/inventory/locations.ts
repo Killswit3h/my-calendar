@@ -24,9 +24,11 @@ async function resolveClient(client?: PrismaTx): Promise<PrismaTx> {
 
 function buildCreateData(input: InventoryLocationCreateParsed): Prisma.InventoryLocationUncheckedCreateInput {
   return {
+    id: `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: input.name,
     code: input.code,
     isTruck: input.isTruck ?? false,
+    updatedAt: new Date(),
   }
 }
 
