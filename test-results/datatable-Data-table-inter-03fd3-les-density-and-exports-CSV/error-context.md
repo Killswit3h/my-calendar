@@ -1,0 +1,115 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - button "Collapse sidebar" [ref=e5]: «
+      - generic [ref=e6]: Control Center
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Workspace
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "Dashboard" [ref=e12] [cursor=pointer]:
+              - /url: /
+              - text: Dashboard
+          - listitem [ref=e13]:
+            - link "Calendar" [ref=e14] [cursor=pointer]:
+              - /url: /calendar-fullscreen
+              - text: Calendar
+          - listitem [ref=e15]:
+            - link "Projects" [ref=e16] [cursor=pointer]:
+              - /url: /(shell)/projects
+              - text: Projects
+          - listitem [ref=e17]:
+            - link "Documents" [ref=e18] [cursor=pointer]:
+              - /url: /(shell)/documents
+              - text: Documents
+          - listitem [ref=e19]:
+            - link "Finance" [ref=e20] [cursor=pointer]:
+              - /url: /(shell)/finance
+              - text: Finance
+          - listitem [ref=e21]:
+            - link "Inventory" [ref=e22] [cursor=pointer]:
+              - /url: /(shell)/inventory
+              - text: Inventory
+          - listitem [ref=e23]:
+            - link "Procurement" [ref=e24] [cursor=pointer]:
+              - /url: /(shell)/procurement
+              - text: Procurement
+          - listitem [ref=e25]:
+            - link "HR" [ref=e26] [cursor=pointer]:
+              - /url: /(shell)/hr
+              - text: HR
+          - listitem [ref=e27]:
+            - link "Fleet" [ref=e28] [cursor=pointer]:
+              - /url: /(shell)/fleet
+              - text: Fleet
+      - generic [ref=e29]:
+        - generic [ref=e30]: Oversight
+        - list [ref=e31]:
+          - listitem [ref=e32]:
+            - link "Compliance" [ref=e33] [cursor=pointer]:
+              - /url: /(shell)/compliance
+              - text: Compliance
+          - listitem [ref=e34]:
+            - link "Reports" [ref=e35] [cursor=pointer]:
+              - /url: /(shell)/reports
+              - text: Reports
+      - generic [ref=e36]:
+        - generic [ref=e37]: Administration
+        - list [ref=e38]:
+          - listitem [ref=e39]:
+            - link "Admin" [ref=e40] [cursor=pointer]:
+              - /url: /(shell)/admin
+              - text: Admin
+      - generic [ref=e41]: © 2025 GFC
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]:
+        - textbox "Search…" [ref=e45]
+        - button "Quick Add" [ref=e46]
+        - generic "User"
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]: Showing 1 contract records
+        - button "Export summary" [ref=e52]
+      - generic [ref=e53]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - button "Comfort" [pressed] [ref=e57]:
+              - img [ref=e58]
+              - text: Comfort
+            - button "Compact" [ref=e63]:
+              - img [ref=e64]
+              - text: Compact
+          - button "CSV" [active] [ref=e69]:
+            - img [ref=e70]
+            - text: CSV
+        - table [ref=e74]:
+          - rowgroup [ref=e75]:
+            - row "Contract Project Amount Status Executed" [ref=e76]:
+              - cell "Contract" [ref=e77]:
+                - text: Contract
+                - separator
+              - cell "Project" [ref=e78]:
+                - text: Project
+                - separator
+              - cell "Amount" [ref=e79]:
+                - text: Amount
+                - separator
+              - cell "Status" [ref=e80]:
+                - text: Status
+                - separator
+              - cell "Executed" [ref=e81]:
+                - text: Executed
+                - separator
+          - rowgroup [ref=e82]:
+            - row "CN-203 SR-836 Shoulder Barrier Retrofit $2,150,000 Approved 2024-09-30" [ref=e83]:
+              - cell "CN-203" [ref=e84]
+              - cell "SR-836 Shoulder Barrier Retrofit" [ref=e85]
+              - cell "$2,150,000" [ref=e86]
+              - cell "Approved" [ref=e87]
+              - cell "2024-09-30" [ref=e88]
+```

@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+This project is a custom calendar and operations dashboard called `my-calendar`.
+
+- Built with Next.js 15, TypeScript, Tailwind (Material 3 style), and Prisma 6.
+- Uses Neon Postgres (with pooled/direct connections) for the database.
+- Frontend uses FullCalendar for scheduling. In month view, FullCalendar treats `end` of all-day events as **exclusive**.
+- Preserve all timezone handling logic. All-day events use `YYYY-MM-DD` format (not ISO timestamp).
+- Do not change the schema or any API endpoints unless instructed.
+- Never auto-refactor layout containers or override flex/grid structure.
+- Daily reports are generated via a custom PDF module using `pdf-lib`.
+- The main layout includes a dashboard "shelf" on the left and content panes with scroll and overflow constraints.
+- This calendar is deeply integrated with FDOT-style reporting logic, including multi-day tracking and employee assignments.
+- Avoid assumptions — check if a feature is already partially implemented before suggesting a new system.
