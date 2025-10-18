@@ -1,11 +1,11 @@
 import type { Prisma } from '@prisma/client'
 
 export const inventoryItemRelations = {
-  category: true,
-  defaultLocation: true,
-  stocks: {
+  InventoryCategory: true,
+  InventoryLocation: true,
+  InventoryStock: {
     include: {
-      location: true,
+      InventoryLocation: true,
     },
   },
 } satisfies Prisma.InventoryItemInclude
@@ -19,9 +19,9 @@ export type InventoryListOptions = {
 }
 
 export const inventoryLocationRelations = {
-  stocks: {
+  InventoryStock: {
     include: {
-      item: {
+      InventoryItem: {
         select: {
           id: true,
           name: true,

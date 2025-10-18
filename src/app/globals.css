@@ -41,14 +41,16 @@ main { position: relative; z-index: 0; }
   min-width: 0 !important; 
   width: calc(100% / 7) !important;
   max-width: calc(100% / 7) !important;
+  overflow: visible !important;
 }
 .fc .fc-daygrid-day-frame { 
   min-width: 0 !important; 
   width: 100% !important;
   min-height: 3.25rem !important;
+  overflow: visible !important;
 }
 .fc .fc-daygrid-day-events { 
-  overflow: hidden !important; 
+  overflow: visible !important; 
   padding-bottom: 26px !important;
   min-height: 2rem !important;
 }
@@ -104,6 +106,23 @@ main { position: relative; z-index: 0; }
 /* Ensure event blocks span properly */
 .fc .fc-daygrid-event-harness {
   background: transparent !important;
+}
+
+/* Force multi-day events to span across all days */
+.fc .fc-daygrid-event-harness-inner {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Ensure multi-day events are not clipped */
+.fc .fc-daygrid-event.fc-event-start,
+.fc .fc-daygrid-event.fc-event-end,
+.fc .fc-daygrid-event.fc-event-continue {
+  overflow: visible !important;
+  clip: none !important;
+  clip-path: none !important;
 }
 
 /* Multi-day event spanning - ensure events span across days */

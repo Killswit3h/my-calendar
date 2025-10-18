@@ -1,0 +1,77 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - button "Collapse sidebar" [ref=e5]: «
+      - generic [ref=e6]: Control Center
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Workspace
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "Dashboard" [ref=e12] [cursor=pointer]:
+              - /url: /
+              - text: Dashboard
+          - listitem [ref=e13]:
+            - link "Calendar" [ref=e14] [cursor=pointer]:
+              - /url: /calendar-fullscreen
+              - text: Calendar
+          - listitem [ref=e15]:
+            - link "Projects" [ref=e16] [cursor=pointer]:
+              - /url: /(shell)/projects
+              - text: Projects
+          - listitem [ref=e17]:
+            - link "Documents" [ref=e18] [cursor=pointer]:
+              - /url: /(shell)/documents
+              - text: Documents
+          - listitem [ref=e19]:
+            - link "Finance" [ref=e20] [cursor=pointer]:
+              - /url: /(shell)/finance
+              - text: Finance
+          - listitem [ref=e21]:
+            - link "Inventory" [ref=e22] [cursor=pointer]:
+              - /url: /(shell)/inventory
+              - text: Inventory
+          - listitem [ref=e23]:
+            - link "Procurement" [ref=e24] [cursor=pointer]:
+              - /url: /(shell)/procurement
+              - text: Procurement
+          - listitem [ref=e25]:
+            - link "HR" [ref=e26] [cursor=pointer]:
+              - /url: /(shell)/hr
+              - text: HR
+          - listitem [ref=e27]:
+            - link "Fleet" [ref=e28] [cursor=pointer]:
+              - /url: /(shell)/fleet
+              - text: Fleet
+      - generic [ref=e29]:
+        - generic [ref=e30]: Oversight
+        - list [ref=e31]:
+          - listitem [ref=e32]:
+            - link "Compliance" [ref=e33] [cursor=pointer]:
+              - /url: /(shell)/compliance
+              - text: Compliance
+          - listitem [ref=e34]:
+            - link "Reports" [ref=e35] [cursor=pointer]:
+              - /url: /(shell)/reports
+              - text: Reports
+      - generic [ref=e36]:
+        - generic [ref=e37]: Administration
+        - list [ref=e38]:
+          - listitem [ref=e39]:
+            - link "Admin" [ref=e40] [cursor=pointer]:
+              - /url: /(shell)/admin
+              - text: Admin
+      - generic [ref=e41]: © 2025 GFC
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]:
+        - textbox "Search…" [ref=e45]
+        - button "Quick Add" [ref=e46]
+        - generic "User"
+    - generic [ref=e49]:
+      - heading "404" [level=1] [ref=e50]
+      - heading "This page could not be found." [level=2] [ref=e52]
+```
