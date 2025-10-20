@@ -1,161 +1,166 @@
 "use client";
 
-import React, { useMemo } from "react";
-import Autocomplete from "@mui/material/Autocomplete";
-import TextField from "@mui/material/TextField";
-import Chip from "@mui/material/Chip";
-import Avatar from "@mui/material/Avatar";
-import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import { alpha } from "@mui/material/styles";
-import * as ReactWindow from "react-window";
+import { useMemo, useState } from "react";
 import type { Employee } from "../employees";
 
-const FixedSizeList = ReactWindow.FixedSizeList;
-type ListChildComponentProps = ReactWindow.ListChildComponentProps;
-
-interface Props {
+type Props = {
   employees: Employee[];
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
   label?: string;
+};
+
+function normalize(text: string): string {
+  return text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-const LISTBOX_PADDING = 8; // px
+export default function EmployeeMultiSelect({
+  employees,
+  value,
+  onChange,
+  placeholder = "Search employees…",
+  label,
+}: Props) {
+  const [query, setQuery] = useState("");
 
-function renderRow(props: ListChildComponentProps) {
-  const { data, index, style } = props;
-  return React.cloneElement(data[index], {
-    style: {
-      ...style,
-      top: (style.top as number) + LISTBOX_PADDING,
-    },
-  });
-}
-
-const ListboxComponent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLElement>>(function ListboxComponent(
-  props,
-  ref
-) {
-  const { children, ...other } = props;
-  const itemData = React.Children.toArray(children);
-  const itemCount = itemData.length;
-  const itemSize = 50;
-  const height = Math.min(8, itemCount) * itemSize + 2 * LISTBOX_PADDING;
-  return (
-    <div ref={ref} {...other}>
-      <FixedSizeList
-        height={height}
-        itemData={itemData}
-        itemCount={itemCount}
-        itemSize={itemSize}
-        width="100%"
-      >
-        {renderRow}
-      </FixedSizeList>
-    </div>
-  );
-});
-
-export default function EmployeeMultiSelect({ employees, value, onChange, placeholder = "Select employees", label }: Props) {
-  const selected = useMemo(() => employees.filter((e) => value.includes(e.id)), [employees, value]);
-  const filterOptions = (opts: Employee[], { inputValue }: any) => {
-    const term = inputValue.toLowerCase();
-    return opts.filter((e) => {
-      const init = `${e.firstName[0] ?? ""}${e.lastName[0] ?? ""}`.toLowerCase();
-      return (
-        e.firstName.toLowerCase().includes(term) ||
-        e.lastName.toLowerCase().includes(term) ||
-        init.includes(term) ||
-        e.team.toLowerCase().includes(term)
-      );
+  const filtered = useMemo(() => {
+    const term = normalize(query);
+    if (!term) return employees;
+    return employees.filter(emp => {
+      const full = normalize(`${emp.firstName} ${emp.lastName}`);
+      const team = normalize(emp.team);
+      const initials = `${emp.firstName[0] ?? ""}${emp.lastName[0] ?? ""}`.toLowerCase();
+      return full.includes(term) || team.includes(term) || initials.includes(term);
     });
+  }, [employees, query]);
+
+  const selectedSet = useMemo(() => new Set(value), [value]);
+
+  const toggle = (id: string) => {
+    const next = new Set(selectedSet);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onChange(Array.from(next));
   };
 
+  const selectAllFiltered = () => {
+    const ids = filtered.map(emp => emp.id);
+    const next = new Set(selectedSet);
+    ids.forEach(id => next.add(id));
+    onChange(Array.from(next));
+  };
+
+  const clearAll = () => onChange([]);
+
   return (
-    <Autocomplete
-      multiple
-      size="small"
-      options={employees}
-      value={selected}
-      disableCloseOnSelect
-      getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
-      isOptionEqualToValue={(o, v) => o.id === v.id}
-      filterOptions={filterOptions}
-      onChange={(_, next) => onChange(next.map((n) => n.id))}
-      ListboxComponent={employees.length > 200 ? ListboxComponent : undefined}
-      slotProps={{
-        paper: { sx: { bgcolor: (theme) => (theme.palette as any).surfaceContainerLow } },
-      }}
-      renderTags={(val, getTagProps) =>
-        val.map((option, idx) => (
-          <Chip
-            {...getTagProps({ index: idx })}
-            key={option.id}
-            label={`${option.firstName} ${option.lastName}`}
-            size="small"
-            sx={{
-              color: 'white',
-              '& .MuiChip-label': {
-                color: 'white',
-              },
-            }}
-          />
-        ))
-      }
-      renderOption={(props, option) => (
-        <li {...props} key={option.id} style={{ padding: 0 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1 }}>
-            <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: "background.paper", color: "text.secondary" }}>
-              {option.firstName[0]}
-              {option.lastName[0]}
-            </Avatar>
-            <Typography
-              variant="body2"
-              sx={{
-                flexGrow: 1,
-                typography: "bodyMedium",
-                color: (theme) => theme.palette.common.white,
-                fontWeight: 600,
-                textShadow: "0 1px 1px rgba(0,0,0,0.3)",
-              }}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        {label ? <span className="text-xs uppercase tracking-[0.2em] text-muted">{label}</span> : null}
+        <div className="flex items-center gap-2 text-xs">
+          {value.length > 0 ? (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-muted hover:text-foreground transition"
             >
-              {option.firstName} {option.lastName}
-            </Typography>
-            <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
-              ({option.team})
-            </Typography>
-          </Box>
-        </li>
-      )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label ?? "Select employees"}
+              Clear all
+            </button>
+          ) : null}
+          {filtered.length > value.length ? (
+            <button
+              type="button"
+              onClick={selectAllFiltered}
+              className="text-muted hover:text-foreground transition"
+            >
+              Select visible
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
           placeholder={placeholder}
-          size="small"
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {value.length > 0 && (
-                  <Button
-                    color="primary"
-                    size="small"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => onChange([])}
-                  >
-                    Clear all
-                  </Button>
-                )}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
+          className="h-10 w-full rounded-md border border-border/70 bg-white/5 px-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/60"
         />
-      )}
-    />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted">
+          {filtered.length} results
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs text-muted">
+        {value.length ? (
+          employees
+            .filter(emp => selectedSet.has(emp.id))
+            .map(emp => (
+              <span
+                key={emp.id}
+                className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-foreground/10 px-3 py-1"
+              >
+                <span className="text-foreground">{emp.firstName} {emp.lastName}</span>
+                <button
+                  type="button"
+                  className="text-muted hover:text-foreground transition"
+                  onClick={() => toggle(emp.id)}
+                  aria-label={`Remove ${emp.firstName} ${emp.lastName}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))
+        ) : (
+          <span className="text-muted">
+            No employees selected. Use the list below to assign.
+          </span>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-surface-soft/50">
+        <ul className="max-h-64 overflow-y-auto divide-y divide-border/40">
+          {filtered.length ? (
+            filtered.map(emp => {
+              const checked = selectedSet.has(emp.id);
+              return (
+                <li
+                  key={emp.id}
+                  className="flex items-center gap-3 px-3 py-2 text-sm text-muted hover:bg-white/5"
+                >
+                  <label className="flex flex-1 items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggle(emp.id)}
+                      className="size-4 rounded border border-border bg-transparent accent-accent"
+                    />
+                    <span className="flex flex-col leading-tight">
+                      <span className="text-foreground font-medium">
+                        {emp.firstName} {emp.lastName}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {emp.team} • {emp.id}
+                      </span>
+                    </span>
+                  </label>
+                  {checked ? (
+                    <span className="text-xs text-accent font-semibold uppercase tracking-wide">
+                      Assigned
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })
+          ) : (
+            <li className="px-3 py-6 text-sm text-muted text-center">No employees match “{query}”.</li>
+          )}
+        </ul>
+      </div>
+    </div>
   );
 }
