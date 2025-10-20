@@ -5,12 +5,7 @@ import {
   LayoutDashboard,
   LineChart,
   Package,
-  Users,
-  Truck,
-  ShieldCheck,
-  PackageSearch,
   Settings2,
-  BarChart4,
   FolderKanban,
 } from 'lucide-react'
 
@@ -28,11 +23,6 @@ export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'documents', label: 'Documents', href: '/documents', icon: FileText },
   { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart },
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package },
-  { key: 'procurement', label: 'Procurement', href: '/procurement', icon: PackageSearch },
-  { key: 'hr', label: 'HR', href: '/hr', icon: Users },
-  { key: 'fleet', label: 'Fleet', href: '/fleet', icon: Truck },
-  { key: 'compliance', label: 'Compliance', href: '/compliance', icon: ShieldCheck },
-  { key: 'reports', label: 'Reports', href: '/reports', icon: BarChart4 },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
 ]
 
@@ -46,17 +36,12 @@ export const SHELL_NAV_GROUPS: NavGroup[] = [
   {
     key: 'work',
     label: 'Workspace',
-    items: SHELL_NAV_ITEMS.slice(0, 9),
-  },
-  {
-    key: 'oversight',
-    label: 'Oversight',
-    items: SHELL_NAV_ITEMS.slice(9, 11),
+    items: SHELL_NAV_ITEMS.slice(0, 6),
   },
   {
     key: 'admin',
     label: 'Administration',
-    items: SHELL_NAV_ITEMS.slice(11),
+    items: SHELL_NAV_ITEMS.slice(6),
   },
 ]
 

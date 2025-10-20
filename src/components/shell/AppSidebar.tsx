@@ -5,11 +5,7 @@ import { useState, useEffect } from "react";
 const sections = [
   { title: "Workspace", items: [
     ["Dashboard","/"], ["Calendar","/calendar-fullscreen"], ["Projects","/(shell)/projects"], ["Documents","/(shell)/documents"], 
-    ["Finance","/(shell)/finance"], ["Inventory","/(shell)/inventory"], ["Procurement","/(shell)/procurement"], 
-    ["HR","/(shell)/hr"], ["Fleet","/(shell)/fleet"],
-  ]},
-  { title: "Oversight", items: [
-    ["Compliance","/(shell)/compliance"], ["Reports","/(shell)/reports"],
+    ["Finance","/(shell)/finance"], ["Inventory","/inventory"],
   ]},
   { title: "Administration", items: [
     ["Admin","/(shell)/admin"],
