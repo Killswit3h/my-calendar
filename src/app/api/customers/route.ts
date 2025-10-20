@@ -53,7 +53,9 @@ export async function POST(req: NextRequest) {
 
   const row = await tryPrisma(
     p => p.customer.upsert({
-      where: { name }, update: {}, create: { name },
+      where: { name },
+      update: {},
+      create: { id: crypto.randomUUID(), name },
       select: { id: true, name: true },
     }),
     null as any,
