@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
           checklist: true,
           attachmentName: true,
           attachmentType: true,
-          _count: { select: { quantities: true } },
+          _count: { select: { EventQuantity: true } },
         },
       }),
     [] as any[],
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
       checklist: e.checklist ?? null,
       attachmentName: e.attachmentName ?? null,
       attachmentType: e.attachmentType ?? null,
-      hasQuantities: !!(e._count?.quantities ?? 0),
+      hasQuantities: !!(e._count?.EventQuantity ?? 0),
     }
 
     if (base.allDay) {

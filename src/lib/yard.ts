@@ -3,10 +3,7 @@
 
 const LS_KEY = 'yard.assignments.v1'
 
-const DEFAULT_YARD_IDS = [
-  'jony-baquedano-mendoza',
-  'jose-santos-diaz',
-]
+const DEFAULT_YARD_IDS: string[] = []
 
 type YardMap = Record<string, string[]> & {
   __seededDefaults?: Record<string, boolean>
