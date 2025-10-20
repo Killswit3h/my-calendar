@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import InventoryShelf from '@/components/InventoryShelf'
 
 export default function InventoryIndex() {
-  redirect('/inventory/items')
+  return <InventoryShelf />
 }
