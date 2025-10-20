@@ -269,6 +269,7 @@ export function EditEventDialog({
               <CustomerCombobox
                 value={form.title}
                 onChange={value => setForm(prev => ({ ...prev, title: value }))}
+                allowCreateOption
               />
             </div>
 
@@ -425,24 +426,20 @@ export function EditEventDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Employees</Label>
-              <div className="rounded-lg border border-border p-4 max-h-[200px] overflow-y-auto text-white">
-                <EmployeeMultiSelect
-                  employees={employees}
-                  value={form.checklist?.employees ?? []}
-                  onChange={sel =>
-                    setForm(prev => ({
-                      ...prev,
-                      checklist: {
-                        ...(form.checklist ?? defaultChecklist()),
-                        employees: sel,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            </div>
+            <EmployeeMultiSelect
+              label="Employees"
+              employees={employees}
+              value={form.checklist?.employees ?? []}
+              onChange={sel =>
+                setForm(prev => ({
+                  ...prev,
+                  checklist: {
+                    ...(form.checklist ?? defaultChecklist()),
+                    employees: sel,
+                  },
+                }))
+              }
+            />
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
@@ -581,4 +578,3 @@ export function EditEventDialog({
     </Dialog>
   );
 }
-
