@@ -53,13 +53,31 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   <div className={cn('flex flex-col gap-2 border-b border-border/60 px-6 pb-4 pt-6 text-left', className)} {...props} />
 )
 
-const SheetTitle = ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-  <h2 className={cn('text-lg font-semibold text-foreground', className)} {...props} />
-)
+const SheetTitle = forwardRef<
+  HTMLHeadingElement,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
+>(function SheetTitle({ className, ...props }, ref) {
+  return (
+    <SheetPrimitive.Title
+      ref={ref}
+      className={cn('text-lg font-semibold text-foreground', className)}
+      {...props}
+    />
+  )
+})
 
-const SheetDescription = ({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <p className={cn('text-sm text-muted', className)} {...props} />
-)
+const SheetDescription = forwardRef<
+  HTMLParagraphElement,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
+>(function SheetDescription({ className, ...props }, ref) {
+  return (
+    <SheetPrimitive.Description
+      ref={ref}
+      className={cn('text-sm text-muted', className)}
+      {...props}
+    />
+  )
+})
 
 const SheetBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex-1 overflow-y-auto px-6 py-5 text-sm text-muted', className)} {...props} />
