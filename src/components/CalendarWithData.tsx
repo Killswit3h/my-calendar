@@ -788,26 +788,27 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     }
   }, [updateEventById]);
 
-  const saveDraft = useCallback(async () => {
-    if (!draft?.title) return;
-    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
-    const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
-    const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
+  const saveDraft = useCallback(async (override?: NewEvent) => {
+    const current = override ?? draft;
+    if (!current?.title) return;
+    const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(current);
+    const payloadStart = current.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
+    const payloadEnd = current.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
     const payloadBody = {
-      title: draft.title,
-      description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false),
+      title: current.title,
+      description: composeDescription(current.description ?? '', current.invoice ?? '', current.payment ?? '', current.vendor ?? '', current.payroll ?? false),
       start: payloadStart,
       end: payloadEnd,
       startsAt: payloadStart,
       endsAt: payloadEnd,
-      allDay: !!draft.allDay,
-      location: draft.location ?? '',
-      type: draft.type ?? null,
-      payment: draft.payment ?? null,
-      vendor: draft.vendor ?? null,
-      payroll: draft.payroll ?? null,
-      shift: draft.shift ?? null,
-      checklist: draft.checklist ?? null,
+      allDay: !!current.allDay,
+      location: current.location ?? '',
+      type: current.type ?? null,
+      payment: current.payment ?? null,
+      vendor: current.vendor ?? null,
+      payroll: current.payroll ?? null,
+      shift: current.shift ?? null,
+      checklist: current.checklist ?? null,
     };
 
     if (editId) {
@@ -938,8 +939,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setModalHasQuantities(false);
     setLocInput(normalized.location ?? '');
 
-    const paymentValue = (meta.payment || draft.payment || 'DAILY') as PaymentType;
-    const vendorValue = (meta.vendor || draft.vendor || 'JORGE') as Vendor;
+    const paymentValue = (meta.payment || current.payment || 'DAILY') as PaymentType;
+    const vendorValue = (meta.vendor || current.vendor || 'JORGE') as Vendor;
     setDraft({
       title: normalized.title,
       start: normalizedStartIso,
@@ -950,10 +951,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       invoice: meta.invoice ?? '',
       payment: paymentValue,
       vendor: vendorValue,
-      payroll: typeof meta.payroll === 'boolean' ? meta.payroll : draft.payroll ?? false,
-      type: (normalized.type as JobType | undefined) ?? draft.type ?? 'FENCE',
-      shift: (normalized.shift as WorkShift | undefined) ?? draft.shift ?? 'DAY',
-      checklist: normalized.checklist ?? draft.checklist ?? defaultChecklist(),
+      payroll: typeof meta.payroll === 'boolean' ? meta.payroll : current.payroll ?? false,
+      type: (normalized.type as JobType | undefined) ?? current.type ?? 'FENCE',
+      shift: (normalized.shift as WorkShift | undefined) ?? current.shift ?? 'DAY',
+      checklist: normalized.checklist ?? current.checklist ?? defaultChecklist(),
     });
     setUserChangedStart(false);
     setUserChangedEnd(false);
@@ -1634,10 +1635,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         eventId={editId}
         isNewEvent={!editId}
         onSave={async (data) => {
-          // Update draft state with new data
-          setDraft(prev => prev ? { ...prev, ...data } : null);
-          // Call existing save logic
-          await saveDraft();
+          await saveDraft(data as NewEvent);
         }}
         onDelete={deleteCurrent}
         onAdd={handleAddNew}

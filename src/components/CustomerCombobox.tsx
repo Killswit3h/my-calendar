@@ -129,12 +129,18 @@ export default function CustomerCombobox({
         placeholder="Type a customer"
         value={query}
         onChange={e => {
-          setQuery(e.target.value);
+          const next = e.target.value;
+          setQuery(next);
+          commit(next);
           setOpen(true);
           setActive(-1);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onBlur={() => {
+          const next = query.trim();
+          if (next) commit(next);
+          setTimeout(() => setOpen(false), 120);
+        }}
         onKeyDown={onKeyDown}
       />
       {open ? (

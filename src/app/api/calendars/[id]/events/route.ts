@@ -3,6 +3,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+import { randomUUID } from 'crypto'
 import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
@@ -119,9 +120,11 @@ async function insertEventCompat(
   },
 ): Promise<PrismaEventRow> {
   await ensureLegacyStartColumnsHandled(p)
+  const id = randomUUID()
+  const dataWithId = { ...data, id }
   try {
     const created = (await p.event.create({
-      data,
+      data: dataWithId,
       select: {
         id: true,
         calendarId: true,
@@ -139,7 +142,8 @@ async function insertEventCompat(
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$4,$5) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist"',
+      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"EventType" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::"WorkShift" END,CASE WHEN $11 IS NULL THEN NULL ELSE $11::jsonb END,$5,$6) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist"',
+      id,
       data.calendarId,
       data.title,
       data.description,

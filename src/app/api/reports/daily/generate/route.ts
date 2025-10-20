@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
 import { mapSnapshotToDailyReport } from '@/server/reports/mapToDailyReport'
@@ -88,13 +89,32 @@ export async function POST(req: NextRequest) {
     )
 
     await p.dailyReportSnapshot.create({
-      data: { reportDate, vendor: vendor ?? null, payloadJson: JSON.stringify(snapshot) },
+      data: {
+        id: randomUUID(),
+        reportDate,
+        vendor: vendor ?? null,
+        payloadJson: JSON.stringify(snapshot),
+      },
     })
     await p.reportFile.create({
-      data: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null, blobUrl: storedPdf.url, bytes: storedPdf.bytes },
+      data: {
+        id: randomUUID(),
+        kind: 'DAILY_PDF',
+        reportDate,
+        vendor: vendor ?? null,
+        blobUrl: storedPdf.url,
+        bytes: storedPdf.bytes,
+      },
     })
     await p.reportFile.create({
-      data: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null, blobUrl: storedXlsx.url, bytes: storedXlsx.bytes },
+      data: {
+        id: randomUUID(),
+        kind: 'DAILY_XLSX',
+        reportDate,
+        vendor: vendor ?? null,
+        blobUrl: storedXlsx.url,
+        bytes: storedXlsx.bytes,
+      },
     })
 
     return NextResponse.json({ pdfUrl: storedPdf.url, xlsxUrl: storedXlsx.url })
