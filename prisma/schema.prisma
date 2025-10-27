@@ -48,6 +48,21 @@ model Customer {
   name      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime
+  projects  Project[]
+  events    Event[]
+}
+
+model Project {
+  id         String    @id @default(cuid())
+  name       String
+  customerId String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  events     Event[]
+
+  @@index([customerId])
+  @@unique([name, customerId])
 }
 
 model DailyReportSnapshot {
@@ -63,6 +78,8 @@ model DailyReportSnapshot {
 model Event {
   id                   String                 @id
   calendarId           String
+  projectId            String?
+  customerId           String?
   title                String
   description          String?
   allDay               Boolean                @default(false)
@@ -78,39 +95,42 @@ model Event {
   attachmentName       String?
   attachmentType       String?
   Calendar             Calendar               @relation(fields: [calendarId], references: [id])
+  project              Project?               @relation(fields: [projectId], references: [id])
+  customer             Customer?              @relation(fields: [customerId], references: [id])
+  assignments          EventAssignment[]
   EventQuantity        EventQuantity[]
   InventoryCheckout    InventoryCheckout[]
   InventoryReservation InventoryReservation[]
+  laborDailyRows       LaborDaily[]
 
   @@index([calendarId, startsAt])
   @@index([endsAt])
-}
-
-enum PlacementType {
-  FREE
-  YARD_SHOP
-  NO_WORK
+  @@index([projectId])
+  @@index([customerId])
 }
 
 model Employee {
-  id        String   @id
-  name      String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  overrides Placement[]
+  id             String            @id
+  name           String?
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  defaultSection PlacementType?    @default(YARD_SHOP)
+  hourlyRate     Decimal?          @db.Decimal(10, 2)
+  assignments    EventAssignment[]
+  hourlyRates    HourlyRate[]
+  laborDailyRows LaborDaily[]
+  placements     Placement[]
 }
 
 model Placement {
-  id         String         @id @default(cuid())
+  id         String        @id @default(cuid())
   employeeId String
   dayKey     String
   placement  PlacementType
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  employee   Employee?      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, dayKey], name: "employeeId_dayKey")
   @@index([dayKey])
@@ -287,20 +307,18 @@ model InventoryStock {
 }
 
 model InventoryTransfer {
-  id             String    @id
+  id             String            @id
   itemId         String
   fromLocationId String
   toLocationId   String
   qty            Int
   status         String
-  requestedAt    DateTime  @default(now())
+  requestedAt    DateTime          @default(now())
   fulfilledAt    DateTime?
   notes          String?
-
-  // Clean relation field names
-  item         InventoryItem     @relation(fields: [itemId], references: [id])
-  fromLocation InventoryLocation @relation("TransferFrom", fields: [fromLocationId], references: [id])
-  toLocation   InventoryLocation @relation("TransferTo", fields: [toLocationId], references: [id])
+  fromLocation   InventoryLocation @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  item           InventoryItem     @relation(fields: [itemId], references: [id])
+  toLocation     InventoryLocation @relation("TransferTo", fields: [toLocationId], references: [id])
 
   @@index([itemId])
   @@index([status])
@@ -367,7 +385,7 @@ model ShareToken {
 }
 
 model Todo {
-  id         String    @id
+  id         String    @id @default(cuid())
   calendarId String
   title      String
   notes      String?
@@ -414,6 +432,63 @@ model WeeklyReportRequest {
   @@index([weekStart, weekEnd, vendor], map: "WeeklyReportRequest_week_vendor_idx")
 }
 
+model EventAssignment {
+  id          String    @id @default(cuid())
+  eventId     String
+  employeeId  String
+  dayOverride DateTime? @db.Date
+  hours       Decimal?  @db.Decimal(4, 2)
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId, dayOverride], map: "EventAssignment_event_employee_day_key")
+  @@index([employeeId, dayOverride], map: "EventAssignment_employee_day_idx")
+  @@index([eventId, dayOverride], map: "EventAssignment_event_day_idx")
+}
+
+model HourlyRate {
+  id            String   @id @default(cuid())
+  employeeId    String
+  effectiveDate DateTime @db.Date
+  rate          Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, effectiveDate], map: "HourlyRate_employee_effective_date_key")
+  @@index([effectiveDate], map: "HourlyRate_effective_idx")
+}
+
+model LaborDaily {
+  id              String   @id @default(cuid())
+  jobId           String
+  jobName         String
+  day             DateTime @db.Date
+  eventId         String
+  eventTitle      String?
+  employeeId      String
+  employeeName    String
+  assignmentId    String?
+  hoursDecimal    Decimal  @db.Decimal(6, 2)
+  regularHours    Decimal  @db.Decimal(6, 2)
+  overtimeHours   Decimal  @db.Decimal(6, 2)
+  rateUsd         Decimal  @db.Decimal(10, 2)
+  regularCostUsd  Decimal  @db.Decimal(12, 2)
+  overtimeCostUsd Decimal  @db.Decimal(12, 2)
+  totalCostUsd    Decimal  @db.Decimal(12, 2)
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([day, eventId, employeeId], map: "LaborDaily_unique_row")
+  @@index([employeeId, day], map: "LaborDaily_employee_day_idx")
+  @@index([jobId, day], map: "LaborDaily_job_day_idx")
+}
+
 model fdot_cutoffs {
   id          String   @id
   year        Int
@@ -424,6 +499,12 @@ model fdot_cutoffs {
   updated_at  DateTime @default(now())
 
   @@unique([year, cutoff_date])
+}
+
+enum PlacementType {
+  FREE
+  YARD_SHOP
+  NO_WORK
 }
 
 enum EventType {
