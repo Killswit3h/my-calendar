@@ -1,0 +1,266 @@
+[
+  {
+    "employeeId": "adrian-ramos",
+    "firstName": "Adrian",
+    "lastName": "Ramos",
+    "aliases": [
+      "adrian ramos",
+      "adrian",
+      "ramos",
+      "adrian r"
+    ]
+  },
+  {
+    "employeeId": "carlos-manuel-diaz",
+    "firstName": "Carlos",
+    "lastName": "Manuel Diaz",
+    "aliases": [
+      "carlos manuel diaz",
+      "carlos",
+      "manuel diaz",
+      "carlos m"
+    ]
+  },
+  {
+    "employeeId": "christopher-jones",
+    "firstName": "Christopher",
+    "lastName": "Jones",
+    "aliases": [
+      "christopher jones",
+      "christopher",
+      "jones",
+      "christopher j"
+    ]
+  },
+  {
+    "employeeId": "daniel-buell-burnette",
+    "firstName": "Daniel",
+    "lastName": "Buell Burnette",
+    "aliases": [
+      "daniel buell burnette",
+      "daniel",
+      "buell burnette",
+      "daniel b"
+    ]
+  },
+  {
+    "employeeId": "edilberto-acuna",
+    "firstName": "Edilberto",
+    "lastName": "Acuna",
+    "aliases": [
+      "edilberto acuna",
+      "edilberto",
+      "acuna",
+      "edilberto a"
+    ]
+  },
+  {
+    "employeeId": "esteban-sanchez",
+    "firstName": "Esteban",
+    "lastName": "Sanchez",
+    "aliases": [
+      "esteban sanchez",
+      "esteban",
+      "sanchez",
+      "esteban s"
+    ]
+  },
+  {
+    "employeeId": "fabian-marquez",
+    "firstName": "Fabian",
+    "lastName": "Marquez",
+    "aliases": [
+      "fabian marquez",
+      "fabian",
+      "marquez",
+      "fabian m"
+    ]
+  },
+  {
+    "employeeId": "gerardo-oliva",
+    "firstName": "Gerardo",
+    "lastName": "Oliva",
+    "aliases": [
+      "gerardo oliva",
+      "gerardo",
+      "oliva",
+      "gerardo o"
+    ]
+  },
+  {
+    "employeeId": "jaime-vergara",
+    "firstName": "Jaime",
+    "lastName": "Vergara",
+    "aliases": [
+      "jaime vergara",
+      "jaime",
+      "vergara",
+      "jaime v"
+    ]
+  },
+  {
+    "employeeId": "jony-baquedano-mendoza",
+    "firstName": "Jony",
+    "lastName": "Baquedano Mendoza",
+    "aliases": [
+      "jony baquedano mendoza",
+      "jony",
+      "baquedano mendoza",
+      "jony b"
+    ]
+  },
+  {
+    "employeeId": "jose-fernandez",
+    "firstName": "Jose",
+    "lastName": "Fernandez",
+    "aliases": [
+      "jose fernandez",
+      "jose",
+      "fernandez",
+      "jose f"
+    ]
+  },
+  {
+    "employeeId": "jose-santos-diaz",
+    "firstName": "Jose",
+    "lastName": "Santos Diaz",
+    "aliases": [
+      "jose santos diaz",
+      "jose",
+      "santos diaz",
+      "jose s"
+    ]
+  },
+  {
+    "employeeId": "joselin-aguila",
+    "firstName": "Joselin",
+    "lastName": "Aguila",
+    "aliases": [
+      "joselin aguila",
+      "joselin",
+      "aguila",
+      "joselin a"
+    ]
+  },
+  {
+    "employeeId": "luis-penaranda",
+    "firstName": "Luis",
+    "lastName": "Penaranda",
+    "aliases": [
+      "luis penaranda",
+      "luis",
+      "penaranda",
+      "luis p"
+    ]
+  },
+  {
+    "employeeId": "moises-varela",
+    "firstName": "Moises",
+    "lastName": "Varela",
+    "aliases": [
+      "moises varela",
+      "moises",
+      "varela",
+      "moises v"
+    ]
+  },
+  {
+    "employeeId": "nicholas-sieber",
+    "firstName": "Nicholas",
+    "lastName": "Sieber",
+    "aliases": [
+      "nicholas sieber",
+      "nicholas",
+      "sieber",
+      "nicholas s"
+    ]
+  },
+  {
+    "employeeId": "noel-venero",
+    "firstName": "Noel",
+    "lastName": "Venero",
+    "aliases": [
+      "noel venero",
+      "noel",
+      "venero",
+      "noel v"
+    ]
+  },
+  {
+    "employeeId": "oscar-hernandez",
+    "firstName": "Oscar",
+    "lastName": "Hernandez",
+    "aliases": [
+      "oscar hernandez",
+      "oscar",
+      "hernandez",
+      "oscar h"
+    ]
+  },
+  {
+    "employeeId": "pedro-manes",
+    "firstName": "Pedro",
+    "lastName": "Manes",
+    "aliases": [
+      "pedro manes",
+      "pedro",
+      "manes",
+      "pedro m"
+    ]
+  },
+  {
+    "employeeId": "ramiro-valle",
+    "firstName": "Ramiro",
+    "lastName": "Valle",
+    "aliases": [
+      "ramiro valle",
+      "ramiro",
+      "valle",
+      "ramiro v"
+    ]
+  },
+  {
+    "employeeId": "robert-amparo-lloret",
+    "firstName": "Robert",
+    "lastName": "Amparo Lloret",
+    "aliases": [
+      "robert amparo lloret",
+      "robert",
+      "amparo lloret",
+      "robert a"
+    ]
+  },
+  {
+    "employeeId": "robert-gomez",
+    "firstName": "Robert",
+    "lastName": "Gomez",
+    "aliases": [
+      "robert gomez",
+      "robert",
+      "gomez",
+      "robert g"
+    ]
+  },
+  {
+    "employeeId": "troy-sturgil",
+    "firstName": "Troy",
+    "lastName": "Sturgil",
+    "aliases": [
+      "troy sturgil",
+      "troy",
+      "sturgil",
+      "troy s"
+    ]
+  },
+  {
+    "employeeId": "ventura-hernandez",
+    "firstName": "Ventura",
+    "lastName": "Hernandez",
+    "aliases": [
+      "ventura hernandez",
+      "ventura",
+      "hernandez",
+      "ventura h"
+    ]
+  }
+]
