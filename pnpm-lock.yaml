@@ -98,6 +98,9 @@ importers:
       lucide-react:
         specifier: ^0.545.0
         version: 0.545.0(react@18.3.1)
+      neon:
+        specifier: ^2.0.0
+        version: 2.0.0
       next:
         specifier: ^15.0.0
         version: 15.5.6(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2772,6 +2775,9 @@ packages:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  neon@2.0.0:
+    resolution: {integrity: sha512-maODYM+0IkYDPOD0VAuptjrAXowLAPLpRuBdTroj29ZpQWwtwehXAI6nQvb4+10qipE0ZwweVv2F0tuQvpIVFA==}
 
   netmask@2.0.2:
     resolution: {integrity: sha512-dBpDMdxv9Irdq66304OLfEmQ9tbNRFnFTuZiLo+bD+r332bBmMJ8GBLXklIXXgxd3+v9+KUnZaUR5PJMa75Gsg==}
@@ -6505,6 +6511,8 @@ snapshots:
       thenify-all: 1.6.0
 
   nanoid@3.3.11: {}
+
+  neon@2.0.0: {}
 
   netmask@2.0.2: {}
 
