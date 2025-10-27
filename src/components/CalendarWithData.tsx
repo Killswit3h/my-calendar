@@ -1,9 +1,8 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -81,12 +80,6 @@ const VENDOR_COLOR: Record<Vendor, string> = {
   CHRIS: 'orange',
 };
 
-const EmployeesLink = () => {
-  const pathname = usePathname();
-  const href = `/employees?from=${encodeURIComponent(pathname)}`;
-  return <Link href={href} className="btn">Employees</Link>;
-};
-
 /** Normalizes event payloads so downstream code can rely on {start,end}. */
 type EventLikeWithLegacyFields = {
   start?: string | Date | null;
@@ -98,6 +91,14 @@ type EventLikeWithLegacyFields = {
 
 type NormalizedEvent<T> = T & { start: string; end: string };
 
+function formatAllDayDateString(value: string): string {
+  const parsedDate = parseAppDateOnly(value, APP_TIMEZONE)
+  if (parsedDate) return formatInTimeZone(parsedDate, APP_TIMEZONE).date
+  const parsedDateTime = parseAppDateTime(value, APP_TIMEZONE)
+  if (parsedDateTime) return formatInTimeZone(parsedDateTime, APP_TIMEZONE).date
+  return value.slice(0, 10)
+}
+
 function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): NormalizedEvent<T> {
   const startRaw = obj.start ?? obj.startsAt
   if (!startRaw) {
@@ -108,14 +109,16 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
   const allDay = Boolean((obj as { allDay?: boolean }).allDay)
 
   const cast = (value: string | Date | null | undefined, fallback: string): string => {
-    if (typeof value === 'string' && value.trim().length > 0) return value
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return allDay ? formatAllDayDateString(value.trim()) : value.trim()
+    }
     if (value instanceof Date) {
-      const iso = value.toISOString()
-      return allDay ? iso.slice(0, 10) : iso
+      return allDay ? formatInTimeZone(value, APP_TIMEZONE).date : value.toISOString()
     }
     if (value == null) return fallback
     const str = String(value)
-    return str.length ? str : fallback
+    if (!str.length) return fallback
+    return allDay ? formatAllDayDateString(str) : str
   }
 
   const fallbackStart = allDay ? '1970-01-01' : '1970-01-01T00:00:00.000Z'
@@ -1329,7 +1332,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <Link className="menu-row" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛣️</span><span className="menu-text">FDOT Cut-Off Dates</span></Link>
                 <Link className="menu-row" role="menuitem" href="/inventory" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛠️</span><span className="menu-text">Inventory</span></Link>
                 <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
-                <Suspense fallback={<span className="menu-row" aria-disabled>Employees</span>}><EmployeesLink /></Suspense>
               </div>
             ) : null}
           </div>
@@ -1357,9 +1359,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
                 <a className="menu-item" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}>FDOT Cut-Off Dates…</a>
                 <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
-                <Suspense fallback={<span className="menu-item" aria-disabled>Employees</span>}>
-                  <EmployeesLink />
-                </Suspense>
               </div>
             ) : null}
           </div>
@@ -1758,7 +1757,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             {(['FENCE','GUARDRAIL','ATTENUATOR','HANDRAIL','TEMP_FENCE'] as JobType[]).map(typ => (
               <div key={typ} className="todo-col" onDragOver={e => e.preventDefault()} onDrop={e => onDropToColumn(e, typ)}>
                 <header className="todo-col-header"><span>{TYPE_LABEL[typ]}</span><span className="todo-count">{byType(typ).length}</span></header>
-                <TodoCustomerAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
+                <TodoAdder onAdd={(title) => addTodo(typ, title)} placeholder={`Add ${TYPE_LABEL[typ]} job`} />
                 <div className="todo-list">
                   {byType(typ).map(t => (
                     <div key={t.id} className="todo-card" draggable onDragStart={(e) => onDragStart(e, t)}>
@@ -1980,19 +1979,26 @@ function formatDateTimeInputValue(iso: string, { allDay, isEnd = false }: { allD
 }
 
 function TodoAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
-  const [val, setVal] = useState(''); const submit = () => { if (val.trim()) { onAdd(val); setVal(''); } };
-  return (<div className="todo-adder"><input className="todo-input" placeholder={placeholder} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="btn primary todo-add-btn" onClick={submit}>Add</button></div>);
-}
-
-function TodoCustomerAdder({ onAdd, placeholder }: { onAdd: (title: string) => void; placeholder: string }) {
   const [val, setVal] = useState('');
-  const submit = () => { const t = val.trim(); if (t) { onAdd(t); setVal(''); } };
+
+  const commit = (next: string) => {
+    setVal(next);
+  };
+
+  const submit = () => {
+    const trimmed = val.trim();
+    if (trimmed) {
+      onAdd(trimmed);
+      setVal('');
+    }
+  };
+
   return (
     <div className="todo-adder">
       <div>
-        <CustomerCombobox value={val} onChange={setVal} />
+        <CustomerCombobox value={val} onChange={commit} allowCreateOption={false} />
       </div>
-      <button className="btn primary todo-add-btn" onClick={submit}>Add</button>
+      <button className="btn primary todo-add-btn" type="button" onClick={submit}>Add</button>
     </div>
   );
 }

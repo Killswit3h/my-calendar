@@ -645,9 +645,6 @@ mark { background: var(--primary); color: var(--primary-contrast); }
 /* Hide legacy options block in the second control row */
 .cal-controls > div:nth-of-type(2) .options-wrap { display: none; }
 
-/* Add icon for Employees link rendered via EmployeesLink (btn class inside menu) */
-.menu-card a[href^="/employees"], .menu-card .btn[href^="/employees"] { display: flex; align-items: center; gap: 10px; }
-.menu-card a[href^="/employees"]::before, .menu-card .btn[href^="/employees"]::before { content: '👥'; width: 18px; text-align: center; opacity: .9; }
 /* ===== Mobile drawer for Unassigned ===== */
 @media (max-width: 767px) {
   .details-pane { display: none; }

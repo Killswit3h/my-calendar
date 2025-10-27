@@ -3,12 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, type ButtonHTMLAttributes, type MouseEvent } from "react";
 import {
   BadgeCheck,
-  Box,
   Check,
   ClipboardList,
-  Hammer,
-  LayoutGrid,
-  List,
   PackageCheck,
   Plus,
   Search,
@@ -418,7 +414,6 @@ function InventoryCheckbox({
 
 export default function InventoryShelf() {
   const [items, setItems] = useState<Item[]>(initialItems);
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>({
     status: "ALL",
@@ -628,7 +623,6 @@ export default function InventoryShelf() {
 
   const handleAssembleKit = () => {
     setSelectedIds(guardrailKitIds);
-    setViewMode("grid");
   };
 
   const selectedItems = useMemo(
@@ -652,28 +646,6 @@ export default function InventoryShelf() {
                 className="pl-10"
               />
             </div>
-            <Button
-              variant="outline"
-              className={cn(
-                "hidden items-center gap-2 md:inline-flex",
-                viewMode === "grid" ? "bg-accent/10 text-accent" : "",
-              )}
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Cards
-            </Button>
-            <Button
-              variant="outline"
-              className={cn(
-                "hidden items-center gap-2 md:inline-flex",
-                viewMode === "table" ? "bg-accent/10 text-accent" : "",
-              )}
-              onClick={() => setViewMode("table")}
-            >
-              <List className="h-4 w-4" />
-              Table
-            </Button>
           </div>
           <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
             <Select
@@ -838,215 +810,103 @@ export default function InventoryShelf() {
         </div>
       </div>
 
-      {viewMode === "grid" ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredItems.map((item) => {
-            const selected = selectedIds.includes(item.id);
-            return (
-              <Card
-                key={item.id}
-                tone="glass"
-                className={cn(
-                  "relative h-full cursor-pointer border border-border/50 transition hover:-translate-y-1 hover:border-accent/60 hover:shadow-lg",
-                  selected ? "ring-2 ring-accent" : "",
-                )}
-                onClick={() => handleOpenDetails(item)}
-              >
-                <div className="absolute left-4 top-4 z-[1]">
-                  <InventoryCheckbox
-                    checked={selected}
-                    onCheckedChange={() => toggleSelect(item.id)}
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                </div>
-                <div className="mt-2 flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-accent/10 p-3 text-accent">
-                      <Hammer className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-base font-semibold text-foreground">
-                          {item.name}
-                        </h3>
-                        <Badge variant={statusBadgeVariant[item.status]}>
-                          {statusLabels[item.status]}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted">{item.category}</p>
-                      <div className="flex items-center gap-3 text-xs text-muted">
-                        <Box className="h-4 w-4 text-accent" />
-                        <span>{item.qty} in stock</span>
-                        {item.assignedTo ? (
-                          <>
-                            <Truck className="h-4 w-4 text-accent" />
-                            <span>{item.assignedTo}</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  {item.notes ? (
-                    <p className="rounded-lg bg-foreground/5 px-3 py-2 text-xs text-muted">
-                      {item.notes}
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleCheckOut([item.id]);
-                      }}
-                    >
-                      Check-Out
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleCheckIn([item.id]);
-                      }}
-                    >
-                      Check-In
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleTransfer([item.id]);
-                      }}
-                    >
-                      Transfer
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleService([item.id]);
-                      }}
-                    >
-                      Service
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleOpenDetails(item);
-                      }}
-                    >
-                      Details
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted">{item.lastActivity}</p>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <Card tone="glass" padded={false} className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border/50 px-6 py-4">
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <ClipboardList className="h-4 w-4 text-accent" />
-              <span>Table view</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <InventoryCheckbox
-                checked={
-                  filteredItems.length > 0 &&
-                  selectedIds.length === filteredItems.length
-                }
-                onCheckedChange={(checked) => toggleSelectAll(checked)}
-              />
-            </div>
+      <Card tone="glass" padded={false} className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-4">
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <ClipboardList className="h-4 w-4 text-accent" />
+            <span>Table view</span>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <span className="sr-only">Select</span>
-                </TableHead>
-                <TableHead>Item</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Last Activity</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.map((item) => {
-                const selected = selectedIds.includes(item.id);
-                return (
-                  <TableRow
-                    key={item.id}
-                    className={cn(
-                      selected ? "bg-accent/10" : "",
-                      "border-border/50",
-                    )}
-                  >
-                    <TableCell>
-                      <InventoryCheckbox
-                        checked={selected}
-                        onCheckedChange={() => toggleSelect(item.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <button
-                        type="button"
-                        className="text-left transition hover:text-accent"
-                        onClick={() => handleOpenDetails(item)}
+          <div className="flex items-center gap-2">
+            <InventoryCheckbox
+              checked={
+                filteredItems.length > 0 &&
+                selectedIds.length === filteredItems.length
+              }
+              onCheckedChange={(checked) => toggleSelectAll(checked)}
+            />
+          </div>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">
+                <span className="sr-only">Select</span>
+              </TableHead>
+              <TableHead>Item</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Assigned To</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead>Last Activity</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredItems.map((item) => {
+              const selected = selectedIds.includes(item.id);
+              return (
+                <TableRow
+                  key={item.id}
+                  className={cn(
+                    selected ? "bg-accent/10" : "",
+                    "border-border/50",
+                  )}
+                >
+                  <TableCell>
+                    <InventoryCheckbox
+                      checked={selected}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      type="button"
+                      className="text-left transition hover:text-accent"
+                      onClick={() => handleOpenDetails(item)}
+                    >
+                      {item.name}
+                    </button>
+                  </TableCell>
+                  <TableCell>{item.category}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusBadgeVariant[item.status]}>
+                      {statusLabels[item.status]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{item.assignedTo ?? "—"}</TableCell>
+                  <TableCell>{item.qty}</TableCell>
+                  <TableCell>{item.lastActivity}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCheckOut([item.id])}
                       >
-                        {item.name}
-                      </button>
-                    </TableCell>
-                    <TableCell>{item.category}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusBadgeVariant[item.status]}>
-                        {statusLabels[item.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{item.assignedTo ?? "—"}</TableCell>
-                    <TableCell>{item.qty}</TableCell>
-                    <TableCell>{item.lastActivity}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCheckOut([item.id])}
-                        >
-                          Check-Out
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCheckIn([item.id])}
-                        >
-                          Check-In
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTransfer([item.id])}
-                        >
-                          Transfer
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+                        Check-Out
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCheckIn([item.id])}
+                      >
+                        Check-In
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTransfer([item.id])}
+                      >
+                        Transfer
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
 
       {hasSelection ? (
         <div className="fixed bottom-6 left-1/2 z-30 w-full max-w-3xl -translate-x-1/2 rounded-2xl border border-border/60 bg-surface-soft/95 px-4 py-3 shadow-[0_24px_80px_rgba(6,16,10,0.36)] backdrop-blur-sm transition">

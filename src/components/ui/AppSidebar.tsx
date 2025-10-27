@@ -4,14 +4,31 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
-import { SHELL_NAV_GROUPS, type NavItem } from '@/lib/routes'
+import { SHELL_NAV_GROUPS, SHELL_NAV_ITEMS, type NavItem } from '@/lib/routes'
 import { cn } from '@/lib/theme'
 
 export default function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const groups = useMemo(() => SHELL_NAV_GROUPS.filter(group => group.items.length), [])
+  const groups = useMemo(() => {
+    const cloned = SHELL_NAV_GROUPS.filter(group => group.items.length).map(group => ({
+      ...group,
+      items: [...group.items],
+    }))
+
+    const employeesItem = SHELL_NAV_ITEMS.find(item => item.key === 'employees')
+    if (employeesItem) {
+      const workspace = cloned.find(group => group.key === 'work')
+      if (workspace && !workspace.items.some(item => item.key === 'employees')) {
+        const inventoryIndex = workspace.items.findIndex(item => item.key === 'inventory')
+        const insertAt = inventoryIndex === -1 ? workspace.items.length : inventoryIndex
+        workspace.items.splice(insertAt, 0, employeesItem)
+      }
+    }
+
+    return cloned
+  }, [])
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1023px)')
