@@ -7,6 +7,7 @@ import {
   Package,
   Settings2,
   FolderKanban,
+  Users,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -22,6 +23,7 @@ export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
   { key: 'documents', label: 'Documents', href: '/documents', icon: FileText },
   { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart },
+  { key: 'employees', label: 'Employees', href: '/employees', icon: Users },
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
 ]
@@ -36,12 +38,12 @@ export const SHELL_NAV_GROUPS: NavGroup[] = [
   {
     key: 'work',
     label: 'Workspace',
-    items: SHELL_NAV_ITEMS.slice(0, 6),
+    items: SHELL_NAV_ITEMS.slice(0, 7),
   },
   {
     key: 'admin',
     label: 'Administration',
-    items: SHELL_NAV_ITEMS.slice(6),
+    items: SHELL_NAV_ITEMS.slice(7),
   },
 ]
 
