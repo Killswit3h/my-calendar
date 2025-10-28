@@ -36,7 +36,7 @@ export interface EventSegment {
 export interface HoursAssignmentInput
   extends Pick<EventAssignment, 'id' | 'eventId' | 'employeeId' | 'dayOverride' | 'hours'> {}
 
-const toDayKey = (date: Date) => formatInTimeZone(date, APP_TZ).date
+export const toDayKey = (date: Date) => formatInTimeZone(date, APP_TZ).date
 
 const normalizeTitleKey = (title: string) =>
   title
