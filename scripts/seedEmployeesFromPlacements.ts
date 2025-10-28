@@ -29,3 +29,4 @@ async function seedEmployeesFromPlacements() {
 seedEmployeesFromPlacements().catch(console.error);
 
 
+
