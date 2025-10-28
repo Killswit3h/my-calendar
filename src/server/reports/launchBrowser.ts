@@ -2,7 +2,6 @@ import puppeteer from 'puppeteer'
 import puppeteerCore from 'puppeteer-core'
 import type { Browser as PuppeteerBrowser } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
-import { Browser as BrowserProduct, detectBrowserPlatform, install, resolveBuildId } from '@puppeteer/browsers'
 import { getConfiguration } from 'puppeteer/internal/getConfiguration.js'
 import { PUPPETEER_REVISIONS } from 'puppeteer-core/internal/revisions.js'
 import assert from 'node:assert'
@@ -30,7 +29,20 @@ function isMissingChrome(err: unknown): boolean {
 }
 
 async function installChrome(): Promise<void> {
-  const platform = detectBrowserPlatform()
+  let browsers: any
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    browsers = require('@puppeteer/browsers')
+  } catch {
+    throw new Error('Failed to load @puppeteer/browsers. Install it by running "npm install @puppeteer/browsers"')
+  }
+
+  const detect = typeof browsers.detectBrowserPlatform === 'function' ? browsers.detectBrowserPlatform : undefined
+  const resolve = typeof browsers.resolveBuildId === 'function' ? browsers.resolveBuildId : undefined
+  const runInstall = typeof browsers.install === 'function' ? browsers.install : undefined
+  const BrowserProduct = browsers.Browser ?? { CHROME: 'chrome' }
+
+  const platform = detect?.()
   if (!platform) {
     throw new Error('Unsupported platform for Puppeteer browser download')
   }
@@ -40,11 +52,14 @@ async function installChrome(): Promise<void> {
   }
   const unresolvedBuildId =
     configuration.chrome?.version ||
-    PUPPETEER_REVISIONS[BrowserProduct.CHROME] ||
+    (PUPPETEER_REVISIONS as Record<string, string>)[BrowserProduct.CHROME] ||
     'latest'
   const baseUrl = configuration.chrome?.downloadBaseUrl
-  const buildId = await resolveBuildId(BrowserProduct.CHROME, platform, unresolvedBuildId)
-  await install({
+  const buildId = resolve ? await resolve(BrowserProduct.CHROME, platform, unresolvedBuildId) : unresolvedBuildId
+  if (!runInstall) {
+    throw new Error('Unable to download Chrome automatically because the installer could not be initialized')
+  }
+  await runInstall({
     browser: BrowserProduct.CHROME,
     cacheDir: configuration.cacheDirectory,
     platform,
@@ -62,10 +77,7 @@ async function launchChromium(): Promise<PuppeteerBrowser> {
   return puppeteerCore.launch({
     args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
     executablePath,
-    defaultViewport: chromium.defaultViewport ?? null,
-    headless: chromium.headless ?? true,
-    ignoreDefaultArgs: chromium.ignoreDefaultArgs,
-    env: chromium.env,
+    headless: true,
   })
 }
 
