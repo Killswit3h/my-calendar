@@ -26,6 +26,10 @@ export function renderDailyHTML(data: DailyReport): string {
 
   const bodyRows = (rows || []).map(r => {
     const vendorCls = vendorClass(r.vendor)
+    const rawTime = String(r.time ?? '').trim()
+    const isNight = rawTime.toUpperCase() === 'NIGHT'
+    const timeLabel = escapeHtml(rawTime || '—')
+    const timeClass = isNight ? ' time-night' : ''
     return `
       <tr>
         <td class="col-project">${escapeHtml(r.projectCompany || '—')}</td>
@@ -35,7 +39,7 @@ export function renderDailyHTML(data: DailyReport): string {
         <td class="col-payroll">${r.payroll ? 'Yes' : 'No'}</td>
         <td class="col-payment">${escapeHtml(r.payment || '—')}</td>
         <td class="col-vendor ${vendorCls}">${escapeHtml(r.vendor || '—')}</td>
-        <td class="col-time">${escapeHtml(r.time || '—')}</td>
+        <td class="col-time${timeClass}">${timeLabel}</td>
       </tr>`
   }).join('')
 
@@ -85,6 +89,7 @@ export function renderDailyHTML(data: DailyReport): string {
   .col-payment { width:8%; text-align:center; }
   .col-vendor { width:5%; text-align:center; }
   .col-time { width:5%; text-align:center; }
+  .col-time.time-night { background: #FFF3B0; font-weight: 700; color: #7C2D12; }
 
   /* Slightly smaller font for tight header cells to ensure fit */
   th.col-payroll, th.col-vendor { font-size: 8.5pt; padding-left: 4pt; padding-right: 4pt; }
