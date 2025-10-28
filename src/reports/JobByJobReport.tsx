@@ -1,9 +1,9 @@
 import React from 'react'
 import ReactDOMServer from 'react-dom/server'
-import puppeteer from 'puppeteer'
 import fs from 'fs'
 import path from 'path'
 import { JobCard, type JobEntry } from '@/components/pdf/JobCard'
+import { launchReportBrowser } from '@/server/reports/launchBrowser'
 
 export type ReportInput = {
   reportDate: string
@@ -64,7 +64,7 @@ export async function renderJobByJobPDF(input: ReportInput): Promise<Buffer> {
   const headerDate = sanitize(toDateHeader(input.reportDate))
   const { html, header, footer } = htmlShell(body, styles, headerDate)
 
-  const browser = await puppeteer.launch({ headless: true })
+  const browser = await launchReportBrowser()
   try {
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'load' })

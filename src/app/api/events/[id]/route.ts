@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
+import { WorkShift } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
@@ -19,6 +20,7 @@ type PatchPayload = {
   startsAt?: string
   endsAt?: string
   checklist?: unknown | null
+  shift?: WorkShift | string | null
 }
 
 const cors = {
@@ -43,6 +45,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ('description' in body) data.description = body.description ?? null
   if ('location' in body) data.location = body.location ?? null
   if ('type' in body) data.type = body.type ?? null
+  if ('shift' in body) {
+    const raw = body.shift
+    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) {
+      data.shift = null
+    } else if (typeof raw === 'string') {
+      const normalized = raw.trim().toUpperCase()
+      if (normalized === 'DAY' || normalized === 'NIGHT') {
+        data.shift = normalized as WorkShift
+      } else {
+        return NextResponse.json({ error: 'Invalid shift' }, { status: 400, headers: cors as any })
+      }
+    } else {
+      return NextResponse.json({ error: 'Invalid shift' }, { status: 400, headers: cors as any })
+    }
+  }
   const hasAllDayFlag = 'allDay' in body
   const allDayFlag = hasAllDayFlag ? !!body.allDay : undefined
   if (hasAllDayFlag) data.allDay = !!body.allDay
