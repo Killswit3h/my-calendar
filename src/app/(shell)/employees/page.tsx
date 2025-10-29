@@ -51,12 +51,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
-  legacyRoster,
   crewByTeam,
   roleByTeam,
   payById,
   toLegacyId,
 } from "@/data/employeeRoster";
+import {
+  getEmployees as getDirectoryEmployees,
+  saveEmployees as saveDirectoryEmployees,
+  type Employee as BaseEmployee,
+  type Team as BaseTeam,
+} from "@/employees";
 
 type PayType = "HOURLY" | "SALARY";
 type EmpStatus = "ACTIVE" | "ON_LEAVE" | "TERMINATED";
@@ -210,27 +215,188 @@ function generateId() {
   return Math.random().toString(36).slice(2);
 }
 
+const EMPLOYEE_STORAGE_KEY = "app.shell.employees.v1";
 
-const initialEmployees: Employee[] = legacyRoster.map((person, index) => {
-  const id = toLegacyId(person.firstName, person.lastName);
-  const baseRate = payById[id] ?? (20 + (index % 6));
-  const pay: Pay = {
+function splitNameParts(rawName: string): { firstName: string; lastName: string } {
+  const trimmed = rawName.trim();
+  if (!trimmed) return { firstName: "New", lastName: "Employee" };
+  const parts = trimmed.split(/\s+/);
+  const firstName = parts.shift() ?? "New";
+  const lastName = parts.length ? parts.join(" ") : "Employee";
+  return { firstName, lastName };
+}
+
+function inferTeamFromCrew(crew?: string): BaseTeam {
+  if (!crew) return "South";
+  const normalized = crew.toLowerCase();
+  if (normalized.includes("guardrail") || normalized.includes("north") || normalized.includes("central")) {
+    return "Central";
+  }
+  return "South";
+}
+
+function resolveCrewForTeam(team: BaseTeam, crew?: string): string | undefined {
+  if (crew && crew.trim().length > 0) return crew.trim();
+  return crewByTeam[team];
+}
+
+function resolveRoleForTeam(team: BaseTeam, role?: Role): Role {
+  if (role) return role;
+  return roleByTeam[team] ?? "Labor";
+}
+
+function normalizePay(input: unknown, fallbackBase: number): Pay {
+  if (input && typeof input === "object") {
+    const candidate = input as Partial<Pay>;
+    const base =
+      typeof candidate.base === "number" && Number.isFinite(candidate.base)
+        ? candidate.base
+        : fallbackBase;
+    const effective =
+      typeof candidate.effective === "string" && candidate.effective.length > 0
+        ? candidate.effective
+        : new Date().toISOString().slice(0, 10);
+    if (candidate.type === "SALARY") {
+      return { type: "SALARY", base, effective };
+    }
+    const ot =
+      typeof candidate.otMultiplier === "number" &&
+      Number.isFinite(candidate.otMultiplier) &&
+      candidate.otMultiplier > 0
+        ? candidate.otMultiplier
+        : 1.5;
+    return { type: "HOURLY", base, otMultiplier: ot, effective };
+  }
+  return {
     type: "HOURLY",
-    base: baseRate,
+    base: fallbackBase,
     otMultiplier: 1.5,
-    effective: "2024-01-01",
+    effective: new Date().toISOString().slice(0, 10),
   };
+}
+
+function ensureEmployeeDefaults(
+  employee: Partial<Employee> & { id?: string },
+  directory?: BaseEmployee,
+  index = 0,
+): Employee {
+  const directoryId = directory?.id ?? employee.id;
+  const team = directory?.team ?? inferTeamFromCrew(employee.crew);
+  const { firstName, lastName } = splitNameParts(
+    employee.name ?? (directory ? `${directory.firstName} ${directory.lastName}` : "New Employee"),
+  );
+  const fallbackId = directoryId ?? toLegacyId(firstName, lastName) ?? generateId();
+  const baseRate =
+    typeof employee.pay?.base === "number" && Number.isFinite(employee.pay.base)
+      ? employee.pay.base
+      : payById[directoryId ?? ""] ?? 20 + (index % 6);
+  const pay = normalizePay(employee.pay, baseRate);
 
   return {
-    id,
-    name: `${person.firstName} ${person.lastName}`,
-    role: roleByTeam[person.team],
-    status: "ACTIVE",
-    crew: crewByTeam[person.team],
+    id: fallbackId,
+    name: `${firstName} ${lastName}`.trim(),
+    role: resolveRoleForTeam(team, employee.role),
+    status: employee.status ?? "ACTIVE",
+    crew: resolveCrewForTeam(team, employee.crew),
+    phone: employee.phone ?? undefined,
+    email: employee.email ?? undefined,
+    hireDate: employee.hireDate ?? pay.effective,
+    cdl: employee.cdl ?? false,
+    certs: employee.certs ?? [],
     pay,
-    rateHistory: [pay],
+    rateHistory:
+      Array.isArray(employee.rateHistory) && employee.rateHistory.length > 0
+        ? employee.rateHistory.map((entry) => normalizePay(entry, pay.base))
+        : [pay],
+    notes: employee.notes ?? "",
   };
-});
+}
+
+function buildEmployeeFromDirectory(entry: BaseEmployee, index: number): Employee {
+  return ensureEmployeeDefaults(
+    {
+      id: entry.id,
+      name: `${entry.firstName} ${entry.lastName}`.trim(),
+      crew: crewByTeam[entry.team],
+      role: roleByTeam[entry.team],
+    },
+    entry,
+    index,
+  );
+}
+
+function readStoredEmployees(): Employee[] | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(EMPLOYEE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .map((entry, index) => ensureEmployeeDefaults(entry as Employee, undefined, index))
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+function mergeEmployees(stored: Employee[] | null, directory: BaseEmployee[]): Employee[] {
+  if (!stored) {
+    return directory.map((entry, idx) => buildEmployeeFromDirectory(entry, idx));
+  }
+  const storedById = new Map<string, Employee>();
+  stored.forEach((emp) => storedById.set(emp.id, ensureEmployeeDefaults(emp)));
+
+  const merged = directory.map((entry, idx) => {
+    const existing = storedById.get(entry.id);
+    if (existing) {
+      storedById.delete(entry.id);
+      return ensureEmployeeDefaults(existing, entry, idx);
+    }
+    return buildEmployeeFromDirectory(entry, idx);
+  });
+
+  for (const leftover of storedById.values()) {
+    merged.push(ensureEmployeeDefaults(leftover));
+  }
+
+  return merged;
+}
+
+function loadEmployeeState(): Employee[] {
+  const directory = getDirectoryEmployees();
+  const stored = readStoredEmployees();
+  return mergeEmployees(stored, directory);
+}
+
+function syncDirectoryEmployees(list: Employee[]) {
+  const simplified: BaseEmployee[] = list.map((emp) => {
+    const { firstName, lastName } = splitNameParts(emp.name);
+    return {
+      id: emp.id,
+      firstName,
+      lastName,
+      team: inferTeamFromCrew(emp.crew),
+    };
+  });
+  saveDirectoryEmployees(simplified);
+}
+
+function deriveEmployeeIdentity(
+  rawName: string,
+  crew: string | undefined,
+  existingIds: Set<string>,
+): { id: string; firstName: string; lastName: string; team: BaseTeam } {
+  const { firstName, lastName } = splitNameParts(rawName);
+  const baseSlug = toLegacyId(firstName, lastName);
+  const baseId = baseSlug.length ? baseSlug : generateId();
+  let candidate = baseId;
+  let suffix = 2;
+  while (existingIds.has(candidate)) {
+    candidate = `${baseId}-${suffix++}`;
+  }
+  return { id: candidate, firstName, lastName, team: inferTeamFromCrew(crew) };
+}
 
 function AvatarBubble({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   const parts = name.trim().split(" ");
@@ -370,7 +536,8 @@ function RosterMenu({
 }
 
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>({
     status: "ALL",
@@ -399,6 +566,25 @@ export default function EmployeesPage() {
   const [bulkAssignCrewDraft, setBulkAssignCrewDraft] = useState("");
   const [bulkPlacementMenu, setBulkPlacementMenu] = useState(false);
   const [rosterMenuFor, setRosterMenuFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initial = loadEmployeeState();
+    setEmployees(initial);
+    syncDirectoryEmployees(initial);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(EMPLOYEE_STORAGE_KEY, JSON.stringify(employees));
+      }
+    } catch {
+      // Ignore storage write failures (private browsing, quotas, etc.)
+    }
+    syncDirectoryEmployees(employees);
+  }, [employees, hydrated]);
 
   const crews = useMemo(() => {
     const set = new Set<string>();
@@ -514,37 +700,36 @@ export default function EmployeesPage() {
 
   const onCreateEmployee = useCallback(
     (payload: Partial<Employee>) => {
-      const id = payload.id ?? generateId();
-      const now = new Date().toISOString().slice(0, 10);
-      const pay: Pay =
-        payload.pay ??
-        ({
-          type: "HOURLY",
-          base: 18,
-          otMultiplier: 1.5,
-          effective: now,
-        } satisfies Pay);
-      const employee: Employee = {
-        id,
-        name: payload.name ?? "New Employee",
+      const existingIds = new Set(employees.map((emp) => emp.id));
+      const name = payload.name ?? "New Employee";
+      const crewValue = payload.crew?.trim() || undefined;
+      const identity = deriveEmployeeIdentity(name, crewValue, existingIds);
+      const basePay = typeof payload.pay?.base === "number" ? payload.pay.base : 18;
+      const pay: Pay = payload.pay ? normalizePay(payload.pay, basePay) : normalizePay(undefined, basePay);
+
+      const draft: Partial<Employee> = {
+        id: identity.id,
+        name: `${identity.firstName} ${identity.lastName}`.trim(),
         role: payload.role ?? "Labor",
         status: payload.status ?? "ACTIVE",
-        crew: payload.crew,
-        phone: payload.phone,
-        email: payload.email,
-        hireDate: payload.hireDate ?? now,
+        crew: crewValue,
+        phone: payload.phone ?? undefined,
+        email: payload.email ?? undefined,
+        hireDate: payload.hireDate ?? pay.effective,
         cdl: payload.cdl ?? false,
         certs: payload.certs ?? [],
         pay,
         rateHistory: payload.rateHistory ?? [pay],
         notes: payload.notes ?? "",
       };
+
+      const employee = ensureEmployeeDefaults(draft);
       setEmployees((prev) => [employee, ...prev]);
-      setDrawerId(id);
+      setDrawerId(employee.id);
       setSheetOpen(true);
       console.log("employees:create", employee);
     },
-    [],
+    [employees],
   );
 
   const setEmployee = useCallback(
