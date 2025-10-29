@@ -7,14 +7,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { SHELL_NAV_GROUPS, SHELL_NAV_ITEMS, type NavItem } from '@/lib/routes'
 import { cn } from '@/lib/theme'
 
+type SidebarNavItem = NavItem & { href: string }
+
 export default function AppSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const groups = useMemo(() => {
+  const groups = useMemo<{ key: string; label: string; items: SidebarNavItem[] }[]>(() => {
     const cloned = SHELL_NAV_GROUPS.filter(group => group.items.length).map(group => ({
       ...group,
-      items: [...group.items],
+      items: group.items.map(item => ({ ...item })) as SidebarNavItem[],
     }))
 
     const employeesItem = SHELL_NAV_ITEMS.find(item => item.key === 'employees')
@@ -23,7 +25,7 @@ export default function AppSidebar() {
       if (workspace && !workspace.items.some(item => item.key === 'employees')) {
         const inventoryIndex = workspace.items.findIndex(item => item.key === 'inventory')
         const insertAt = inventoryIndex === -1 ? workspace.items.length : inventoryIndex
-        workspace.items.splice(insertAt, 0, employeesItem)
+        workspace.items.splice(insertAt, 0, employeesItem as SidebarNavItem)
       }
     }
 
@@ -67,15 +69,25 @@ export default function AppSidebar() {
                 <div className="h-2" />
               )}
               <div className="space-y-1">
-                {group.items.map(item => (
-                  <SidebarLink
-                    key={item.key}
-                    item={item}
-                    collapsed={collapsed}
-                    active={isActive(pathname, item.href)}
-                    onHover={() => router.prefetch(item.href)}
-                  />
-                ))}
+                {group.items.map(item => {
+                  const href = item.href
+                  const active =
+                    href != null
+                      ? href === '/calendar'
+                        ? pathname.startsWith('/calendar')
+                        : href === '/dashboard'
+                          ? pathname === '/dashboard'
+                          : pathname === href || pathname.startsWith(`${href}/`)
+                      : false
+                  return (
+                    <SidebarLink
+                      key={item.key}
+                      item={item}
+                      collapsed={collapsed}
+                      active={active}
+                    />
+                  )
+                })}
               </div>
             </div>
           ))}
@@ -107,7 +119,7 @@ function SidebarLink({
   active,
   onHover,
 }: {
-  item: NavItem
+  item: SidebarNavItem
   collapsed: boolean
   active: boolean
   onHover?: () => void
