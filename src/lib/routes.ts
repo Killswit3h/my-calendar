@@ -23,6 +23,7 @@ export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
   { key: 'documents', label: 'Documents', href: '/documents', icon: FileText },
   { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart },
+  { key: 'finance-jobs', label: 'Finance Jobs', href: '/finance/jobs', icon: LineChart },
   { key: 'employees', label: 'Employees', href: '/employees', icon: Users },
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
@@ -38,12 +39,12 @@ export const SHELL_NAV_GROUPS: NavGroup[] = [
   {
     key: 'work',
     label: 'Workspace',
-    items: SHELL_NAV_ITEMS.slice(0, 7),
+    items: SHELL_NAV_ITEMS.slice(0, 8),
   },
   {
     key: 'admin',
     label: 'Administration',
-    items: SHELL_NAV_ITEMS.slice(7),
+    items: SHELL_NAV_ITEMS.slice(8),
   },
 ]
 

@@ -237,7 +237,9 @@ function CommandPalette({ open, query, setQuery, onClose, onSelect, results }: C
                 <li key={item.key}>
                   <button
                     type="button"
-                    onClick={() => onSelect(item.href)}
+                    onClick={() => {
+                      if (item.href) onSelect(item.href)
+                    }}
                     className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition hover:bg-accent-50"
                   >
                     <item.icon className="h-4 w-4 text-muted" />

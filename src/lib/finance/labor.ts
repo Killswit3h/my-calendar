@@ -1,4 +1,4 @@
-import type { Customer, Employee, Event, EventAssignment, Project } from '@prisma/client'
+import type { Customer, Employee, Event, EventAssignment, Project, Prisma } from '@prisma/client'
 import { APP_TZ, addDaysUtc, formatInTimeZone, zonedEndOfDayUtc, zonedStartOfDayUtc } from '@/lib/timezone'
 
 const DEFAULT_DAY_HOURS = (() => {
@@ -34,7 +34,9 @@ export interface EventSegment {
 }
 
 export interface HoursAssignmentInput
-  extends Pick<EventAssignment, 'id' | 'eventId' | 'employeeId' | 'dayOverride' | 'hours'> {}
+  extends Pick<EventAssignment, 'id' | 'eventId' | 'employeeId' | 'dayOverride'> {
+  hours: Prisma.Decimal | number | null
+}
 
 export const toDayKey = (date: Date) => formatInTimeZone(date, APP_TZ).date
 
