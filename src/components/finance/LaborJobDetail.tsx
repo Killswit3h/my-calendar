@@ -72,6 +72,7 @@ export function LaborJobDetail({
 }) {
   const router = useRouter()
   const params = useSearchParams()
+  const jobNameFallback = params?.get('jobName') ?? null
   const [start, setStart] = useState(initialStart)
   const [end, setEnd] = useState(initialEnd)
 
@@ -135,7 +136,7 @@ export function LaborJobDetail({
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-white">
-            {data?.job.name ?? params.get('jobName') ?? jobId}
+            {data?.job.name ?? jobNameFallback ?? jobId}
           </h1>
           <p className="text-sm text-white/60">
             Daily detail with crew breakdown. Adjust the range to regenerate numbers.
