@@ -114,8 +114,14 @@ export const getDashboardMetrics = cache(async (): Promise<DashboardMetrics> => 
     }),
   ])
 
-  const inventoryItems = inventoryRaw as InventorySnapshot[]
-  const crewEvents = crewRaw as CrewEventSnapshot[]
+  const inventoryItems: InventorySnapshot[] = inventoryRaw.map((item) => ({
+    minStock: item.minStock,
+    stocks: item.InventoryStock ?? [],
+  }))
+  const crewEvents: CrewEventSnapshot[] = crewRaw.map((event) => ({
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+  }))
 
   const inventoryLowStock = inventoryItems.reduce<number>((count, item) => {
     const onHand = item.stocks.reduce((sum: number, stock) => sum + stock.qty, 0)
