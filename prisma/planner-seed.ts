@@ -15,6 +15,12 @@ async function main() {
   await prisma.plannerBucket.deleteMany({});
   await prisma.plannerPlan.deleteMany({});
 
+  const seedDemo = process.env.PLANNER_SEED_DEMO === 'true';
+  if (!seedDemo) {
+    console.log('Planner demo seed skipped. Database left empty for production use.');
+    return;
+  }
+
   const plan = await prisma.plannerPlan.create({
     data: { name: 'Planner Demo', description: 'Isolated Planner module', color: '#1f9d55' },
   });

@@ -14,11 +14,13 @@ export async function getDayRoster(dateISO: string): Promise<DayRosterData> {
     select: { id: true, name: true, defaultSection: true }, // defaultSection may be null if older rows
   });
 
-  const assignments = await prisma.employeeAssignment.findMany({
-    where: { date },
-    select: { employeeId: true, section: true },
+  const assignments = await prisma.placement.findMany({
+    where: { dayKey },
+    select: { employeeId: true, placement: true },
   });
-  const explicit = new Map(assignments.map((a: { employeeId: string; section: string }) => [a.employeeId, a.section as Section]));
+  const explicit = new Map(
+    assignments.map((a: { employeeId: string; placement: Section }) => [a.employeeId, a.placement as Section]),
+  );
 
   const free: Emp[] = [];
   const yardShop: Emp[] = [];
@@ -30,7 +32,7 @@ export async function getDayRoster(dateISO: string): Promise<DayRosterData> {
     const explicitSection: Section | undefined = explicit.get(e.id) as Section | undefined;
     const section: Section = explicitSection ?? fallback;
 
-    const item = { id: e.id, name: e.name };
+    const item = { id: e.id, name: e.name ?? '' };
     if (section === "FREE") free.push(item);
     else if (section === "NO_WORK") noWork.push(item);
     else yardShop.push(item);
