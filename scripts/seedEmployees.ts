@@ -10,13 +10,11 @@ async function seedEmployees() {
   for (const emp of employees) {
     const name = `${emp.firstName} ${emp.lastName}`;
     await prisma.employee.upsert({
-      where: { firstName_lastName: { firstName: emp.firstName, lastName: emp.lastName } },
+      where: { id: emp.id },
       update: { name, defaultSection: "YARD_SHOP" },
       create: {
         id: emp.id,
         name,
-        firstName: emp.firstName,
-        lastName: emp.lastName,
         defaultSection: "YARD_SHOP",
       },
     });
@@ -26,6 +24,5 @@ async function seedEmployees() {
 }
 
 seedEmployees().catch(console.error);
-
 
 
