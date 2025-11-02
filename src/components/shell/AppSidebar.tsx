@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 
 const sections = [
   { title: "Workspace", items: [
@@ -12,28 +13,39 @@ const sections = [
   ]},
 ];
 
-export default function AppSidebar({ current = "/" }: { current?: string }) {
+type AppSidebarProps = {
+  current?: string;
+  className?: string;
+  style?: CSSProperties;
+  onNavigate?: () => void;
+};
+
+export default function AppSidebar({ current = "/", className = "", style, onNavigate }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  // Persist collapsed state and expose CSS var for layout
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved) setCollapsed(saved === "1");
   }, []);
+
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
     document.documentElement.style.setProperty("--sidebar-w", collapsed ? "72px" : "256px");
   }, [collapsed]);
 
+  const mergedStyle: CSSProperties = { width: "var(--sidebar-w, 256px)", ...style };
+
   return (
     <aside
-      className={`h-dvh sticky top-0 shrink-0 border-r border-white/10 bg-black/30 backdrop-blur-xl z-30`}
-      style={{ width: "var(--sidebar-w, 256px)" }}
+      className={`md:sticky md:top-0 h-dvh shrink-0 border-r border-white/10 bg-black/30 backdrop-blur-xl z-30 ${className}`}
+      style={mergedStyle}
     >
-      <div className="p-3 flex items-center gap-2">
+      <div className="flex items-center gap-2 p-3">
         <button
           onClick={() => setCollapsed(v => !v)}
-          className="btn"
+          className="btn hidden md:inline-flex"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand" : "Collapse"}
         >
@@ -42,11 +54,11 @@ export default function AppSidebar({ current = "/" }: { current?: string }) {
         {!collapsed && <div className="text-lg font-semibold">Control Center</div>}
       </div>
 
-      <nav className="px-2 pb-4 overflow-y-auto h-[calc(100dvh-56px)]">
+      <nav className="h-[calc(100dvh-56px)] overflow-y-auto px-2 pb-4">
         {sections.map((s) => (
           <div key={s.title} className="mb-4">
             {!collapsed && (
-              <div className="text-xs uppercase tracking-wide text-neutral-400 px-2 mb-2">
+              <div className="mb-2 px-2 text-xs uppercase tracking-wide text-neutral-400">
                 {s.title}
               </div>
             )}
@@ -56,10 +68,11 @@ export default function AppSidebar({ current = "/" }: { current?: string }) {
                   <Link
                     href={href}
                     aria-current={current === href ? "page" : undefined}
-                    className={`flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/5 ${
+                    className={`flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5 ${
                       current === href ? "bg-white/10" : ""
                     }`}
                     title={collapsed ? label : undefined}
+                    onClick={() => onNavigate?.()}
                   >
                     <span className="size-2 rounded-full bg-white/30" />
                     {!collapsed && <span>{label}</span>}
@@ -70,7 +83,7 @@ export default function AppSidebar({ current = "/" }: { current?: string }) {
           </div>
         ))}
         {!collapsed && (
-          <div className="px-2 mt-6 text-xs text-neutral-500">
+          <div className="mt-6 px-2 text-xs text-neutral-500">
             © {new Date().getFullYear()} GFC
           </div>
         )}
