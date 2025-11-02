@@ -1,28 +1,68 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import AppSidebar from "@/components/shell/AppSidebar";
-import AppTopbar from "@/components/shell/AppTopbar";
+import AppSidebar from '@/components/shell/AppSidebar';
+import AppTopbar from '@/components/shell/AppTopbar';
 
 export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  
-  // For calendar-fullscreen, render without sidebar/topbar
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth < 768);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   if (pathname === '/calendar-fullscreen') {
     return <>{children}</>;
   }
-  
-  // For all other routes, render with sidebar and topbar
+
+  if (isMobile) {
+    return (
+      <div className="min-h-dvh bg-slate-950 text-white">
+        <AppTopbar onToggleSidebar={() => setMobileNavOpen(true)} />
+        {mobileNavOpen ? (
+          <div className="fixed inset-0 z-40 flex">
+            <button
+              type="button"
+              aria-label="Close navigation"
+              className="absolute inset-0 bg-black/70"
+              onClick={() => setMobileNavOpen(false)}
+            />
+            <div className="relative z-50 h-full w-[260px]">
+              <AppSidebar
+                current={pathname ?? '/'}
+                className="h-full border-r border-white/10 bg-black/40 backdrop-blur-xl"
+                style={{ width: '100%' }}
+                onNavigate={() => setMobileNavOpen(false)}
+              />
+            </div>
+          </div>
+        ) : null}
+        <main className="p-3">{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-dvh">
-      <AppSidebar />
-      <div className="flex-1 min-w-0 relative z-10">
-        <AppTopbar />
-        <div className="p-3 md:p-6">{children}</div>
+      <AppSidebar current={pathname ?? '/'} />
+      <div className="relative z-10 flex-1 min-w-0">
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );
 }
-
 
 
