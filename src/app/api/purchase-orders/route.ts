@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -26,11 +27,13 @@ export async function POST(req: NextRequest) {
     const prisma = await getPrisma()
     const created = await prisma.purchaseOrder.create({
       data: {
+        id: randomUUID(),
         poNumber: body.poNumber,
         project: body.project,
         vendor: body.vendor,
         status: body.status,
         expectedOn: body.expectedOn ? new Date(body.expectedOn) : null,
+        updatedAt: new Date(),
       },
     })
     return NextResponse.json({ item: created }, { status: 201 })
