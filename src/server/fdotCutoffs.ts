@@ -1,7 +1,7 @@
 // src/server/fdot_cutoffss.ts
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/db'
-import type { fdot_cutoffs, PrismaClient } from '@prisma/client'
+import type { fdot_cutoffs } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 
 export type FdotCutoffRecord = {
@@ -179,7 +179,7 @@ export async function saveCutoffs(
   let created = 0
   let updated = 0
 
-  const results = await prisma.$transaction(async (tx: PrismaClient) => {
+  const results = await prisma.$transaction(async (tx) => {
     if (toDelete.length > 0) {
       await tx.fdot_cutoffs.deleteMany({ where: { id: { in: toDelete } } })
     }
@@ -195,7 +195,7 @@ export async function saveCutoffs(
         const existingRow = existingById.get(row.id)!
         const hasChanges =
           existingRow.year !== year ||
-          new Date(existingRow.cutoffDate).toISOString().slice(0, 10) !== row.cutoffDate ||
+          new Date(existingRow.cutoff_date).toISOString().slice(0, 10) !== row.cutoffDate ||
           (existingRow.label || null) !== (row.label || null)
         if (hasChanges) {
           const updatedRow = await tx.fdot_cutoffs.update({
@@ -335,8 +335,8 @@ async function runAggregation(
 
   try {
     const rows = await tryPrisma(
-      (p: PrismaClient) =>
-        p.$queryRaw<Array<{
+      async (p) =>
+        (await p.$queryRaw(query)) as Array<{
           job_id: string
           job_name: string | null
           pay_item: string | null
@@ -345,7 +345,7 @@ async function runAggregation(
           total_quantity: Prisma.Decimal | number | null
           first_work_date: Date | string | null
           last_work_date: Date | string | null
-        }>>(query),
+        }>,
       [] as Array<{
         job_id: string
         job_name: string | null
