@@ -80,16 +80,14 @@ export default function Board({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-slate-800 p-4">
-        <h1 className="text-xl font-semibold text-white">{displayName}</h1>
-        {local.description ? <p className="text-slate-300">{local.description}</p> : null}
-        <div className="ml-auto flex items-center gap-2">
-          <a href={`/planner/${local.id}/calendar`} className="rounded-md border border-slate-700 px-3 py-1 text-emerald-400">Calendar</a>
-          <a href={`/planner/${local.id}/timeline`} className="rounded-md border border-slate-700 px-3 py-1 text-emerald-400">Timeline</a>
+      <header className="flex flex-wrap items-center gap-3 border-b border-slate-800 p-4">
+        <div>
+          <h1 className="text-xl font-semibold text-white">{displayName}</h1>
+          {local.description ? <p className="text-sm text-slate-300">{local.description}</p> : null}
         </div>
       </header>
-      <main className="flex-1 overflow-x-auto">
-        <div className="flex gap-4 p-4">
+      <main className="flex-1 overflow-y-auto">
+        <div className="mobile-tight grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {plan.buckets.map((bucket) => (
             <BucketColumn
               key={bucket.id}
@@ -104,47 +102,48 @@ export default function Board({
             />
           ))}
           {onCreateBucket ? (
-            <div className="w-80 shrink-0">
-              {addingBucket ? (
-                <form onSubmit={handleCreateBucket} className="space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <input
-                    autoFocus
-                    value={bucketTitle}
-                    onChange={(event) => setBucketTitle(event.target.value)}
-                    placeholder="New section name"
-                    className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="submit"
-                      disabled={creatingBucket}
-                      className="rounded-md bg-emerald-500 px-3 py-1 text-sm font-medium text-black hover:bg-emerald-400 disabled:opacity-50"
-                    >
-                      Add section
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingBucket(false);
-                        setBucketTitle('');
-                      }}
-                      className="rounded-md px-3 py-1 text-sm text-slate-300 hover:bg-slate-800"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAddingBucket(true)}
-                  className="flex w-full items-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900/60 px-3 py-2 text-left text-sm text-emerald-400 hover:border-emerald-400"
-                >
-                  <span className="text-lg leading-none">+</span>
-                  <span>Add section</span>
-                </button>
-              )}
-            </div>
+            addingBucket ? (
+              <form
+                onSubmit={handleCreateBucket}
+                className="space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3"
+              >
+                <input
+                  autoFocus
+                  value={bucketTitle}
+                  onChange={(event) => setBucketTitle(event.target.value)}
+                  placeholder="New section name"
+                  className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={creatingBucket}
+                    className="rounded-md bg-emerald-500 px-3 py-1 text-sm font-medium text-black hover:bg-emerald-400 disabled:opacity-50"
+                  >
+                    Add section
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddingBucket(false);
+                      setBucketTitle('');
+                    }}
+                    className="rounded-md px-3 py-1 text-sm text-slate-300 hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingBucket(true)}
+                className="flex w-full items-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900/60 px-3 py-2 text-left text-sm text-emerald-400 hover:border-emerald-400"
+              >
+                <span className="text-lg leading-none">+</span>
+                <span>Add section</span>
+              </button>
+            )
           ) : null}
         </div>
       </main>

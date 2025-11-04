@@ -7,7 +7,7 @@ type AppTopbarProps = {
 
 export default function AppTopbar({ onToggleSidebar, title = "Planner" }: AppTopbarProps) {
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-black/60 px-3 py-2 backdrop-blur md:hidden">
+    <header className="safe-p sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-black/60 backdrop-blur md:hidden">
       <button
         type="button"
         onClick={onToggleSidebar}

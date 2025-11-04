@@ -70,7 +70,27 @@ export async function GET(request: Request) {
       })) as Array<Pick<EventAssignment, 'id' | 'eventId' | 'employeeId' | 'dayOverride' | 'hours'>>
     : []
 
-  const employeeIds = Array.from(new Set(assignments.map(assignment => assignment.employeeId)))
+  const laborDailyRows = eventIds.length
+    ? await prisma.laborDaily.findMany({
+        where: { eventId: { in: eventIds } },
+        select: {
+          id: true,
+          eventId: true,
+          employeeId: true,
+          day: true,
+          hoursDecimal: true,
+          totalCostUsd: true,
+          rateUsd: true,
+        },
+      })
+    : []
+
+  const employeeIds = Array.from(
+    new Set([
+      ...assignments.map(assignment => assignment.employeeId),
+      ...laborDailyRows.map(row => row.employeeId),
+    ]),
+  )
   const employees = employeeIds.length
     ? (await prisma.employee.findMany({
         where: { id: { in: employeeIds } },
@@ -118,6 +138,7 @@ export async function GET(request: Request) {
     employees,
     projects,
     customers,
+    laborDailyRows,
     range,
   })
 
