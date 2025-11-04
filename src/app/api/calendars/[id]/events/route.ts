@@ -10,12 +10,15 @@ import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import type { EventRowLike } from '@/lib/events/serializer'
 import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
+import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 
 type PrismaEventRow = EventRowLike & {
   id: string
   calendarId: string
   title: string
   description: string | null
+  projectId: string | null
+  customerId: string | null
   startsAt: Date
   endsAt: Date
   allDay: boolean
@@ -117,6 +120,8 @@ async function insertEventCompat(
     type: EventType | null
     shift: WorkShift | null
     checklist: unknown | null
+    projectId: string | null
+    customerId: string | null
   },
 ): Promise<PrismaEventRow> {
   await ensureLegacyStartColumnsHandled(p)
@@ -130,6 +135,8 @@ async function insertEventCompat(
         calendarId: true,
         title: true,
         description: true,
+        projectId: true,
+        customerId: true,
         startsAt: true,
         endsAt: true,
         allDay: true,
@@ -142,7 +149,7 @@ async function insertEventCompat(
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"EventType" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::"WorkShift" END,CASE WHEN $11 IS NULL THEN NULL ELSE $11::jsonb END,$5,$6) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist"',
+      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"EventType" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::"WorkShift" END,CASE WHEN $11 IS NULL THEN NULL ELSE $11::jsonb END,$12,$13,$5,$6) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","allDay","location","type","shift","checklist"',
       id,
       data.calendarId,
       data.title,
@@ -154,6 +161,8 @@ async function insertEventCompat(
       data.type,
       data.shift,
       data.checklist === null ? null : JSON.stringify(data.checklist),
+      data.projectId,
+      data.customerId,
     )) as Array<Record<string, any>>
 
     const row = rows[0]
@@ -162,6 +171,8 @@ async function insertEventCompat(
       calendarId: row.calendarId,
       title: row.title,
       description: row.description,
+      projectId: row.projectId ?? null,
+      customerId: row.customerId ?? null,
       startsAt: new Date(row.startsAt),
       endsAt: new Date(row.endsAt),
       allDay: row.allDay,
@@ -280,6 +291,10 @@ export async function POST(
     endsAt = endDate
   }
 
+  const linkage = await ensureProjectForEventTitle(title)
+  const projectId = linkage?.projectId ?? null
+  const customerId = linkage?.customerId ?? null
+
   const created = await tryPrisma<PrismaEventRow | null>(
     async (p) =>
       insertEventCompat(p, {
@@ -293,6 +308,8 @@ export async function POST(
         type: (body.type ?? null) as EventType | null,
         shift: (body.shift ?? null) as WorkShift | null,
         checklist: body.checklist ?? null,
+        projectId,
+        customerId,
       }),
     null,
   )

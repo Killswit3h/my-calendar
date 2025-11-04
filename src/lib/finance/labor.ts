@@ -1,4 +1,4 @@
-import type { Customer, Employee, Event, EventAssignment, Project, Prisma } from '@prisma/client'
+import type { Customer, Employee, Event, EventAssignment, LaborDaily, Project, Prisma } from '@prisma/client'
 import { APP_TZ, addDaysUtc, formatInTimeZone, zonedEndOfDayUtc, zonedStartOfDayUtc } from '@/lib/timezone'
 
 const DEFAULT_DAY_HOURS = (() => {
@@ -188,6 +188,9 @@ interface AggregateInput {
     Pick<Event, 'id' | 'title' | 'startsAt' | 'endsAt' | 'allDay' | 'projectId' | 'customerId' | 'calendarId'>
   >
   assignments: HoursAssignmentInput[]
+  laborDailyRows: Array<
+    Pick<LaborDaily, 'id' | 'eventId' | 'employeeId' | 'day' | 'hoursDecimal' | 'totalCostUsd' | 'rateUsd'>
+  >
   employees: Array<Pick<Employee, 'id' | 'name' | 'hourlyRate'>>
   projects: Array<Pick<Project, 'id' | 'name' | 'customerId'>>
   customers: Array<Pick<Customer, 'id' | 'name'>>
@@ -222,6 +225,7 @@ interface ProjectBucket {
 export const aggregateByProject = ({
   events,
   assignments,
+  laborDailyRows,
   employees,
   projects,
   customers,
@@ -242,6 +246,16 @@ export const aggregateByProject = ({
     } else {
       assignmentsByEvent.set(assignment.eventId, [assignment])
     }
+  }
+
+  const laborRowsByEvent = new Map<
+    string,
+    Array<Pick<LaborDaily, 'id' | 'eventId' | 'employeeId' | 'day' | 'hoursDecimal' | 'totalCostUsd' | 'rateUsd'>>
+  >()
+  for (const row of laborDailyRows) {
+    const bucket = laborRowsByEvent.get(row.eventId)
+    if (bucket) bucket.push(row)
+    else laborRowsByEvent.set(row.eventId, [row])
   }
 
   const syntheticBuckets = new Map<string, ProjectBucket>()
@@ -306,7 +320,8 @@ export const aggregateByProject = ({
     }
 
     const eventAssignments = assignmentsByEvent.get(event.id) ?? []
-    if (eventAssignments.length === 0) {
+    const eventLaborRows = laborRowsByEvent.get(event.id) ?? []
+    if (eventAssignments.length === 0 && eventLaborRows.length === 0) {
       bucket.warnings.add(`Event ${event.id} has no employee assignments`)
     }
 
@@ -356,6 +371,55 @@ export const aggregateByProject = ({
       bucket.employees.set(employee.id, employeeBucket)
       bucket.totalHours = round2(bucket.totalHours + hoursAccumulator)
       bucket.totalCost = round2(bucket.totalCost + cost)
+    }
+
+    if (eventAssignments.length === 0) {
+      const relevantLaborRows = eventLaborRows.filter(row => {
+        const dayKey = formatInTimeZone(row.day, APP_TZ).date
+        return dayKey >= fromDay && dayKey <= toDay
+      })
+      if (relevantLaborRows.length > 0) {
+        for (const row of relevantLaborRows) {
+          const employee = employeeMap.get(row.employeeId)
+          if (!employee) {
+            bucket.warnings.add(`Labor row ${row.id} references missing employee ${row.employeeId}`)
+            continue
+          }
+          const hours = round2(toNumber(row.hoursDecimal))
+          if (hours <= 0) continue
+
+          const payRate = toNumber(row.rateUsd) || toNumber(employee.hourlyRate)
+          const missingRate = payRate <= 0
+          if (missingRate) {
+            bucket.warnings.add(`Employee ${employee.name ?? employee.id} has no pay rate`)
+          }
+          const cost = round2(
+            row.totalCostUsd != null && toNumber(row.totalCostUsd) > 0
+              ? toNumber(row.totalCostUsd)
+              : hours * (missingRate ? 0 : payRate),
+          )
+
+          const employeeBucket =
+            bucket.employees.get(employee.id) ??
+            ({
+              employeeId: employee.id,
+              name: employee.name ?? employee.id,
+              payRate,
+              hours: 0,
+              cost: 0,
+              missingPayRate: missingRate,
+            } as FinanceLaborEmployee)
+
+          employeeBucket.hours = round2(employeeBucket.hours + hours)
+          employeeBucket.cost = round2(employeeBucket.cost + cost)
+          employeeBucket.missingPayRate = employeeBucket.missingPayRate || missingRate
+          employeeBucket.payRate = payRate
+
+          bucket.employees.set(employee.id, employeeBucket)
+          bucket.totalHours = round2(bucket.totalHours + hours)
+          bucket.totalCost = round2(bucket.totalCost + cost)
+        }
+      }
     }
   }
 

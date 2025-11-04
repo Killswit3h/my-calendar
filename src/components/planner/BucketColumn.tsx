@@ -89,7 +89,7 @@ export default function BucketColumn({
   };
 
   return (
-    <div className="w-80 shrink-0">
+    <div className="flex w-full min-w-0 flex-col">
       <div className="mb-3 flex items-center justify-between gap-2">
         {renaming ? (
           <form onSubmit={handleRename} className="flex flex-1 items-center gap-2">

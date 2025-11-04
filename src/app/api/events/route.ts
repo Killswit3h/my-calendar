@@ -7,6 +7,7 @@ import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { parseAppDateTime, parseAppDateOnly, addDaysUtc, formatInTimeZone } from '@/lib/timezone'
+import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 import { APP_TZ } from '@/lib/appConfig'
 
 const cors = {
@@ -30,6 +31,8 @@ type EventInsert = {
   type: EventType | null
   shift: WorkShift | null
   checklist: unknown | null
+  projectId: string | null
+  customerId: string | null
 }
 
 type PrismaEventRow = {
@@ -37,6 +40,8 @@ type PrismaEventRow = {
   calendarId: string
   title: string
   description: string | null
+  projectId: string | null
+  customerId: string | null
   startsAt: Date
   endsAt: Date
   allDay: boolean
@@ -78,6 +83,8 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
         calendarId: true,
         title: true,
         description: true,
+        projectId: true,
+        customerId: true,
         startsAt: true,
         endsAt: true,
         allDay: true,
@@ -92,7 +99,7 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$4,$5) RETURNING "id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","attachmentName","attachmentType"',
+      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$11,$12,$4,$5) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","allDay","location","type","shift","checklist","attachmentName","attachmentType"',
       data.calendarId,
       data.title,
       data.description,
@@ -103,6 +110,8 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
       data.type,
       data.shift,
       data.checklist === null ? null : JSON.stringify(data.checklist),
+      data.projectId,
+      data.customerId,
     )) as Array<Record<string, any>>
     const row = rows[0]
     return {
@@ -110,6 +119,8 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
       calendarId: row.calendarId,
       title: row.title,
       description: row.description,
+      projectId: row.projectId ?? null,
+      customerId: row.customerId ?? null,
       startsAt: new Date(row.startsAt),
       endsAt: new Date(row.endsAt),
       allDay: row.allDay,
@@ -198,6 +209,11 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const title = String(b.title ?? '').trim()
+  if (!title) {
+    return NextResponse.json({ error: 'title required' }, { status: 400, headers: cors as any })
+  }
+
   const allDay = !!b.allDay
   let startsAt: Date | null
   let endsAt: Date | null
@@ -223,6 +239,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
   }
 
+  const linkage = await ensureProjectForEventTitle(title)
+  const projectId = linkage?.projectId ?? null
+  const customerId = linkage?.customerId ?? null
+
   try {
     const created = await tryPrisma(async p => {
       await p.calendar.upsert({
@@ -233,7 +253,7 @@ export async function POST(req: NextRequest) {
 
       return insertEventCompat(p, {
         calendarId: String(b.calendarId),
-        title: String(b.title),
+        title,
         description: (b.description ?? '') || '',
         startsAt,
         endsAt,
@@ -242,6 +262,8 @@ export async function POST(req: NextRequest) {
         type: (b.type ?? null) as EventType | null,
         shift: (b.shift ?? null) as WorkShift | null,
         checklist: b.checklist ?? null,
+        projectId,
+        customerId,
       })
     }, null as any)
 
