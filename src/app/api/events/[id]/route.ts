@@ -8,6 +8,7 @@ import { WorkShift } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
+import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 
 type PatchPayload = {
   title?: string
@@ -41,7 +42,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const data: Record<string, any> = {}
-  if ('title' in body) data.title = body.title
+  if ('title' in body) {
+    if (typeof body.title !== 'string') {
+      return NextResponse.json({ error: 'Invalid title' }, { status: 400, headers: cors as any })
+    }
+    const title = body.title.trim()
+    if (!title) {
+      return NextResponse.json({ error: 'Title required' }, { status: 400, headers: cors as any })
+    }
+    data.title = title
+    const linkage = await ensureProjectForEventTitle(title)
+    data.projectId = linkage?.projectId ?? null
+    data.customerId = linkage?.customerId ?? null
+  }
   if ('description' in body) data.description = body.description ?? null
   if ('location' in body) data.location = body.location ?? null
   if ('type' in body) data.type = body.type ?? null

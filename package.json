@@ -17,6 +17,7 @@
         "pdf:daily": "tsx src/scripts/generate-daily-table-pdf.ts",
         "db:whoami": "tsx scripts/db-whoami.ts",
         "report:probe": "tsx scripts/report-probe.ts",
+        "db:backfill-projects": "tsx scripts/backfill-event-projects.ts",
         "test:e2e": "playwright test"
     },
     "dependencies": {
