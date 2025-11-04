@@ -1,0 +1,233 @@
+// src/app/api/todos/items/route.ts
+export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+import { NextRequest, NextResponse } from "next/server";
+import { tryPrisma } from "@/lib/dbSafe";
+
+type TodoPayload = {
+  id: string;
+  title: string;
+  note: string | null;
+  isCompleted: boolean;
+  isImportant: boolean;
+  myDay: boolean;
+  dueAt: string | null;
+  remindAt: string | null;
+  repeatRule: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  listId: string;
+  steps: Array<{ id: string; title: string; isCompleted: boolean; position: number }>;
+};
+
+type PlannedGroup = {
+  key: string;
+  label: string;
+  items: TodoPayload[];
+};
+
+function serializeTodo(todo: any): TodoPayload {
+  return {
+    id: todo.id,
+    title: todo.title,
+    note: todo.note,
+    isCompleted: todo.isCompleted,
+    isImportant: todo.isImportant,
+    myDay: todo.myDay,
+    dueAt: todo.dueAt ? new Date(todo.dueAt).toISOString() : null,
+    remindAt: todo.remindAt ? new Date(todo.remindAt).toISOString() : null,
+    repeatRule: todo.repeatRule,
+    position: todo.position,
+    createdAt: todo.createdAt.toISOString(),
+    updatedAt: todo.updatedAt.toISOString(),
+    listId: todo.listId,
+    steps: (todo.steps ?? []).map((step: any) => ({
+      id: step.id,
+      title: step.title,
+      isCompleted: step.isCompleted,
+      position: step.position,
+    })),
+  };
+}
+
+function startOfDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function endOfDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+}
+
+function endOfWeek(date: Date) {
+  const end = new Date(date);
+  const day = end.getDay();
+  const diff = 6 - day;
+  end.setDate(end.getDate() + diff);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+function getPlannedBucket(due: Date, today: Date) {
+  const startToday = startOfDay(today).getTime();
+  const endToday = endOfDay(today).getTime();
+  const tomorrowEnd = endOfDay(addDays(today, 1)).getTime();
+  const weekEnd = endOfWeek(today).getTime();
+  const dueTime = due.getTime();
+  if (dueTime < startToday) return "overdue";
+  if (dueTime <= endToday) return "today";
+  if (dueTime <= tomorrowEnd) return "tomorrow";
+  if (dueTime <= weekEnd) return "this_week";
+  return "later";
+}
+
+function addDays(base: Date, days: number) {
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+const BUCKET_LABEL: Record<string, string> = {
+  overdue: "Overdue",
+  today: "Today",
+  tomorrow: "Tomorrow",
+  this_week: "This week",
+  later: "Later",
+};
+
+function parseDate(input: unknown): Date | null {
+  if (typeof input !== "string") return null;
+  const candidate = new Date(input);
+  if (Number.isNaN(candidate.getTime())) return null;
+  return candidate;
+}
+
+export async function GET(req: NextRequest) {
+  const params = req.nextUrl.searchParams;
+  const listId = params.get("listId");
+  const view = params.get("view")?.toLowerCase() ?? null;
+  const today = new Date();
+
+  const where: any = {};
+  if (listId) {
+    where.listId = listId;
+  }
+  if (view === "myday") {
+    where.myDay = true;
+  } else if (view === "important") {
+    where.isImportant = true;
+  } else if (view === "planned") {
+    where.dueAt = { not: null };
+  }
+
+  const todos = await tryPrisma(
+    (p) =>
+      p.todo.findMany({
+        where,
+        include: { steps: { orderBy: { position: "asc" } } },
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+      }),
+    [] as any[],
+  );
+
+  const items = todos.map(serializeTodo);
+
+  if (view === "planned") {
+    const groupsMap = new Map<string, PlannedGroup>();
+    for (const item of items) {
+      const dueAt = item.dueAt ? new Date(item.dueAt) : null;
+      if (!dueAt) continue;
+      const bucket = getPlannedBucket(dueAt, today);
+      const label = BUCKET_LABEL[bucket] ?? bucket;
+      if (!groupsMap.has(bucket)) {
+        groupsMap.set(bucket, { key: bucket, label, items: [] });
+      }
+      groupsMap.get(bucket)!.items.push(item);
+    }
+    const orderedKeys: Array<keyof typeof BUCKET_LABEL> = ["overdue", "today", "tomorrow", "this_week", "later"];
+    const groups = orderedKeys
+      .filter((key) => groupsMap.has(key))
+      .map((key) => groupsMap.get(key)!);
+    return NextResponse.json({ groups });
+  }
+
+  let suggestions: TodoPayload[] | undefined;
+  if (view === "myday") {
+    const suggestionsRows = await tryPrisma(
+      (p) =>
+        p.todo.findMany({
+          where: {
+            myDay: false,
+            isCompleted: false,
+            dueAt: { lte: endOfDay(today) },
+          },
+          include: { steps: { orderBy: { position: "asc" } } },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          take: 10,
+        }),
+      [] as any[],
+    );
+    suggestions = suggestionsRows.map(serializeTodo);
+  }
+
+  return NextResponse.json({ todos: items, suggestions });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
+  const rawTitle = typeof (body as any).title === "string" ? (body as any).title.trim() : "";
+  if (!rawTitle) {
+    return NextResponse.json({ error: "title_required" }, { status: 422 });
+  }
+  const listId = typeof (body as any).listId === "string" ? (body as any).listId : null;
+  if (!listId) {
+    return NextResponse.json({ error: "list_required" }, { status: 422 });
+  }
+
+  const note = typeof (body as any).note === "string" ? (body as any).note.trim() || null : null;
+  const dueAt = parseDate((body as any).dueAt);
+  const remindAt = parseDate((body as any).remindAt);
+  const repeatRule = typeof (body as any).repeatRule === "string" ? (body as any).repeatRule.trim() || null : null;
+  const myDay = Boolean((body as any).myDay);
+  const isImportant = Boolean((body as any).isImportant);
+
+  const created = await tryPrisma(
+    async (p) => {
+      const aggregate = await p.todo.aggregate({
+        _max: { position: true },
+        where: { listId },
+      });
+      const position = (aggregate._max.position ?? -1) + 1;
+      return p.todo.create({
+        data: {
+          title: rawTitle,
+          note,
+          dueAt: dueAt ?? undefined,
+          remindAt: remindAt ?? undefined,
+          repeatRule,
+          myDay,
+          isImportant,
+          listId,
+          position,
+        },
+        include: { steps: { orderBy: { position: "asc" } } },
+      });
+    },
+    null,
+  );
+
+  if (!created) {
+    return NextResponse.json({ error: "database_unavailable" }, { status: 503 });
+  }
+
+  return NextResponse.json(serializeTodo(created), { status: 201 });
+}

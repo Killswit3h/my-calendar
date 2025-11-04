@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 
 const sections = [
   { title: "Workspace", items: [
-    ["Dashboard","/"], ["Calendar","/calendar-fullscreen"], ["Projects","/projects"], ["Documents","/documents"], 
+    ["Dashboard","/"], ["Calendar","/calendar-fullscreen"], ["Projects","/projects"], ["Todos","/planner/todos"], ["Documents","/documents"], 
     ["Finance","/finance"], ["Finance Jobs","/finance/jobs"], ["Employees","/employees"], ["Inventory","/inventory"],
   ]},
   { title: "Administration", items: [
