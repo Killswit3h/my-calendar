@@ -9,13 +9,13 @@ datasource db {
 }
 
 model Calendar {
-  id         String       @id
-  name       String
-  isPrivate  Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  Event      Event[]
-  ShareToken ShareToken[]
-  Todo       Todo[]
+  id           String         @id
+  name         String
+  isPrivate    Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  Event        Event[]
+  ShareToken   ShareToken[]
+  calendarTodos CalendarTodo[]
 }
 
 model Certification {
@@ -384,7 +384,7 @@ model ShareToken {
   Calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 }
 
-model Todo {
+model CalendarTodo {
   id         String    @id @default(cuid())
   calendarId String
   title      String
@@ -395,6 +395,48 @@ model Todo {
   Calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   @@index([calendarId, createdAt])
+}
+
+model TodoList {
+  id        String   @id @default(cuid())
+  name      String
+  color     String?
+  icon      String?
+  position  Int      @default(0)
+  isSmart   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  todos     Todo[]
+}
+
+model Todo {
+  id          String     @id @default(cuid())
+  title       String
+  note        String?
+  isCompleted Boolean    @default(false)
+  isImportant Boolean    @default(false)
+  myDay       Boolean    @default(false)
+  dueAt       DateTime?
+  remindAt    DateTime?
+  repeatRule  String?
+  position    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  listId String
+  list   TodoList @relation(fields: [listId], references: [id])
+
+  steps TodoStep[]
+}
+
+model TodoStep {
+  id          String  @id @default(cuid())
+  title       String
+  isCompleted Boolean @default(false)
+  position    Int     @default(0)
+
+  todoId String
+  todo   Todo   @relation(fields: [todoId], references: [id])
 }
 
 model UserSetting {
