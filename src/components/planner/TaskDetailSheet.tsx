@@ -5,16 +5,13 @@ import { usePlan } from '../../hooks/usePlannerApi';
 import TaskChecklist from './TaskChecklist';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
-import LabelsEditor from './LabelsEditor';
 import AssigneesEditor from './AssigneesEditor';
-
-type Label = { id: string; name: string; color: string };
 type Task = {
   id: string; title: string; description?: string | null;
   priority: 'URGENT'|'IMPORTANT'|'MEDIUM'|'LOW';
   progress: 'NOT_STARTED'|'IN_PROGRESS'|'COMPLETED';
   startAt?: string | null; dueAt?: string | null; bucketId: string;
-  labelList?: Label[]; assigneeIds?: string[];
+  assigneeIds?: string[];
 };
 
 type BucketOption = { id: string; name: string };
@@ -94,13 +91,13 @@ export default function TaskDetailSheet({ planId, task, buckets, onClose }: { pl
       label: 'Details',
       content: (
         <>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-emerald-400">
+          <div className="mobile-tight flex flex-wrap items-center gap-4 text-sm text-emerald-400">
             <button type="button" onClick={() => toggleSection('assignees')} className="hover:underline">
               ⊕ Assign
             </button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="mobile-tight grid gap-3 md:grid-cols-2">
             <div>
               <label className="block text-xs text-slate-400">Bucket</label>
               <select
@@ -135,7 +132,7 @@ export default function TaskDetailSheet({ planId, task, buckets, onClose }: { pl
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="mobile-tight grid gap-3 md:grid-cols-2">
             <div>
               <label className="block text-xs text-slate-400">Priority</label>
               <select
@@ -197,7 +194,7 @@ export default function TaskDetailSheet({ planId, task, buckets, onClose }: { pl
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-[560px] border-l border-slate-800 bg-slate-900 shadow-xl">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-[560px] border-l border-slate-800 bg-slate-900 shadow-xl md:w-[560px]">
       <div className="flex items-center justify-between border-b border-slate-800 p-4">
         <input
           value={local.title}
