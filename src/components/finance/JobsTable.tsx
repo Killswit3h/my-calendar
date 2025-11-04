@@ -6,13 +6,22 @@ import { FinanceJobRow } from "@/lib/finance/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
+type JobsResponse = { ok: true; rows: FinanceJobRow[] } | { ok: false; error?: string };
+
 export default function JobsTable() {
-  const { data, error } = useSWR<{ ok: boolean; rows: FinanceJobRow[] }>("/api/finance/jobs", fetcher, {
+  const { data, error } = useSWR<JobsResponse>("/api/finance/jobs", fetcher, {
     revalidateOnFocus: false,
   });
   if (error) return <div className="p-4 text-red-400">Failed to load jobs.</div>;
   if (!data) return <div className="p-4 text-neutral-300">Loading…</div>;
-  const rows = data.rows;
+  if (!data.ok) {
+    return (
+      <div className="p-4 text-red-400">
+        {data.error || "Unable to load jobs."}
+      </div>
+    );
+  }
+  const rows = data.rows ?? [];
 
   return (
     <div className="overflow-auto rounded-xl border border-neutral-800">

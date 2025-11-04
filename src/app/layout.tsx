@@ -1,17 +1,21 @@
+// app/layout.tsx
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import type { Metadata } from "next";
-import ConditionalLayout from "@/components/ConditionalLayout";
 import Providers from "./providers";
+import ConditionalLayout from "@/components/ConditionalLayout";
 
-export const metadata: Metadata = {
-  title: "GFC Control Center",
-  description: "Operations Dashboard",
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
+
+export const metadata: Metadata = { title: "Planner" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-dvh">
+    <html lang="en" className="dark h-full" style={{ colorScheme: "dark" }}>
+      <body className="h-full">
         <Providers>
           <ConditionalLayout>{children}</ConditionalLayout>
         </Providers>

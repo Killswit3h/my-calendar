@@ -30,7 +30,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
 
   if (isMobile) {
     return (
-      <div className="min-h-dvh bg-slate-950 text-white">
+      <div className="min-h-screen bg-bg text-fg">
         <AppTopbar onToggleSidebar={() => setMobileNavOpen(true)} />
         {mobileNavOpen ? (
           <div className="fixed inset-0 z-40 flex">
@@ -50,19 +50,22 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
             </div>
           </div>
         ) : null}
-        <main className="p-3">{children}</main>
+        <main className="min-h-screen safe-p">
+          <div className="container space-y-4">{children}</div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex min-h-screen">
       <AppSidebar current={pathname ?? '/'} />
       <div className="relative z-10 flex-1 min-w-0">
-        <div className="p-6">{children}</div>
+        <main className="safe-p">
+          <div className="container space-y-6">{children}</div>
+        </main>
       </div>
     </div>
   );
 }
-
 
