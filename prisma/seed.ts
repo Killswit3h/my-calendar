@@ -27,6 +27,122 @@ const employees = [
 
 const OCTOBER_YEAR = 2025
 const oct = (day: number, hour = 12) => new Date(Date.UTC(OCTOBER_YEAR, 9, day, hour))
+const addDays = (base: Date, days: number) => {
+  const next = new Date(base)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+async function seedTodos() {
+  await prisma.todoStep.deleteMany()
+  await prisma.todo.deleteMany()
+  await prisma.todoList.deleteMany()
+
+  const lists = [
+    { id: 'todo-my-day', name: 'My Day', color: 'amber', icon: 'Sun', isSmart: true, position: 0 },
+    { id: 'todo-important', name: 'Important', color: 'amber', icon: 'Star', isSmart: true, position: 1 },
+    { id: 'todo-planned', name: 'Planned', color: 'blue', icon: 'Calendar', isSmart: true, position: 2 },
+    { id: 'todo-tasks', name: 'Tasks', color: 'slate', icon: 'ListTodo', isSmart: false, position: 3 },
+    { id: 'todo-project-launch', name: 'Project Launch', color: 'emerald', icon: 'Flag', isSmart: false, position: 4 },
+    { id: 'todo-yard-ops', name: 'Yard Ops', color: 'orange', icon: 'Wrench', isSmart: false, position: 5 },
+  ]
+
+  for (const list of lists) {
+    await prisma.todoList.create({
+      data: {
+        id: list.id,
+        name: list.name,
+        color: list.color,
+        icon: list.icon,
+        isSmart: list.isSmart,
+        position: list.position,
+      },
+    })
+  }
+
+  const today = new Date()
+  const todos = [
+    {
+      id: 'todo-kickoff-agenda',
+      listId: 'todo-project-launch',
+      title: 'Build kickoff agenda',
+      note: 'Outline project objectives and milestone review.',
+      isImportant: true,
+      myDay: true,
+      dueAt: addDays(today, 1),
+      position: 0,
+      steps: [
+        { title: 'Confirm attendees', position: 0 },
+        { title: 'Draft talking points', position: 1 },
+      ],
+    },
+    {
+      id: 'todo-risk-register',
+      listId: 'todo-project-launch',
+      title: 'Publish risk register',
+      note: 'Add top 5 launch blockers before review.',
+      isImportant: false,
+      myDay: false,
+      dueAt: addDays(today, 3),
+      position: 1,
+      steps: [
+        { title: 'Collect input from leads', position: 0 },
+        { title: 'Share draft with PM', position: 1 },
+      ],
+    },
+    {
+      id: 'todo-yard-supplies',
+      listId: 'todo-yard-ops',
+      title: 'Stage guardrail supplies',
+      note: 'Pull inventory for next week installs.',
+      isImportant: true,
+      myDay: false,
+      dueAt: addDays(today, 2),
+      position: 0,
+      steps: [
+        { title: 'Check battery levels', position: 0 },
+        { title: 'Tag pallets for delivery', position: 1 },
+      ],
+    },
+    {
+      id: 'todo-truck-maintenance',
+      listId: 'todo-yard-ops',
+      title: 'Schedule truck maintenance',
+      note: 'Coordinate downtime with dispatch.',
+      isImportant: false,
+      myDay: false,
+      dueAt: addDays(today, 7),
+      position: 1,
+      steps: [
+        { title: 'Review mileage logs', position: 0 },
+        { title: 'Book shop slot', position: 1 },
+      ],
+    },
+  ]
+
+  for (const todo of todos) {
+    await prisma.todo.create({
+      data: {
+        id: todo.id,
+        title: todo.title,
+        note: todo.note,
+        isImportant: todo.isImportant,
+        myDay: todo.myDay,
+        dueAt: todo.dueAt,
+        position: todo.position,
+        listId: todo.listId,
+        steps: {
+          create: todo.steps.map(step => ({
+            title: step.title,
+            position: step.position,
+          })),
+        },
+      },
+    })
+  }
+
+  console.log('Seeded planner todos demo data.')
+}
 
 async function seedFinanceDemo() {
   await prisma.laborDaily.deleteMany()
@@ -169,6 +285,8 @@ async function seedFinanceDemo() {
 }
 
 async function main() {
+  await seedTodos()
+
   if (process.env.SEED_FINANCE !== '1') {
     console.log('SEED_FINANCE is not set to 1, skipping finance labor seed.')
     return
