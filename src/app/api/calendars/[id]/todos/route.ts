@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const rows = await tryPrisma(
     p =>
-      p.todo.findMany({
+      p.calendarTodo.findMany({
         where: { calendarId },
         orderBy: { createdAt: 'desc' },
         select: {
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const created = await tryPrisma(
     p =>
-      p.todo.create({
+      p.calendarTodo.create({
         data: {
           calendarId,
           title: rawTitle,
