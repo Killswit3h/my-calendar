@@ -1,12 +1,17 @@
 export type Team = "South" | "Central";
+export type EmployeeStatus = "ACTIVE" | "ON_LEAVE" | "TERMINATED";
 export interface Employee {
   id: string;
   firstName: string;
   lastName: string;
   team: Team;
+  status?: EmployeeStatus;
 }
 
 const LS_KEY = 'employees';
+const SHELL_EMPLOYEE_KEY = 'app.shell.employees.v1';
+const VALID_STATUSES: readonly EmployeeStatus[] = ["ACTIVE", "ON_LEAVE", "TERMINATED"] as const;
+const VALID_STATUS_SET = new Set<string>(VALID_STATUSES);
 
 function toId(first: string, last: string): string {
   const kebab = (s: string) =>
@@ -80,19 +85,44 @@ function sortEmployees(list: Employee[]): Employee[] {
   );
 }
 
+function applyShellStatuses(list: Employee[]): Employee[] {
+  if (typeof window === 'undefined') return list;
+  try {
+    const raw = window.localStorage.getItem(SHELL_EMPLOYEE_KEY);
+    if (!raw) return list;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return list;
+    const statusMap = new Map<string, EmployeeStatus>();
+    for (const entry of parsed) {
+      const id = typeof entry?.id === 'string' ? entry.id : null;
+      const status =
+        typeof entry?.status === 'string' ? entry.status.toUpperCase() : null;
+      if (id && status && VALID_STATUS_SET.has(status)) {
+        statusMap.set(id, status as EmployeeStatus);
+      }
+    }
+    if (!statusMap.size) return list;
+    return list.map((emp) =>
+      statusMap.has(emp.id) ? { ...emp, status: statusMap.get(emp.id) } : emp,
+    );
+  } catch {
+    return list;
+  }
+}
+
 export function getEmployees(): Employee[] {
   if (typeof window !== 'undefined') {
     const raw = window.localStorage.getItem(LS_KEY);
     if (raw) {
       try {
         const parsed: Employee[] = JSON.parse(raw);
-        return sortEmployees(parsed);
+        return applyShellStatuses(sortEmployees(parsed));
       } catch {
         // ignore
       }
     }
   }
-  return sortEmployees([...seedEmployees]);
+  return applyShellStatuses(sortEmployees([...seedEmployees]));
 }
 
 export function saveEmployees(list: Employee[]): void {
