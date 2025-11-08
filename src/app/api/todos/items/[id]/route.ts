@@ -5,6 +5,8 @@ export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
 import { tryPrisma } from "@/lib/dbSafe";
+import { parseReminderOffsets } from "@/lib/reminders";
+import { anchorAllDayAtNineLocal, localISOToUTC } from "@/lib/timezone";
 
 function parseDate(value: unknown): Date | null {
   if (typeof value !== "string") return null;
@@ -13,7 +15,33 @@ function parseDate(value: unknown): Date | null {
   return dt;
 }
 
-function serialize(todo: any) {
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeDueFields(allDay: boolean, dueAtInput: unknown, dueDateInput: unknown): { dueAt: Date | null; dueDate: string | null } {
+  if (allDay) {
+    let dateText: string | null = null;
+    if (typeof dueDateInput === "string") {
+      dateText = dueDateInput.trim().slice(0, 10);
+    } else if (typeof dueAtInput === "string") {
+      dateText = dueAtInput.trim().slice(0, 10);
+    }
+    if (!dateText || !DATE_ONLY_RE.test(dateText)) {
+      return { dueAt: null, dueDate: null };
+    }
+    const anchorIso = anchorAllDayAtNineLocal(dateText);
+    return { dueAt: new Date(anchorIso), dueDate: dateText };
+  }
+  if (typeof dueAtInput === "string" && dueAtInput.trim()) {
+    const iso = localISOToUTC(dueAtInput.trim());
+    const parsed = new Date(iso);
+    if (!Number.isNaN(parsed.getTime())) {
+      return { dueAt: parsed, dueDate: null };
+    }
+  }
+  return { dueAt: null, dueDate: null };
+}
+
+function serializeTodo(todo: any) {
   return {
     id: todo.id,
     title: todo.title,
@@ -22,8 +50,13 @@ function serialize(todo: any) {
     isImportant: todo.isImportant,
     myDay: todo.myDay,
     dueAt: todo.dueAt ? new Date(todo.dueAt).toISOString() : null,
+    allDay: !!todo.allDay,
+    dueDate: todo.dueDate ?? null,
     remindAt: todo.remindAt ? new Date(todo.remindAt).toISOString() : null,
     repeatRule: todo.repeatRule,
+    reminderEnabled: !!todo.reminderEnabled,
+    reminderOffsets: parseReminderOffsets(todo.reminderOffsets ?? []),
+    lastNotifiedAt: todo.lastNotifiedAt ? new Date(todo.lastNotifiedAt).toISOString() : null,
     position: todo.position,
     createdAt: todo.createdAt.toISOString(),
     updatedAt: todo.updatedAt.toISOString(),
@@ -50,7 +83,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (!todo) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  return NextResponse.json(serialize(todo));
+  return NextResponse.json(serializeTodo(todo));
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -83,9 +116,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ((body as any).myDay !== undefined) {
     data.myDay = Boolean((body as any).myDay);
   }
-  if ((body as any).dueAt !== undefined) {
-    const date = parseDate((body as any).dueAt);
-    data.dueAt = date ?? null;
+  const hasAllDay = (body as any).allDay !== undefined;
+  if (hasAllDay) {
+    data.allDay = Boolean((body as any).allDay);
+  }
+  const dueFieldsProvided = (body as any).dueAt !== undefined || (body as any).dueDate !== undefined;
+  if (dueFieldsProvided || hasAllDay) {
+    const normalized = normalizeDueFields(
+      hasAllDay ? Boolean((body as any).allDay) : false,
+      (body as any).dueAt,
+      (body as any).dueDate,
+    );
+    data.dueAt = normalized.dueAt ?? null;
+    data.dueDate = normalized.dueDate;
   }
   if ((body as any).remindAt !== undefined) {
     const date = parseDate((body as any).remindAt);
@@ -93,6 +136,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
   if ((body as any).repeatRule !== undefined) {
     data.repeatRule = typeof (body as any).repeatRule === "string" ? (body as any).repeatRule.trim() || null : null;
+  }
+  if ((body as any).reminderEnabled !== undefined) {
+    const enabled = Boolean((body as any).reminderEnabled);
+    data.reminderEnabled = enabled;
+    if (!enabled && (body as any).reminderOffsets === undefined) {
+      data.reminderOffsets = [];
+    }
+  }
+  if ((body as any).reminderOffsets !== undefined) {
+    data.reminderOffsets = parseReminderOffsets((body as any).reminderOffsets);
   }
   if ((body as any).position !== undefined && Number.isInteger((body as any).position)) {
     data.position = (body as any).position;
@@ -128,7 +181,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json(serialize(updated));
+  return NextResponse.json(serializeTodo(updated));
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -144,5 +197,12 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   if (!deleted) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  await tryPrisma(
+    (p) =>
+      p.reminder.deleteMany({
+        where: { entityType: "todo", entityId: id },
+      }),
+    null,
+  );
   return new NextResponse(null, { status: 204 });
 }

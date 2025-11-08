@@ -18,12 +18,15 @@ import Toolbar from "./Toolbar";
 import { NewTodoInput } from "./NewTodoInput";
 import SchedulePanel from "./SchedulePanel";
 import { cn } from "@/lib/cn";
+import { APP_TZ, formatInTimeZone } from "@/lib/timezone";
 
 const SMART_VIEW_LABEL: Record<SmartViewKey, string> = {
   myday: "My Day",
   important: "Important",
   planned: "Planned",
 };
+
+const HIDE_COMPLETED_STORAGE_KEY = "todos:hide-completed";
 
 function viewCacheKey(view: ActiveView): string {
   return view.type === "smart" ? `smart:${view.key}` : `list:${view.id}`;
@@ -357,6 +360,7 @@ export default function TodosApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortOption>("my-order");
   const [group, setGroup] = useState<GroupOption>("none");
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   const isMobile = useBreakpoint(640);
   const isTablet = useBreakpoint(1024);
@@ -380,6 +384,27 @@ export default function TodosApp() {
     updateStep,
     deleteStep,
   } = useTodos(activeView);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(HIDE_COMPLETED_STORAGE_KEY);
+      if (stored !== null) {
+        setHideCompleted(stored === "true");
+      }
+    } catch {
+      // ignore storage read errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(HIDE_COMPLETED_STORAGE_KEY, hideCompleted ? "true" : "false");
+    } catch {
+      // ignore storage write errors
+    }
+  }, [hideCompleted]);
 
   useEffect(() => {
     if (activeView.type === "list") {
@@ -423,9 +448,31 @@ export default function TodosApp() {
     }
   }, [activeView, group]);
 
+  const filteredTodos = useMemo(
+    () => (hideCompleted ? todos.filter((todo) => !todo.isCompleted) : todos),
+    [hideCompleted, todos],
+  );
+
+  const processedPlannedGroups = useMemo(() => {
+    if (!plannedGroups) return undefined;
+    const next = plannedGroups
+      .map((group) => {
+        const items = hideCompleted ? group.items.filter((item) => !item.isCompleted) : group.items;
+        if (items.length === 0) return null;
+        const incomplete = items.filter((item) => !item.isCompleted);
+        const completed = items.filter((item) => item.isCompleted);
+        return { ...group, items: [...incomplete, ...completed] };
+      })
+      .filter((group): group is PlannedGroup => group !== null);
+    return next.length > 0 ? next : undefined;
+  }, [plannedGroups, hideCompleted]);
+
   const sortedTodos = useMemo(() => {
-    if (plannedGroups) return todos; // not used when groups active
-    let items = [...todos];
+    if (processedPlannedGroups) {
+      return processedPlannedGroups.flatMap((group) => group.items);
+    }
+
+    const items = [...filteredTodos];
 
     if (sort === "importance") {
       items.sort((a, b) => Number(b.isImportant) - Number(a.isImportant));
@@ -443,21 +490,28 @@ export default function TodosApp() {
       items.sort((a, b) => a.position - b.position);
     }
 
+    const ordered = hideCompleted
+      ? items
+      : [
+          ...items.filter((todo) => !todo.isCompleted),
+          ...items.filter((todo) => todo.isCompleted),
+        ];
+
     if (group === "due-date") {
-      const groups = groupByDueDate(items);
+      const groups = groupByDueDate(ordered);
       return groups.flatMap((bucket) => bucket.items);
     }
 
-    return items;
-  }, [todos, sort, group, plannedGroups]);
+    return ordered;
+  }, [filteredTodos, group, hideCompleted, sort, processedPlannedGroups]);
 
   const groupedForView = useMemo(() => {
-    if (plannedGroups) return plannedGroups;
+    if (processedPlannedGroups) return processedPlannedGroups;
     if (group === "due-date") {
       return groupByDueDate(sortedTodos);
     }
     return undefined;
-  }, [group, plannedGroups, sortedTodos]);
+  }, [group, processedPlannedGroups, sortedTodos]);
 
   const currentTitle = useMemo(() => {
     if (activeView.type === "smart") {
@@ -477,12 +531,12 @@ export default function TodosApp() {
   }, [activeView]);
 
   const calendarTodos = useMemo(() => {
-    if (todos.length > 0) return todos;
-    if (plannedGroups) {
-      return plannedGroups.flatMap((group) => group.items);
+    if (filteredTodos.length > 0) return filteredTodos;
+    if (processedPlannedGroups && processedPlannedGroups.length > 0) {
+      return processedPlannedGroups.flatMap((group) => group.items);
     }
     return [] as TodoItemModel[];
-  }, [todos, plannedGroups]);
+  }, [filteredTodos, processedPlannedGroups]);
 
   const handleCreateTodo = useCallback(
     async (title: string) => {
@@ -525,11 +579,36 @@ export default function TodosApp() {
     [updateTodo],
   );
 
-  const handleDueDate = useCallback(
-    async (todo: TodoItemModel, dueAt: string | null) => {
-      await updateTodo(todo.id, { dueAt });
+  const regenerateTodoReminders = useCallback(async (todoId: string) => {
+    try {
+      await fetch("/api/reminders/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "todo", entityId: todoId }),
+      });
+    } catch (error) {
+      console.error("Failed to regenerate todo reminders", error);
+    }
+  }, []);
+
+  const handleScheduleUpdate = useCallback(
+    async (todo: TodoItemModel, next: { allDay: boolean; dueAt: string | null; dueDate: string | null }) => {
+      await updateTodo(todo.id, {
+        allDay: next.allDay,
+        dueAt: next.allDay ? null : next.dueAt,
+        dueDate: next.allDay ? next.dueDate : null,
+      });
+      await regenerateTodoReminders(todo.id);
     },
-    [updateTodo],
+    [updateTodo, regenerateTodoReminders],
+  );
+
+  const handleRemindersUpdate = useCallback(
+    async (todo: TodoItemModel, next: { enabled: boolean; offsets: number[] }) => {
+      await updateTodo(todo.id, { reminderEnabled: next.enabled, reminderOffsets: next.offsets });
+      await regenerateTodoReminders(todo.id);
+    },
+    [updateTodo, regenerateTodoReminders],
   );
 
   const handleDelete = useCallback(
@@ -605,8 +684,10 @@ export default function TodosApp() {
       if (isMeta && !event.shiftKey && key === "d") {
         event.preventDefault();
         const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        handleDueDate(activeTodo, today.toISOString()).catch(() => {});
+        today.setHours(23, 59, 59, 0);
+        const { date, time } = formatInTimeZone(today, APP_TZ);
+        const dueAt = `${date}T${time.slice(0, 5)}`;
+        handleScheduleUpdate(activeTodo, { allDay: false, dueAt, dueDate: null }).catch(() => {});
         return;
       }
 
@@ -618,7 +699,7 @@ export default function TodosApp() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeTodo, handleDelete, handleDueDate, handleToggleImportant]);
+  }, [activeTodo, handleDelete, handleScheduleUpdate, handleToggleImportant]);
 
   const groupsForListView = groupedForView;
 
@@ -655,8 +736,10 @@ export default function TodosApp() {
             activeView={activeView}
             sort={sort}
             group={group}
+            hideCompleted={hideCompleted}
             onSortChange={setSort}
             onGroupChange={setGroup}
+            onToggleHideCompleted={setHideCompleted}
             onAddToMyDay={() => {
               if (!selectedId) return;
               const todo = todos.find((item) => item.id === selectedId);
@@ -676,7 +759,7 @@ export default function TodosApp() {
               onToggleComplete={handleToggleComplete}
               onToggleImportant={handleToggleImportant}
               onToggleMyDay={handleToggleMyDay}
-              onSetDueDate={handleDueDate}
+              onUpdateSchedule={handleScheduleUpdate}
               onDelete={handleDelete}
               onSelect={(todo) => {
                 setSelectedId(todo.id);
@@ -707,13 +790,13 @@ export default function TodosApp() {
             if (!activeTodo) return;
             await handleToggleMyDay(activeTodo, value);
           }}
-          onSetDueDate={async (value) => {
+          onUpdateSchedule={async (next) => {
             if (!activeTodo) return;
-            await handleDueDate(activeTodo, value);
+            await handleScheduleUpdate(activeTodo, next);
           }}
-          onSetReminder={async (value) => {
+          onUpdateReminders={async (next) => {
             if (!activeTodo) return;
-            await updateTodo(activeTodo.id, { remindAt: value });
+            await handleRemindersUpdate(activeTodo, next);
           }}
           onSetRepeat={async (value) => {
             if (!activeTodo) return;

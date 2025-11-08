@@ -181,7 +181,7 @@ export default function UnassignedSidebar({ employees, events, anyDateInView = n
             const key = ymdLocal(d);
             const assigned = assignedByDay.get(key) ?? new Set<string>();
             const eventAssigned = eventAssignedByDay.get(key) ?? new Set<string>();
-            const free = employees.filter((e) => !assigned.has(e.id));
+            const free = employees.filter((e) => !assigned.has(e.id) && e.status !== "TERMINATED");
             return (
               <div key={key} className="day-card" role="listitem" aria-label={`Unassigned for ${key}`}>
                 <div className="day-header">
