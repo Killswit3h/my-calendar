@@ -5,6 +5,8 @@ export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
 import { tryPrisma } from "@/lib/dbSafe";
+import { parseReminderOffsets } from "@/lib/reminders";
+import { anchorAllDayAtNineLocal, localISOToUTC } from "@/lib/timezone";
 
 type TodoPayload = {
   id: string;
@@ -14,8 +16,13 @@ type TodoPayload = {
   isImportant: boolean;
   myDay: boolean;
   dueAt: string | null;
+  allDay: boolean;
+  dueDate: string | null;
   remindAt: string | null;
   repeatRule: string | null;
+  reminderEnabled: boolean;
+  reminderOffsets: number[];
+  lastNotifiedAt: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +47,11 @@ function serializeTodo(todo: any): TodoPayload {
     dueAt: todo.dueAt ? new Date(todo.dueAt).toISOString() : null,
     remindAt: todo.remindAt ? new Date(todo.remindAt).toISOString() : null,
     repeatRule: todo.repeatRule,
+    allDay: !!todo.allDay,
+    dueDate: todo.dueDate ?? null,
+    reminderEnabled: !!todo.reminderEnabled,
+    reminderOffsets: parseReminderOffsets(todo.reminderOffsets ?? []),
+    lastNotifiedAt: todo.lastNotifiedAt ? new Date(todo.lastNotifiedAt).toISOString() : null,
     position: todo.position,
     createdAt: todo.createdAt.toISOString(),
     updatedAt: todo.updatedAt.toISOString(),
@@ -106,6 +118,32 @@ function parseDate(input: unknown): Date | null {
   const candidate = new Date(input);
   if (Number.isNaN(candidate.getTime())) return null;
   return candidate;
+}
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeDueFields(allDay: boolean, dueAtInput: unknown, dueDateInput: unknown): { dueAt: Date | null; dueDate: string | null } {
+  if (allDay) {
+    let dateText: string | null = null;
+    if (typeof dueDateInput === "string") {
+      dateText = dueDateInput.trim().slice(0, 10);
+    } else if (typeof dueAtInput === "string") {
+      dateText = dueAtInput.trim().slice(0, 10);
+    }
+    if (!dateText || !DATE_ONLY_RE.test(dateText)) {
+      return { dueAt: null, dueDate: null };
+    }
+    const anchorIso = anchorAllDayAtNineLocal(dateText);
+    return { dueAt: new Date(anchorIso), dueDate: dateText };
+  }
+  if (typeof dueAtInput === "string" && dueAtInput.trim()) {
+    const iso = localISOToUTC(dueAtInput.trim());
+    const date = new Date(iso);
+    if (!Number.isNaN(date.getTime())) {
+      return { dueAt: date, dueDate: null };
+    }
+  }
+  return { dueAt: null, dueDate: null };
 }
 
 export async function GET(req: NextRequest) {
@@ -194,11 +232,14 @@ export async function POST(req: NextRequest) {
   }
 
   const note = typeof (body as any).note === "string" ? (body as any).note.trim() || null : null;
-  const dueAt = parseDate((body as any).dueAt);
+  const allDay = Boolean((body as any).allDay);
+  const { dueAt, dueDate } = normalizeDueFields(allDay, (body as any).dueAt, (body as any).dueDate);
   const remindAt = parseDate((body as any).remindAt);
   const repeatRule = typeof (body as any).repeatRule === "string" ? (body as any).repeatRule.trim() || null : null;
   const myDay = Boolean((body as any).myDay);
   const isImportant = Boolean((body as any).isImportant);
+  const reminderEnabled = Boolean((body as any).reminderEnabled);
+  const reminderOffsets = parseReminderOffsets((body as any).reminderOffsets);
 
   const created = await tryPrisma(
     async (p) => {
@@ -212,10 +253,14 @@ export async function POST(req: NextRequest) {
           title: rawTitle,
           note,
           dueAt: dueAt ?? undefined,
+          dueDate: dueDate ?? undefined,
+          allDay,
           remindAt: remindAt ?? undefined,
           repeatRule,
           myDay,
           isImportant,
+          reminderEnabled,
+          reminderOffsets: reminderEnabled ? reminderOffsets : [],
           listId,
           position,
         },

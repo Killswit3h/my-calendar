@@ -9,8 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import type { EventRowLike } from '@/lib/events/serializer'
-import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
+import { parseAppDateTime, parseAppDateOnly, localISOToUTC, nextDateISO, formatInTimeZone } from '@/lib/timezone'
 import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
+import { APP_TZ } from '@/lib/appConfig'
 
 type PrismaEventRow = EventRowLike & {
   id: string
@@ -21,6 +22,8 @@ type PrismaEventRow = EventRowLike & {
   customerId: string | null
   startsAt: Date
   endsAt: Date
+  startDate: string | null
+  endDate: string | null
   allDay: boolean
   location: string | null
   type: EventType | null
@@ -73,8 +76,8 @@ const toISOParam = (value: string | null | undefined): string | null => {
   return parsed.toISOString()
 }
 
-// For calendar UI, serialize all-day dates in UTC to avoid client timezone shifts.
-const serialize = (row: PrismaEventRow) => serializeCalendarEvent(row, { timezone: 'UTC' })
+// For calendar UI, serialize in the app timezone so times appear correctly to users.
+const serialize = (row: PrismaEventRow) => serializeCalendarEvent(row, { timezone: APP_TZ })
 
 function toBool(v: unknown, def = true): boolean {
   if (typeof v === 'boolean') return v
@@ -115,6 +118,8 @@ async function insertEventCompat(
     description: string | null
     startsAt: Date
     endsAt: Date
+    startDate: string | null
+    endDate: string | null
     allDay: boolean
     location: string | null
     type: EventType | null
@@ -139,6 +144,8 @@ async function insertEventCompat(
         customerId: true,
         startsAt: true,
         endsAt: true,
+        startDate: true,
+        endDate: true,
         allDay: true,
         location: true,
         type: true,
@@ -149,13 +156,15 @@ async function insertEventCompat(
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"EventType" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::"WorkShift" END,CASE WHEN $11 IS NULL THEN NULL ELSE $11::jsonb END,$12,$13,$5,$6) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","allDay","location","type","shift","checklist"',
+      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $11 IS NULL THEN NULL ELSE $11::"EventType" END,CASE WHEN $12 IS NULL THEN NULL ELSE $12::"WorkShift" END,CASE WHEN $13 IS NULL THEN NULL ELSE $13::jsonb END,$14,$15,$5,$6) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist"',
       id,
       data.calendarId,
       data.title,
       data.description,
       data.startsAt,
       data.endsAt,
+      data.startDate,
+      data.endDate,
       data.allDay,
       data.location,
       data.type,
@@ -175,6 +184,8 @@ async function insertEventCompat(
       customerId: row.customerId ?? null,
       startsAt: new Date(row.startsAt),
       endsAt: new Date(row.endsAt),
+      startDate: row.startDate ?? null,
+      endDate: row.endDate ?? null,
       allDay: row.allDay,
       location: row.location,
       type: row.type,
@@ -227,6 +238,8 @@ export async function GET(
           description: true,
           startsAt: true,
           endsAt: true,
+          startDate: true,
+          endDate: true,
           allDay: true,
           location: true,
           type: true,
@@ -265,23 +278,40 @@ export async function POST(
 
   let startsAt: Date | null = null
   let endsAt: Date | null = null
+  let startDateValue: string | null = null
+  let endDateValue: string | null = null
 
   if (allDay) {
-    const startDay = typeof startInput === 'string' ? parseAppDateOnly(startInput) : null
+    if (typeof startInput !== 'string') {
+      return NextResponse.json({ error: 'valid startsAt required for all-day event' }, { status: 400 })
+    }
+    const startCandidate = startInput.trim().slice(0, 10)
+    const startDay = parseAppDateOnly(startCandidate)
     if (!startDay) {
       return NextResponse.json({ error: 'valid startsAt required for all-day event' }, { status: 400 })
     }
-    const endDay = typeof endInput === 'string' ? parseAppDateOnly(endInput) : null
-    startsAt = startDay
-    if (endDay && endDay.getTime() > startDay.getTime()) {
-      endsAt = endDay
-    } else {
-      endsAt = addDaysUtc(startDay, 1)
+    const startYmd = formatInTimeZone(startDay, APP_TZ).date
+    let endCandidate = typeof endInput === 'string' && endInput.trim().length ? endInput.trim().slice(0, 10) : null
+    if (!endCandidate || endCandidate <= startYmd) {
+      endCandidate = nextDateISO(startYmd, APP_TZ)
     }
+    const endDay = parseAppDateOnly(endCandidate)
+    if (!endDay) {
+      return NextResponse.json({ error: 'valid endsAt required for all-day event' }, { status: 400 })
+    }
+    startsAt = startDay
+    endsAt = endDay
+    startDateValue = startYmd
+    endDateValue = endCandidate
   } else {
-    const startDate = typeof startInput === 'string' ? parseAppDateTime(startInput) : null
-    const endDate = typeof endInput === 'string' ? parseAppDateTime(endInput) : null
-    if (!startDate || !endDate) {
+    if (typeof startInput !== 'string' || typeof endInput !== 'string') {
+      return NextResponse.json({ error: 'valid startsAt and endsAt required' }, { status: 400 })
+    }
+    const startIso = localISOToUTC(startInput, APP_TZ)
+    const endIso = localISOToUTC(endInput, APP_TZ)
+    const startDate = new Date(startIso)
+    const endDate = new Date(endIso)
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       return NextResponse.json({ error: 'valid startsAt and endsAt required' }, { status: 400 })
     }
     if (endDate <= startDate) {
@@ -289,6 +319,8 @@ export async function POST(
     }
     startsAt = startDate
     endsAt = endDate
+    startDateValue = null
+    endDateValue = null
   }
 
   const linkage = await ensureProjectForEventTitle(title)
@@ -303,6 +335,8 @@ export async function POST(
         description: typeof body.description === 'string' ? body.description : null,
         startsAt: startsAt!,
         endsAt: endsAt!,
+        startDate: startDateValue,
+        endDate: endDateValue,
         allDay,
         location: typeof body.location === 'string' ? body.location : null,
         type: (body.type ?? null) as EventType | null,

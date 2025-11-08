@@ -6,9 +6,11 @@ export const revalidate = 0
 import { EventType, WorkShift } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
-import { parseAppDateTime, parseAppDateOnly, addDaysUtc, formatInTimeZone } from '@/lib/timezone'
+import { parseAppDateOnly, localISOToUTC, nextDateISO, formatInTimeZone } from '@/lib/timezone'
 import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 import { APP_TZ } from '@/lib/appConfig'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
+import { parseReminderOffsets } from '@/lib/reminders'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -26,11 +28,15 @@ type EventInsert = {
   description: string
   startsAt: Date
   endsAt: Date
+  startDate: string | null
+  endDate: string | null
   allDay: boolean
   location: string
   type: EventType | null
   shift: WorkShift | null
   checklist: unknown | null
+  reminderEnabled: boolean
+  reminderOffsets: unknown | null
   projectId: string | null
   customerId: string | null
 }
@@ -44,6 +50,8 @@ type PrismaEventRow = {
   customerId: string | null
   startsAt: Date
   endsAt: Date
+  startDate: string | null
+  endDate: string | null
   allDay: boolean
   location: string | null
   type: EventType | null
@@ -51,6 +59,8 @@ type PrismaEventRow = {
   checklist: unknown | null
   attachmentName: string | null
   attachmentType: string | null
+  reminderEnabled: boolean
+  reminderOffsets: unknown | null
   hasQuantities?: boolean
 }
 
@@ -87,11 +97,15 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
         customerId: true,
         startsAt: true,
         endsAt: true,
+        startDate: true,
+        endDate: true,
         allDay: true,
         location: true,
         type: true,
         shift: true,
         checklist: true,
+        reminderEnabled: true,
+        reminderOffsets: true,
         attachmentName: true,
         attachmentType: true,
       },
@@ -99,17 +113,21 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8 IS NULL THEN NULL ELSE $8::"EventType" END,CASE WHEN $9 IS NULL THEN NULL ELSE $9::"WorkShift" END,CASE WHEN $10 IS NULL THEN NULL ELSE $10::jsonb END,$11,$12,$4,$5) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","allDay","location","type","shift","checklist","attachmentName","attachmentType"',
+      'INSERT INTO "public"."Event" ("calendarId","title","description","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist","reminderEnabled","reminderOffsets","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $10 IS NULL THEN NULL ELSE $10::"EventType" END,CASE WHEN $11 IS NULL THEN NULL ELSE $11::"WorkShift" END,CASE WHEN $12 IS NULL THEN NULL ELSE $12::jsonb END,$13,CASE WHEN $14 IS NULL THEN NULL ELSE $14::jsonb END,$15,$16,$4,$5) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist","reminderEnabled","reminderOffsets","attachmentName","attachmentType"',
       data.calendarId,
       data.title,
       data.description,
       data.startsAt,
       data.endsAt,
+      data.startDate,
+      data.endDate,
       data.allDay,
       data.location,
       data.type,
       data.shift,
       data.checklist === null ? null : JSON.stringify(data.checklist),
+      data.reminderEnabled,
+      data.reminderOffsets === null ? null : JSON.stringify(data.reminderOffsets),
       data.projectId,
       data.customerId,
     )) as Array<Record<string, any>>
@@ -123,11 +141,18 @@ async function insertEventCompat(p: any, data: EventInsert): Promise<PrismaEvent
       customerId: row.customerId ?? null,
       startsAt: new Date(row.startsAt),
       endsAt: new Date(row.endsAt),
+      startDate: row.startDate ?? null,
+      endDate: row.endDate ?? null,
       allDay: row.allDay,
       location: row.location,
       type: row.type,
       shift: row.shift,
       checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : row.checklist,
+      reminderEnabled: row.reminderEnabled ?? false,
+      reminderOffsets:
+        typeof row.reminderOffsets === 'string'
+          ? JSON.parse(row.reminderOffsets)
+          : row.reminderOffsets ?? null,
       attachmentName: row.attachmentName ?? null,
       attachmentType: row.attachmentType ?? null,
       hasQuantities: false,
@@ -153,45 +178,50 @@ export async function GET(req: NextRequest) {
           description: true,
           startsAt: true,
           endsAt: true,
+          startDate: true,
+          endDate: true,
           allDay: true,
-          location: true,
-          type: true,
-          shift: true,
-          checklist: true,
-          attachmentName: true,
-          attachmentType: true,
-          _count: { select: { EventQuantity: true } },
-        },
-      }),
+        location: true,
+        type: true,
+        shift: true,
+        checklist: true,
+        attachmentName: true,
+        attachmentType: true,
+        reminderEnabled: true,
+        reminderOffsets: true,
+        _count: { select: { EventQuantity: true } },
+      },
+    }),
     [] as any[],
   )
 
   const payload = rows.map((e: any) => {
-    const base = {
-      id: e.id,
-      calendarId: e.calendarId,
-      title: e.title,
-      description: e.description ?? '',
-      allDay: !!e.allDay,
-      location: e.location ?? '',
-      type: e.type ?? null,
-      shift: e.shift ?? null,
-      checklist: e.checklist ?? null,
-      attachmentName: e.attachmentName ?? null,
-      attachmentType: e.attachmentType ?? null,
-      hasQuantities: !!(e._count?.EventQuantity ?? 0),
-    }
-
-    if (base.allDay) {
-      const startLocal = formatInTimeZone(e.startsAt, APP_TZ).date
-      const endLocal = formatInTimeZone(e.endsAt, APP_TZ).date
-      return { ...base, start: startLocal, end: endLocal }
-    }
+    const serialized = serializeCalendarEvent(
+      {
+        id: e.id,
+        calendarId: e.calendarId,
+        title: e.title,
+        description: e.description ?? '',
+        startsAt: e.startsAt,
+        endsAt: e.endsAt,
+        startDate: e.startDate ?? null,
+        endDate: e.endDate ?? null,
+        allDay: !!e.allDay,
+        location: e.location ?? '',
+        type: e.type ?? null,
+        shift: e.shift ?? null,
+        checklist: e.checklist ?? null,
+        hasQuantities: !!(e._count?.EventQuantity ?? 0),
+      },
+      { timezone: APP_TZ },
+    )
 
     return {
-      ...base,
-      start: e.startsAt instanceof Date ? e.startsAt.toISOString() : e.startsAt,
-      end: e.endsAt instanceof Date ? e.endsAt.toISOString() : e.endsAt,
+      ...serialized,
+      attachmentName: e.attachmentName ?? null,
+      attachmentType: e.attachmentType ?? null,
+      reminderEnabled: !!e.reminderEnabled,
+      reminderOffsets: parseReminderOffsets(e.reminderOffsets ?? []),
     }
   })
 
@@ -215,24 +245,47 @@ export async function POST(req: NextRequest) {
   }
 
   const allDay = !!b.allDay
-  let startsAt: Date | null
-  let endsAt: Date | null
+  let startsAt: Date | null = null
+  let endsAt: Date | null = null
+  let startDateValue: string | null = null
+  let endDateValue: string | null = null
 
   if (allDay) {
-    startsAt = typeof startRaw === 'string' ? parseAppDateOnly(startRaw) : null
-    endsAt = typeof endRaw === 'string' ? parseAppDateOnly(endRaw) : null
-    if (!startsAt) {
+    if (typeof startRaw !== 'string') {
       return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
     }
-    if (!endsAt || endsAt <= startsAt) {
-      endsAt = addDaysUtc(startsAt, 1)
+    const startCandidate = startRaw.trim().slice(0, 10)
+    const startParsed = parseAppDateOnly(startCandidate)
+    if (!startParsed) {
+      return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
     }
+    const startYmd = formatInTimeZone(startParsed, APP_TZ).date
+    let endCandidate =
+      typeof endRaw === 'string' && endRaw.trim().length > 0 ? endRaw.trim().slice(0, 10) : null
+    if (!endCandidate || endCandidate <= startYmd) {
+      endCandidate = nextDateISO(startYmd, APP_TZ)
+    }
+    const endParsed = parseAppDateOnly(endCandidate)
+    if (!endParsed) {
+      return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
+    }
+    startsAt = startParsed
+    endsAt = endParsed
+    startDateValue = startYmd
+    endDateValue = endCandidate
   } else {
-    startsAt = typeof startRaw === 'string' ? parseAppDateTime(startRaw) : null
-    endsAt = typeof endRaw === 'string' ? parseAppDateTime(endRaw) : null
-    if (!startsAt || !endsAt || endsAt <= startsAt) {
+    if (typeof startRaw !== 'string' || typeof endRaw !== 'string') {
       return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
     }
+    const startIso = localISOToUTC(startRaw, APP_TZ)
+    const endIso = localISOToUTC(endRaw, APP_TZ)
+    startsAt = new Date(startIso)
+    endsAt = new Date(endIso)
+    if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+      return NextResponse.json({ error: 'invalid date range' }, { status: 400, headers: cors as any })
+    }
+    startDateValue = null
+    endDateValue = null
   }
 
   if (!startsAt || !endsAt) {
@@ -242,6 +295,8 @@ export async function POST(req: NextRequest) {
   const linkage = await ensureProjectForEventTitle(title)
   const projectId = linkage?.projectId ?? null
   const customerId = linkage?.customerId ?? null
+  const reminderEnabled = !!b.reminderEnabled
+  const reminderOffsets = parseReminderOffsets(b?.reminderOffsets)
 
   try {
     const created = await tryPrisma(async p => {
@@ -257,31 +312,44 @@ export async function POST(req: NextRequest) {
         description: (b.description ?? '') || '',
         startsAt,
         endsAt,
+        startDate: startDateValue,
+        endDate: endDateValue,
         allDay,
         location: (b.location ?? '') || '',
         type: (b.type ?? null) as EventType | null,
         shift: (b.shift ?? null) as WorkShift | null,
         checklist: b.checklist ?? null,
+        reminderEnabled,
+        reminderOffsets: reminderEnabled ? reminderOffsets : [],
         projectId,
         customerId,
       })
     }, null as any)
 
     const payload = {
-      id: created.id,
-      calendarId: created.calendarId,
-      title: created.title,
-      description: created.description ?? '',
-      start: created.startsAt,
-      end: created.endsAt,
-      allDay: created.allDay,
-      location: created.location ?? '',
-      type: created.type ?? null,
-      shift: created.shift ?? null,
-      checklist: created.checklist ?? null,
+      ...serializeCalendarEvent(
+        {
+          id: created.id,
+          calendarId: created.calendarId,
+          title: created.title,
+          description: created.description ?? '',
+          startsAt: created.startsAt,
+          endsAt: created.endsAt,
+          startDate: created.startDate ?? startDateValue,
+          endDate: created.endDate ?? endDateValue,
+          allDay: created.allDay,
+          location: created.location ?? '',
+          type: created.type ?? null,
+          shift: created.shift ?? null,
+          checklist: created.checklist ?? null,
+          hasQuantities: false,
+        },
+        { timezone: APP_TZ },
+      ),
       attachmentName: created.attachmentName ?? null,
       attachmentType: created.attachmentType ?? null,
-      hasQuantities: false,
+      reminderEnabled: !!created.reminderEnabled,
+      reminderOffsets: parseReminderOffsets(created.reminderOffsets ?? []),
     }
 
     return NextResponse.json(payload, { status: 201, headers: cors as any })

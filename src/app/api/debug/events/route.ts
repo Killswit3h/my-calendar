@@ -14,6 +14,8 @@ type DebugEventRow = EventRowLike & {
   description: string | null
   startsAt: Date
   endsAt: Date
+  startDate: string | null
+  endDate: string | null
   allDay: boolean
   location: string | null
   type: string | null
@@ -74,6 +76,8 @@ export async function GET(req: NextRequest) {
           description: true,
           startsAt: true,
           endsAt: true,
+          startDate: true,
+          endDate: true,
           allDay: true,
           location: true,
           type: true,

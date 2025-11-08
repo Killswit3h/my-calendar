@@ -29,7 +29,7 @@ export function NewTodoInput({ onSubmit, disabled, placeholder = "Add a task" }:
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/40 p-3">
+    <div className="rounded-2xl border border-border bg-surface-soft/95 p-3 shadow-[0_16px_40px_rgba(12,32,21,0.14)]">
       <textarea
         value={value}
         disabled={disabled}
@@ -44,7 +44,7 @@ export function NewTodoInput({ onSubmit, disabled, placeholder = "Add a task" }:
         rows={expanded ? 3 : 1}
         placeholder={placeholder}
         data-testid="new-todo-input"
-        className="w-full resize-none rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400"
+        className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-2 text-sm text-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
       />
       <div className="mt-2 flex items-center justify-between text-xs text-white/40">
         <span>Press Enter to add · Shift+Enter for newline</span>

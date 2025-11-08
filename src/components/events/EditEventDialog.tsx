@@ -22,6 +22,8 @@ import CustomerCombobox from '@/components/CustomerCombobox';
 import EmployeeMultiSelect from '@/components/EmployeeMultiSelect';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { getEmployees } from '@/employees';
+import { formatLocal } from '@/lib/timezone';
+import { ReminderPicker } from '@/components/ReminderPicker';
 
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
 type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
@@ -53,6 +55,8 @@ type EventForm = {
   payroll?: boolean;
   shift?: WorkShift;
   checklist?: Checklist | null;
+  reminderEnabled: boolean;
+  reminderOffsets: number[];
 };
 
 type Subtask = { id: string; text: string; done: boolean };
@@ -163,12 +167,14 @@ export function EditEventDialog({
     invoice: '',
     payment: 'DAILY',
     type: 'FENCE',
-    vendor: 'JORGE',
-    payroll: false,
-    shift: 'DAY',
-    checklist: defaultChecklist(),
-    ...initial,
-  });
+  vendor: 'JORGE',
+  payroll: false,
+  shift: 'DAY',
+  checklist: defaultChecklist(),
+  reminderEnabled: false,
+  reminderOffsets: [],
+  ...initial,
+});
 
   useEffect(() => {
     if (initial) {
@@ -176,6 +182,8 @@ export function EditEventDialog({
         ...prev,
         ...initial,
         checklist: initial.checklist ?? defaultChecklist(),
+        reminderEnabled: initial.reminderEnabled ?? false,
+        reminderOffsets: initial.reminderOffsets ?? [],
       }));
     }
   }, [initial]);
@@ -206,26 +214,30 @@ export function EditEventDialog({
     }
   };
 
+  const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
   const formatDateInput = (date: string, isAllDay: boolean) => {
     if (!date) return '';
     if (isAllDay) {
       return date.slice(0, 10);
     }
-    // Convert ISO to datetime-local format
-    const d = new Date(date);
-    const offset = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - offset * 60000);
-    return local.toISOString().slice(0, 16);
+    const trimmed = date.trim();
+    if (DATETIME_LOCAL_RE.test(trimmed)) {
+      return trimmed;
+    }
+    try {
+      return formatLocal(trimmed, "yyyy-MM-dd'T'HH:mm");
+    } catch {
+      return '';
+    }
   };
 
   const parseDateInput = (value: string, isAllDay: boolean) => {
     if (!value) return '';
     if (isAllDay) {
-      return value;
+      return value.slice(0, 10);
     }
-    // Convert datetime-local to ISO
-    const d = new Date(value);
-    return d.toISOString();
+    return value;
   };
 
   const startInputType = form.allDay ? 'date' : 'datetime-local';
@@ -272,6 +284,14 @@ export function EditEventDialog({
                 allowCreateOption
               />
             </div>
+
+            <ReminderPicker
+              initialEnabled={form.reminderEnabled}
+              initialOffsets={form.reminderOffsets}
+              onChange={(enabled, offsets) =>
+                setForm(prev => ({ ...prev, reminderEnabled: enabled, reminderOffsets: offsets }))
+              }
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -551,11 +571,11 @@ export function EditEventDialog({
           </TabsContent>
         </Tabs>
 
-        <DialogFooter>
+        <DialogFooter className="gap-3">
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {onAdd && (
               <Button variant="outline" onClick={handleAdd}>
                 Add
@@ -567,11 +587,21 @@ export function EditEventDialog({
               </Button>
             )}
             {onDelete && (
-              <Button variant="destructive" onClick={handleDelete}>
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                className="border border-[color-mix(in_srgb,var(--danger)_75%,#070808_25%)] bg-[color-mix(in_srgb,var(--danger)_88%,#090b0a_12%)] px-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition hover:bg-[color-mix(in_srgb,var(--danger)_95%,#050607_5%)] focus-visible:ring-danger/45"
+              >
                 Delete
               </Button>
             )}
-            <Button onClick={handleSave}>Save Event</Button>
+            <Button
+              variant="outline"
+              onClick={handleSave}
+              className="border border-[#1f8f4f] bg-[linear-gradient(180deg,#2faa68,#1f7f47)] px-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_8px_18px_rgba(8,40,18,0.35)] transition hover:bg-[linear-gradient(180deg,#32b971,#228f4f)] focus-visible:ring-accent/40"
+            >
+              Save Event
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>

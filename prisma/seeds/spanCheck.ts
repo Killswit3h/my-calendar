@@ -19,7 +19,9 @@ async function main() {
         title: "Span B", 
         startsAt: new Date("2025-10-14T00:00:00"), 
         endsAt: new Date("2025-10-17T00:00:00"),
-        allDay: true
+        allDay: true,
+        startDate: "2025-10-14",
+        endDate: "2025-10-17"
       }, // all-day 3 days (end exclusive)
     ],
     skipDuplicates: true,

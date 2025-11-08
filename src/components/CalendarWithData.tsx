@@ -62,7 +62,23 @@ type Checklist = {
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
-type NewEvent = { title: string; start: string; end?: string; allDay: boolean; location?: string; description?: string; invoice?: string; payment?: PaymentType; type?: JobType; vendor?: Vendor; payroll?: boolean; shift?: WorkShift; checklist?: Checklist | null };
+type NewEvent = {
+  title: string;
+  start: string;
+  end?: string;
+  allDay: boolean;
+  location?: string;
+  description?: string;
+  invoice?: string;
+  payment?: PaymentType;
+  type?: JobType;
+  vendor?: Vendor;
+  payroll?: boolean;
+  shift?: WorkShift;
+  checklist?: Checklist | null;
+  reminderEnabled?: boolean;
+  reminderOffsets?: number[];
+};
 type Todo = { id: string; title: string; notes?: string; done: boolean; type: JobType };
 
 const DAY_MS = 86_400_000;
@@ -724,6 +740,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         type: e.extendedProps['type'] as JobType | undefined,
         shift: e.extendedProps['shift'] as WorkShift | undefined,
         checklist: (e.extendedProps as any)['checklist'] ?? defaultChecklist(),
+        reminderEnabled: (e.extendedProps['reminderEnabled'] as boolean | undefined) ?? false,
+        reminderOffsets: Array.isArray((e.extendedProps as any)['reminderOffsets'])
+          ? [...((e.extendedProps as any)['reminderOffsets'] as number[])]
+          : [],
       });
       setModalHasQuantities(Boolean((e.extendedProps as any)?.hasQuantities));
       setUserChangedStart(false);
@@ -755,6 +775,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       type: e.extendedProps?.type as JobType | undefined,
       shift: e.extendedProps?.shift as WorkShift | undefined,
       checklist: e.extendedProps?.checklist ?? defaultChecklist(),
+      reminderEnabled: (e.extendedProps?.reminderEnabled as boolean | undefined) ?? false,
+      reminderOffsets: Array.isArray(e.extendedProps?.reminderOffsets)
+        ? [...(e.extendedProps?.reminderOffsets as number[])]
+        : [],
     });
     setModalHasQuantities(Boolean(e.extendedProps?.hasQuantities));
     setUserChangedStart(false);
@@ -767,29 +791,45 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     refetchCalendar();
   }, [refetchCalendar]);
 
+  const regenerateEventReminders = useCallback(async (eventId: string) => {
+    try {
+      await fetch('/api/reminders/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entityType: 'event', entityId: eventId }),
+      })
+    } catch (error) {
+      console.error('Failed to regenerate reminders', error)
+    }
+  }, []);
+
   const handleEventDrop = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
     const newStart = e.startStr ?? e.start?.toISOString() ?? null;
     const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
-    else {
+    if (r.ok) {
+      updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay })
+      void regenerateEventReminders(e.id as string)
+    } else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to move event');
     }
-  }, [updateEventById]);
+  }, [updateEventById, regenerateEventReminders]);
 
   const handleEventResize = useCallback(async (arg: any) => {
     const e = arg.event; if (!e.id) return;
     const newStart = e.startStr ?? e.start?.toISOString() ?? null;
     const newEnd = e.endStr ?? (e.end ? e.end.toISOString() : newStart);
     const r = await fetch(`/api/events/${e.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newStart, end: newEnd, allDay: e.allDay }) });
-    if (r.ok) updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay });
-    else {
+    if (r.ok) {
+      updateEventById(e.id, { start: newStart!, end: newEnd!, allDay: e.allDay })
+      void regenerateEventReminders(e.id as string)
+    } else {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to resize event');
     }
-  }, [updateEventById]);
+  }, [updateEventById, regenerateEventReminders]);
 
   const saveDraft = useCallback(async (override?: NewEvent) => {
     const current = override ?? draft;
@@ -812,6 +852,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: current.payroll ?? null,
       shift: current.shift ?? null,
       checklist: current.checklist ?? null,
+      reminderEnabled: current.reminderEnabled ?? false,
+      reminderOffsets: current.reminderOffsets ?? [],
     };
 
     if (editId) {
@@ -852,6 +894,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities,
+          reminderEnabled: !!(normalized as any).reminderEnabled,
+          reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
+            ? [...((normalized as any).reminderOffsets as number[])]
+            : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
@@ -878,6 +924,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             checklist: normalized.checklist ?? null,
             calendarId: normalized.calendarId ?? '',
             hasQuantities,
+            reminderEnabled: !!(normalized as any).reminderEnabled,
+            reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
+              ? [...((normalized as any).reminderOffsets as number[])]
+              : [],
           },
         } as EventInput;
       });
@@ -889,6 +939,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       setOpen(false);
       setDraft(null);
       setEditId(null);
+      void regenerateEventReminders(editId);
       return;
     }
 
@@ -931,6 +982,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities: false,
+          reminderEnabled: !!(normalized as any).reminderEnabled,
+          reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
+            ? [...((normalized as any).reminderOffsets as number[])]
+            : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
@@ -958,11 +1013,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       type: (normalized.type as JobType | undefined) ?? current.type ?? 'FENCE',
       shift: (normalized.shift as WorkShift | undefined) ?? current.shift ?? 'DAY',
       checklist: normalized.checklist ?? current.checklist ?? defaultChecklist(),
+      reminderEnabled: (normalized as any).reminderEnabled ?? current.reminderEnabled ?? false,
+      reminderOffsets: Array.isArray((normalized as any).reminderOffsets)
+        ? [...((normalized as any).reminderOffsets as number[])]
+        : current.reminderOffsets ?? [],
     });
     setUserChangedStart(false);
     setUserChangedEnd(false);
+    void regenerateEventReminders(normalized.id);
     notify('Event saved. Add quantities below.');
-  }, [draft, editId, calendarId, notify, refetchCalendar]);
+  }, [draft, editId, calendarId, notify, refetchCalendar, regenerateEventReminders]);
 
   useEffect(() => {
     if (!open) return;
@@ -985,8 +1045,23 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const { start: normalizedStart, end: normalizedEnd } = normalizeDraftBounds(draft);
     const payloadStart = draft.allDay ? normalizedStart.slice(0, 10) : normalizedStart;
     const payloadEnd = draft.allDay ? normalizedEnd.slice(0, 10) : normalizedEnd;
-    const r = await fetch(`/api/calendars/${calendarId}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: `${draft.title}`, description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false), start: payloadStart, end: payloadEnd, allDay: !!draft.allDay, location: draft.location ?? '', type: draft.type ?? null, shift: draft.shift ?? null, checklist: draft.checklist ?? null }) });
+    const r = await fetch(`/api/calendars/${calendarId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `${draft.title}`,
+        description: composeDescription(draft.description ?? '', draft.invoice ?? '', draft.payment ?? '', draft.vendor ?? '', draft.payroll ?? false),
+        start: payloadStart,
+        end: payloadEnd,
+        allDay: !!draft.allDay,
+        location: draft.location ?? '',
+        type: draft.type ?? null,
+        shift: draft.shift ?? null,
+        checklist: draft.checklist ?? null,
+        reminderEnabled: draft.reminderEnabled ?? false,
+        reminderOffsets: draft.reminderOffsets ?? [],
+      }),
+    })
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       alert(err.error || 'Failed to duplicate event');
@@ -1010,13 +1085,16 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           checklist: normalized.checklist ?? null,
           calendarId: normalized.calendarId ?? '',
           hasQuantities: false,
+          reminderEnabled: draft.reminderEnabled ?? false,
+          reminderOffsets: Array.isArray(draft.reminderOffsets) ? [...(draft.reminderOffsets as number[])] : [],
         },
         className: typeToClass(normalized.type),
         display: 'block',
       },
     ]);
     refetchCalendar();
-  }, [draft, calendarId, refetchCalendar]);
+    void regenerateEventReminders(normalized.id);
+  }, [draft, calendarId, refetchCalendar, regenerateEventReminders]);
 
   const handleQuantitiesChange = useCallback((has: boolean) => {
     if (!editId) return;
@@ -1115,6 +1193,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       payroll: false,
       shift: 'DAY',
       checklist: defaultChecklist(),
+      reminderEnabled: false,
+      reminderOffsets: [],
     };
   }, [selectedDay]);
 
@@ -1388,7 +1468,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone={APP_TZ}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -1449,7 +1529,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView={currentView}
               initialDate={initialDate}
-              timeZone={APP_TZ}
+              timeZone="local"
               height="auto"
               dayCellDidMount={dayCellDidMount}
               eventContent={eventContent}
@@ -1630,6 +1710,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           payroll: draft.payroll,
           shift: draft.shift,
           checklist: draft.checklist,
+          reminderEnabled: draft.reminderEnabled ?? false,
+          reminderOffsets: draft.reminderOffsets ?? [],
         } : undefined}
         eventId={editId}
         isNewEvent={!editId}
