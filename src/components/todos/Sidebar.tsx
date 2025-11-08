@@ -119,14 +119,14 @@ export default function Sidebar({
   const listActive = (id: string) => activeView.type === "list" && activeView.id === id;
 
   return (
-    <aside className="flex h-full flex-col gap-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50 p-4">
+    <aside className="flex h-full flex-col gap-4 overflow-hidden rounded-2xl border border-border bg-surface-soft/90 p-4 shadow-[0_20px_56px_rgba(6,16,10,0.28)]">
       <div>
         <input
           id="todos-search-input"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search lists"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400"
+          className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
         />
       </div>
 
@@ -346,7 +346,7 @@ function SidebarListItem({
                     if (event.key === "Enter") handleSubmit();
                     if (event.key === "Escape") onToggleEdit();
                   }}
-                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1 text-sm text-white"
+                  className="w-full rounded-md border border-border bg-surface-soft px-2 py-1 text-sm text-white focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
                   autoFocus
                 />
               ) : (

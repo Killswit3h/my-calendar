@@ -39,6 +39,8 @@ async function addTestEvents() {
         startsAt: new Date('2025-01-20T00:00:00Z'),
         endsAt: new Date('2025-01-22T00:00:00Z'),
         allDay: true,
+        startDate: '2025-01-20',
+        endDate: '2025-01-22',
         calendarId: 'cme9wqhpe0000ht8sr5o3a6wf',
         type: 'maintenance'
       },

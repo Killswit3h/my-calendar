@@ -83,12 +83,17 @@ model Event {
   title                String
   description          String?
   allDay               Boolean                @default(false)
+  startDate            String?                @db.VarChar(10)
+  endDate              String?                @db.VarChar(10)
   location             String?
   employees            Json?
   invoiceNumber        String?
   type                 String?
   shift                WorkShift?
   checklist            Json?
+  reminderEnabled      Boolean                @default(false)
+  reminderOffsets      Json?
+  lastNotifiedAt       DateTime?              @db.Timestamptz(6)
   startsAt             DateTime               @db.Timestamptz(6)
   endsAt               DateTime               @db.Timestamptz(6)
   attachmentData       Bytes?
@@ -416,8 +421,13 @@ model Todo {
   isCompleted Boolean    @default(false)
   isImportant Boolean    @default(false)
   myDay       Boolean    @default(false)
-  dueAt       DateTime?
-  remindAt    DateTime?
+  dueAt       DateTime?  @db.Timestamptz(6)
+  allDay      Boolean    @default(false)
+  dueDate     String?    @db.VarChar(10)
+  remindAt    DateTime?  @db.Timestamptz(6)
+  reminderEnabled  Boolean   @default(false)
+  reminderOffsets  Json?
+  lastNotifiedAt   DateTime? @db.Timestamptz(6)
   repeatRule  String?
   position    Int        @default(0)
   createdAt   DateTime   @default(now())
@@ -437,6 +447,33 @@ model TodoStep {
 
   todoId String
   todo   Todo   @relation(fields: [todoId], references: [id])
+}
+
+model Reminder {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String
+  entityId   String
+  fireAt     DateTime @db.Timestamptz(6)
+  channel    String
+  status     String   @default("pending")
+  lastSentAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, entityType, entityId])
+  @@index([fireAt, status, channel])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model UserSetting {

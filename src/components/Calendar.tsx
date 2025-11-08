@@ -377,6 +377,7 @@ export default function Calendar({ initialDate }: Props) {
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           initialDate={initialDate}
+          timeZone="local"
           height="auto"
           dayCellDidMount={dayCellDidMount}
           eventContent={eventContent}
