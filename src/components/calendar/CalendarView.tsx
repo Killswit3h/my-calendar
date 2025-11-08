@@ -122,6 +122,7 @@ export default function CalendarView({ calendarId = "cme9wqhpe0000ht8sr5o3a6wf" 
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
       headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }}
       initialView="dayGridMonth"
+      timeZone="local"
       height="auto"
       events={events}
       eventContent={renderEventContent}
