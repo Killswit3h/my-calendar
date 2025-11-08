@@ -10,6 +10,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createAppTheme, type Accent } from '../theme'
 import { ThemeProvider } from '@/components/ui/ThemeProvider'
 import { ToastViewport } from '@/components/ui/Toast'
+import { useInAppReminders } from '@/hooks/useInAppReminders'
 
 interface AccentCtx {
   accent: Accent
@@ -45,6 +46,7 @@ function MuiBridge({ accent, children }: { accent: Accent; children: React.React
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [accent, setAccent] = useState<Accent>('forest')
+  useInAppReminders()
 
   useEffect(() => {
     const stored = window.localStorage.getItem('accent-color')

@@ -11,8 +11,10 @@ type ToolbarProps = {
   activeView: ActiveView;
   sort: SortOption;
   group: GroupOption;
+  hideCompleted: boolean;
   onSortChange(sort: SortOption): void;
   onGroupChange(group: GroupOption): void;
+  onToggleHideCompleted(value: boolean): void;
   onAddToMyDay(): void;
 };
 
@@ -24,7 +26,18 @@ const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
   { value: "created", label: "Creation date" },
 ];
 
-export default function Toolbar({ title, subtitle, activeView, sort, group, onSortChange, onGroupChange, onAddToMyDay }: ToolbarProps) {
+export default function Toolbar({
+  title,
+  subtitle,
+  activeView,
+  sort,
+  group,
+  hideCompleted,
+  onSortChange,
+  onGroupChange,
+  onToggleHideCompleted,
+  onAddToMyDay,
+}: ToolbarProps) {
   const showGroupControl = useMemo(() => activeView.type === "smart" ? activeView.key === "planned" : true, [activeView]);
 
   return (
@@ -65,6 +78,19 @@ export default function Toolbar({ title, subtitle, activeView, sort, group, onSo
             </select>
           </label>
         ) : null}
+        <button
+          type="button"
+          aria-pressed={hideCompleted}
+          onClick={() => onToggleHideCompleted(!hideCompleted)}
+          className={cn(
+            "inline-flex items-center rounded-full border px-3 py-1.5 text-xs transition",
+            hideCompleted
+              ? "border-emerald-400 text-emerald-200"
+              : "border-white/10 text-white/70 hover:border-emerald-400 hover:text-emerald-200",
+          )}
+        >
+          Hide Completed
+        </button>
         <button
           type="button"
           className={cn(

@@ -19,8 +19,13 @@ export type TodoItemModel = {
   isImportant: boolean;
   myDay: boolean;
   dueAt: string | null;
+  allDay: boolean;
+  dueDate: string | null;
   remindAt: string | null;
   repeatRule: string | null;
+  reminderEnabled: boolean;
+  reminderOffsets: number[];
+  lastNotifiedAt: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;

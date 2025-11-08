@@ -96,19 +96,19 @@ export default function SchedulePanel({ todos, loading, label }: SchedulePanelPr
   const handleToday = () => setFocusDate(new Date());
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-black/40 p-4 text-sm text-white">
-      <header className="flex flex-col gap-3 border-b border-white/5 pb-4 md:flex-row md:items-center md:justify-between">
+    <section className="rounded-3xl border border-border bg-surface p-4 text-sm text-white shadow-[0_20px_50px_rgba(12,32,21,0.16)]">
+      <header className="flex flex-col gap-3 border-b border-border/60 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.32em] text-white/60">Calendar</p>
           <div className="mt-1 flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/30">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-surface-soft/80">
               <CalendarRange className="h-4 w-4 text-emerald-300" />
             </span>
             <h2 className="text-lg font-semibold">{label}</h2>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="inline-flex items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
+          <div className="inline-flex items-center overflow-hidden rounded-full border border-border bg-surface-soft">
             <button
               type="button"
               onClick={() => setView("month")}
@@ -132,11 +132,11 @@ export default function SchedulePanel({ todos, loading, label }: SchedulePanelPr
               Week
             </button>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-2 py-1">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-soft px-2 py-1">
             <button
               type="button"
               onClick={() => handleNavigate("prev")}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/20 hover:text-white"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border/70 text-white/70 transition hover:border-white/30 hover:text-white"
               aria-label="Previous"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -145,7 +145,7 @@ export default function SchedulePanel({ todos, loading, label }: SchedulePanelPr
             <button
               type="button"
               onClick={() => handleNavigate("next")}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/20 hover:text-white"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border/70 text-white/70 transition hover:border-white/30 hover:text-white"
               aria-label="Next"
             >
               <ChevronRight className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function SchedulePanel({ todos, loading, label }: SchedulePanelPr
             <button
               type="button"
               onClick={handleToday}
-              className="rounded-full border border-white/10 px-3 py-1 text-white/70 transition hover:border-white/20 hover:text-white"
+              className="rounded-full border border-border px-3 py-1 text-white/70 transition hover:border-white/30 hover:text-white"
             >
               Today
             </button>
@@ -197,7 +197,7 @@ function MonthView({ days, focusDate }: { days: DayBucket[]; focusDate: Date }) 
               <article
                 key={bucket.date.toISOString()}
                 className={cn(
-                  "min-h-[120px] rounded-2xl border border-white/10 bg-black/30 p-2 text-xs transition hover:border-emerald-400/60",
+                  "min-h-[120px] rounded-2xl border border-border/70 bg-surface-soft p-2 text-xs transition hover:border-emerald-400/60",
                   !isSameMonth(bucket.date, focusDate) && "opacity-40",
                   isToday(bucket.date) && "border-emerald-400/80 bg-emerald-500/10",
                 )}
@@ -215,7 +215,7 @@ function MonthView({ days, focusDate }: { days: DayBucket[]; focusDate: Date }) 
                     <li
                       key={todo.id}
                       className={cn(
-                        "truncate rounded-lg border border-white/10 bg-black/40 px-2 py-1 leading-tight",
+                        "truncate rounded-lg border border-border bg-surface px-2 py-1 leading-tight",
                         todo.isCompleted && "opacity-50 line-through",
                       )}
                     >
@@ -249,7 +249,7 @@ function WeekView({ days, todos }: { days: DayBucket[]; todos: TodoItemModel[] }
         ))}
       </div>
       <div className="mt-2 grid grid-cols-[75px_repeat(7,minmax(0,1fr))] gap-1">
-        <div className="space-y-6 border-r border-white/10 pr-1 text-[11px] text-white/40">
+        <div className="space-y-6 border-r border-border/60 pr-1 text-[11px] text-white/40">
           {HOURS.map((hour) => (
             <div key={hour} className="h-12">
               {(() => {
@@ -264,21 +264,21 @@ function WeekView({ days, todos }: { days: DayBucket[]; todos: TodoItemModel[] }
           const timed = timedTasksForDay(todos, bucket.date);
           const allDay = allDayTasksForDay(todos, bucket.date);
           return (
-            <div key={bucket.date.toISOString()} className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-              <div className="absolute inset-x-0 top-0 z-10 space-y-1 border-b border-white/10 bg-black/35 px-2 py-1 text-[11px]">
+            <div key={bucket.date.toISOString()} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-soft">
+              <div className="absolute inset-x-0 top-0 z-10 space-y-1 border-b border-border/60 bg-surface px-2 py-1 text-[11px]">
                 {allDay.map((todo) => (
                   <div
                     key={todo.id}
-                    className={cn(
-                      "rounded-md border border-white/10 bg-emerald-500/15 px-2 py-1 font-medium text-white/80",
-                      todo.isCompleted && "opacity-50 line-through",
-                    )}
+                      className={cn(
+                        "rounded-md border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 font-medium text-white/80",
+                        todo.isCompleted && "opacity-50 line-through",
+                      )}
                   >
                     {todo.title}
                   </div>
                 ))}
               </div>
-              <div className="mt-[48px] h-[1152px] space-y-[1px] border-t border-white/10">
+              <div className="mt-[48px] h-[1152px] space-y-[1px] border-t border-border/60">
                 {HOURS.map((hour) => (
                   <div key={hour} className="relative h-12 border-b border-white/5 text-[10px] text-white/20">
                     {timed
@@ -290,10 +290,10 @@ function WeekView({ days, todos }: { days: DayBucket[]; todos: TodoItemModel[] }
                       .map((todo) => (
                         <div
                           key={todo.id}
-                          className={cn(
-                            "absolute inset-x-1 top-1 rounded-lg border border-white/10 bg-emerald-500/20 px-2 py-1 text-[11px] leading-tight text-white/80 shadow-sm",
-                            todo.isCompleted && "opacity-50 line-through",
-                          )}
+                        className={cn(
+                          "absolute inset-x-1 top-1 rounded-lg border border-emerald-400/40 bg-emerald-500/20 px-2 py-1 text-[11px] leading-tight text-white/80 shadow-sm",
+                          todo.isCompleted && "opacity-50 line-through",
+                        )}
                         >
                           <p className="font-semibold">{todo.title}</p>
                           <p className="text-white/60">{timeLabel(todo)}</p>
