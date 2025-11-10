@@ -101,6 +101,15 @@ async function regenerateReminders(args: {
     return { created: 0 }
   }
 
+  if (allDay ? !startDate : !startAt) {
+    console.warn(
+      `[reminders] skipped generation for ${entityType}:${entityId} — missing ${
+        allDay ? 'startDate' : 'startAt'
+      }`,
+    )
+    return { created: 0 }
+  }
+
   const times = computeReminderTimes({
     allDay,
     startAtUTC: startAt,
