@@ -1,21 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { Sparkles } from "lucide-react";
 import TodoItem from "./TodoItem";
 import type { ActiveView, PlannedGroup, TodoItemModel } from "./types";
@@ -37,7 +22,6 @@ type TodoListViewProps = {
   onToggleMyDay(todo: TodoItemModel, value: boolean): void;
   onUpdateSchedule(todo: TodoItemModel, next: { allDay: boolean; dueAt: string | null; dueDate: string | null }): void;
   onDelete(todo: TodoItemModel): void;
-  onReorder(ids: string[]): void;
 };
 
 export default function TodoListView({
@@ -53,26 +37,8 @@ export default function TodoListView({
   onToggleMyDay,
   onUpdateSchedule,
   onDelete,
-  onReorder,
 }: TodoListViewProps) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const canDrag = useMemo(() => !groups || groups.length === 0, [groups]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    if (!canDrag) return;
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const order = arrayMove(
-      todos.map((todo) => todo.id),
-      todos.findIndex((todo) => todo.id === active.id),
-      todos.findIndex((todo) => todo.id === over.id),
-    );
-    onReorder(order);
-  };
+  const canDrag = !groups || groups.length === 0;
 
   const suggestionList = useMemo(() => suggestions?.slice(0, SUGGEST_LIMIT) ?? [], [suggestions]);
   const selectedTodo = useMemo(() => {
@@ -158,8 +124,6 @@ export default function TodoListView({
                     onSelect={onSelect}
                     onToggleComplete={onToggleComplete}
                     onToggleImportant={onToggleImportant}
-                    onToggleMyDay={onToggleMyDay}
-                    onUpdateSchedule={onUpdateSchedule}
                     onDelete={onDelete}
                   />
                 ))}
@@ -167,29 +131,25 @@ export default function TodoListView({
             </section>
           ))
         ) : (
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
-            <SortableContext items={todos.map((todo) => todo.id)} strategy={verticalListSortingStrategy}>
-              {todos.length === 0 ? (
-                <EmptyState activeView={activeView} />
-              ) : (
-                <div className="space-y-2">
-                  {todos.map((todo) => (
-                    <TodoItem
-                      key={todo.id}
-                      todo={todo}
-                      selected={selectedId === todo.id}
-                      onSelect={onSelect}
-                      onToggleComplete={onToggleComplete}
-                      onToggleImportant={onToggleImportant}
-                      onToggleMyDay={onToggleMyDay}
-                      onUpdateSchedule={onUpdateSchedule}
-                      onDelete={onDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </SortableContext>
-          </DndContext>
+          <>
+            {todos.length === 0 ? (
+              <EmptyState activeView={activeView} />
+            ) : (
+              <div className="space-y-2">
+                {todos.map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    selected={selectedId === todo.id}
+                    onSelect={onSelect}
+                    onToggleComplete={onToggleComplete}
+                    onToggleImportant={onToggleImportant}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
