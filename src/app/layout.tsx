@@ -3,6 +3,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import ConditionalLayout from "@/components/ConditionalLayout";
+import PushClient from "./_push-client";
+import { AppNav } from "./_nav";
+import { NotificationDrawer } from "./_notification-drawer";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -17,7 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark h-full" suppressHydrationWarning style={{ colorScheme: "dark" }}>
       <body className="h-full">
         <Providers>
+          <PushClient />
+          <AppNav />
           <ConditionalLayout>{children}</ConditionalLayout>
+          <NotificationDrawer />
         </Providers>
       </body>
     </html>

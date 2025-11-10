@@ -26,10 +26,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_subscription' }, { status: 400 })
   }
 
-  await prisma.pushSubscription.upsert({
+  const userAgent = request.headers.get('user-agent') ?? undefined
+
+  await prisma.notificationSubscription.upsert({
     where: { endpoint },
-    update: { userId, p256dh, auth },
-    create: { userId, endpoint, p256dh, auth },
+    update: { userId, p256dh, auth, userAgent },
+    create: { userId, endpoint, p256dh, auth, userAgent },
   })
 
   return NextResponse.json({ ok: true })

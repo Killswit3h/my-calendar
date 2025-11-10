@@ -11,6 +11,9 @@ import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 import { APP_TZ } from '@/lib/appConfig'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
 import { parseReminderOffsets } from '@/lib/reminders'
+import { getCurrentUser } from '@/lib/session'
+import { subscribeUserToResource } from '@/lib/subscribe'
+import { emitChange } from '@/lib/notify'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -229,6 +232,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: cors as any })
+  }
+
   const b = await req.json().catch(() => null)
   const startRaw = b?.start ?? b?.startsAt
   const endRaw = b?.end ?? b?.endsAt
@@ -351,6 +359,20 @@ export async function POST(req: NextRequest) {
       reminderEnabled: !!created.reminderEnabled,
       reminderOffsets: parseReminderOffsets(created.reminderOffsets ?? []),
     }
+
+    await subscribeUserToResource(user.id, 'CalendarEvent', created.id)
+    if (created.projectId) {
+      await subscribeUserToResource(user.id, 'Project', created.projectId)
+    }
+    await emitChange({
+      actorId: user.id,
+      resourceType: 'CalendarEvent',
+      resourceId: created.id,
+      kind: 'event.created',
+      title: 'New event',
+      body: `${user.name ?? 'Someone'} created event: ${created.title}`,
+      url: `/calendar?event=${created.id}`,
+    })
 
     return NextResponse.json(payload, { status: 201, headers: cors as any })
   } catch (e: any) {
