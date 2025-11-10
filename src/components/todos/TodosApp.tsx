@@ -360,7 +360,7 @@ export default function TodosApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortOption>("my-order");
   const [group, setGroup] = useState<GroupOption>("none");
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
 
   const isMobile = useBreakpoint(640);
   const isTablet = useBreakpoint(1024);
@@ -619,14 +619,6 @@ export default function TodosApp() {
     [deleteTodo, selectedId],
   );
 
-  const handleReorder = useCallback(
-    async (orderedIds: string[]) => {
-      const payload = orderedIds.map((id, index) => ({ id, position: index }));
-      await reorderTodos(payload);
-    },
-    [reorderTodos],
-  );
-
   const handleMove = useCallback(
     async (todo: TodoItemModel, listId: string) => {
       await updateTodo(todo.id, { listId });
@@ -653,6 +645,13 @@ export default function TodosApp() {
       await deleteStep({ id });
     },
     [deleteStep],
+  );
+
+  const handleSelectTodo = useCallback(
+    (todo: TodoItemModel) => {
+      setSelectedId(prev => (prev === todo.id ? prev : todo.id));
+    },
+    [],
   );
 
   const activeTodo = useMemo(
@@ -761,14 +760,8 @@ export default function TodosApp() {
               onToggleMyDay={handleToggleMyDay}
               onUpdateSchedule={handleScheduleUpdate}
               onDelete={handleDelete}
-              onSelect={(todo) => {
-                setSelectedId(todo.id);
-                if (isTablet) {
-                  // show detail pane below
-                }
-              }}
+              onSelect={handleSelectTodo}
               selectedId={selectedId}
-              onReorder={(ids) => handleReorder(ids)}
             />
           </div>
         </section>
