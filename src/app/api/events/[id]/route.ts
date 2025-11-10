@@ -11,6 +11,9 @@ import { parseAppDateOnly, localISOToUTC, nextDateISO, formatInTimeZone } from '
 import { APP_TZ } from '@/lib/appConfig'
 import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
 import { parseReminderOffsets } from '@/lib/reminders'
+import { getCurrentUser } from '@/lib/session'
+import { subscribeUserToResource } from '@/lib/subscribe'
+import { emitChange } from '@/lib/notify'
 
 type PatchPayload = {
   title?: string
@@ -43,6 +46,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const body = (await req.json().catch(() => null)) as PatchPayload | null
   if (!body) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: cors as any })
+  }
+
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: cors as any })
   }
 
   const data: Record<string, any> = {}
@@ -233,6 +241,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       reminderEnabled: !!updated.reminderEnabled,
       reminderOffsets: parseReminderOffsets(updated.reminderOffsets ?? []),
     }
+
+    await subscribeUserToResource(user.id, 'CalendarEvent', updated.id)
+    if (updated.projectId) {
+      await subscribeUserToResource(user.id, 'Project', updated.projectId)
+    }
+    await emitChange({
+      actorId: user.id,
+      resourceType: 'CalendarEvent',
+      resourceId: updated.id,
+      kind: 'event.updated',
+      title: 'Event updated',
+      body: `${user.name ?? 'Someone'} updated event: ${updated.title}`,
+      url: `/calendar?event=${updated.id}`,
+    })
 
     return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {
