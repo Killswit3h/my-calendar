@@ -156,7 +156,7 @@ async function insertEventCompat(
     return { ...created, hasQuantities: false }
   } catch (error) {
     const rows = (await p.$queryRawUnsafe(
-      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist","projectId","customerId","start","end") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $11 IS NULL THEN NULL ELSE $11::"EventType" END,CASE WHEN $12 IS NULL THEN NULL ELSE $12::"WorkShift" END,CASE WHEN $13 IS NULL THEN NULL ELSE $13::jsonb END,$14,$15,$5,$6) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist"',
+      'INSERT INTO "public"."Event" ("id","calendarId","title","description","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist","projectId","customerId") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $11 IS NULL THEN NULL ELSE $11::"EventType" END,CASE WHEN $12 IS NULL THEN NULL ELSE $12::"WorkShift" END,CASE WHEN $13 IS NULL THEN NULL ELSE $13::jsonb END,$14,$15) RETURNING "id","calendarId","title","description","projectId","customerId","startsAt","endsAt","startDate","endDate","allDay","location","type","shift","checklist"',
       id,
       data.calendarId,
       data.title,
