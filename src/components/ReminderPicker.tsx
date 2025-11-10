@@ -1,7 +1,7 @@
 // src/components/ReminderPicker.tsx
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -21,18 +21,27 @@ export function ReminderPicker({ initialEnabled, initialOffsets, onChange, class
   const [enabled, setEnabled] = useState(Boolean(initialEnabled))
   const [offsets, setOffsets] = useState<number[]>(() => sanitize(initialOffsets))
   const [customValue, setCustomValue] = useState('')
+  const onChangeRef = useRef(onChange)
 
   useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  const syncingRef = useRef(false)
+
+  useEffect(() => {
+    syncingRef.current = true
     setEnabled(Boolean(initialEnabled))
-  }, [initialEnabled])
-
-  useEffect(() => {
     setOffsets(sanitize(initialOffsets))
-  }, [initialOffsets])
+  }, [initialEnabled, initialOffsets])
 
   useEffect(() => {
-    onChange(enabled, offsets)
-  }, [enabled, offsets, onChange])
+    if (syncingRef.current) {
+      syncingRef.current = false
+      return
+    }
+    onChangeRef.current(enabled, offsets)
+  }, [enabled, offsets])
 
   const sortedOffsets = useMemo(() => offsets.slice().sort((a, b) => a - b), [offsets])
 
