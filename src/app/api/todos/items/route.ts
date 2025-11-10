@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { tryPrisma } from "@/lib/dbSafe";
 import { parseReminderOffsets } from "@/lib/reminders";
 import { anchorAllDayAtNineLocal, localISOToUTC } from "@/lib/timezone";
+import { getCurrentUser } from "@/lib/session";
+import { subscribeUserToResource } from "@/lib/subscribe";
+import { emitChange } from "@/lib/notify";
+import { ensureUserRecord } from "@/lib/users";
 
 type TodoPayload = {
   id: string;
@@ -113,6 +117,8 @@ const BUCKET_LABEL: Record<string, string> = {
   later: "Later",
 };
 
+const TODO_DETAIL_URL = (todoId: string) => `/planner/todos?todo=${todoId}`;
+
 function parseDate(input: unknown): Date | null {
   if (typeof input !== "string") return null;
   const candidate = new Date(input);
@@ -218,6 +224,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  await ensureUserRecord(user);
+
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
@@ -240,6 +252,10 @@ export async function POST(req: NextRequest) {
   const isImportant = Boolean((body as any).isImportant);
   const reminderEnabled = Boolean((body as any).reminderEnabled);
   const reminderOffsets = parseReminderOffsets((body as any).reminderOffsets);
+  const projectId =
+    typeof (body as any).projectId === "string" && (body as any).projectId.trim().length > 0
+      ? (body as any).projectId.trim()
+      : null;
 
   const created = await tryPrisma(
     async (p) => {
@@ -263,6 +279,8 @@ export async function POST(req: NextRequest) {
           reminderOffsets: reminderEnabled ? reminderOffsets : [],
           listId,
           position,
+          projectId: projectId ?? undefined,
+          updatedById: user.id,
         },
         include: { steps: { orderBy: { position: "asc" } } },
       });
@@ -273,6 +291,20 @@ export async function POST(req: NextRequest) {
   if (!created) {
     return NextResponse.json({ error: "database_unavailable" }, { status: 503 });
   }
+
+  await subscribeUserToResource(user.id, "Todo", created.id);
+  if (created.projectId) {
+    await subscribeUserToResource(user.id, "Project", created.projectId);
+  }
+  await emitChange({
+    actorId: user.id,
+    resourceType: "Todo",
+    resourceId: created.id,
+    kind: "todo.created",
+    title: "New todo",
+    body: `${user.name ?? "Someone"} created: ${created.title}`,
+    url: TODO_DETAIL_URL(created.id),
+  });
 
   return NextResponse.json(serializeTodo(created), { status: 201 });
 }
