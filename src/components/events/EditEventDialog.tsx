@@ -23,7 +23,6 @@ import EmployeeMultiSelect from '@/components/EmployeeMultiSelect';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { getEmployees } from '@/employees';
 import { formatLocal } from '@/lib/timezone';
-import { ReminderPicker } from '@/components/ReminderPicker';
 
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
 type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
@@ -284,14 +283,6 @@ export function EditEventDialog({
                 allowCreateOption
               />
             </div>
-
-            <ReminderPicker
-              initialEnabled={form.reminderEnabled}
-              initialOffsets={form.reminderOffsets}
-              onChange={(enabled, offsets) =>
-                setForm(prev => ({ ...prev, reminderEnabled: enabled, reminderOffsets: offsets }))
-              }
-            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
