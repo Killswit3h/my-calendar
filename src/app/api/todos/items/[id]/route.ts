@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { tryPrisma } from "@/lib/dbSafe";
 import { parseReminderOffsets } from "@/lib/reminders";
 import { anchorAllDayAtNineLocal, localISOToUTC } from "@/lib/timezone";
+import { getCurrentUser } from "@/lib/session";
+import { subscribeUserToResource } from "@/lib/subscribe";
+import { emitChange } from "@/lib/notify";
+import { ensureUserRecord } from "@/lib/users";
 
 function parseDate(value: unknown): Date | null {
   if (typeof value !== "string") return null;
@@ -40,6 +44,8 @@ function normalizeDueFields(allDay: boolean, dueAtInput: unknown, dueDateInput: 
   }
   return { dueAt: null, dueDate: null };
 }
+
+const TODO_DETAIL_URL = (todoId: string) => `/planner/todos?todo=${todoId}`;
 
 function serializeTodo(todo: any) {
   return {
@@ -88,6 +94,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  await ensureUserRecord(user);
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
@@ -156,6 +167,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
     data.listId = (body as any).listId;
   }
+  data.updatedById = user.id;
 
   const updated = await tryPrisma(
     async (p) => {
@@ -181,16 +193,35 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  await subscribeUserToResource(user.id, "Todo", updated.id);
+  if (updated.projectId) {
+    await subscribeUserToResource(user.id, "Project", updated.projectId);
+  }
+  await emitChange({
+    actorId: user.id,
+    resourceType: "Todo",
+    resourceId: updated.id,
+    kind: "todo.updated",
+    title: "Todo updated",
+    body: `${user.name ?? "Someone"} updated: ${updated.title}`,
+    url: TODO_DETAIL_URL(updated.id),
+  });
+
   return NextResponse.json(serializeTodo(updated));
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const deleted = await tryPrisma(
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  await ensureUserRecord(user);
+  const deleted = await tryPrisma<{ id: string; title: string | null; projectId: string | null } | null>(
     (p) =>
       p.todo.delete({
         where: { id },
-        select: { id: true },
+        select: { id: true, title: true, projectId: true },
       }),
     null,
   );
@@ -204,5 +235,15 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
       }),
     null,
   );
+  await emitChange({
+    actorId: user.id,
+    resourceType: "Todo",
+    resourceId: deleted.id,
+    kind: "todo.deleted",
+    title: "Todo deleted",
+    body: `${user.name ?? "Someone"} deleted: ${deleted.title ?? "a todo"}`,
+    url: TODO_DETAIL_URL(deleted.id),
+  });
+
   return new NextResponse(null, { status: 204 });
 }
