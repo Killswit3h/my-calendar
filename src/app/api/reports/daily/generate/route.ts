@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     force?: boolean
     yardEmployees?: unknown
     noWorkEmployees?: unknown
+    note?: string | null
   } | null
   const date = normalizeYmd(body?.date || '') || ''
   const vendor = (body?.vendor ?? null) as string | null
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
   const noWorkEmployees = Array.isArray(body?.noWorkEmployees)
     ? body!.noWorkEmployees.map(v => String(v ?? '').trim()).filter(Boolean)
     : []
+  const note = typeof body?.note === 'string' ? body.note.trim() : ''
 
   const p = await getPrisma()
 
@@ -72,6 +74,10 @@ export async function POST(req: NextRequest) {
     const reportData = mapSnapshotToDailyReport(snapshot)
     if (yardEmployees.length) reportData.yardEmployees = yardEmployees
     if (noWorkEmployees.length) reportData.noWorkEmployees = noWorkEmployees
+    if (note) {
+      reportData.yardNote = note
+      reportData.noWorkNote = note
+    }
     const pdfBytes = await dailyTableToPdf(reportData)
     const pdfBuf = Buffer.from(pdfBytes)
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
