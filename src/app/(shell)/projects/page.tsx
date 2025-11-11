@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Loader2, Plus } from "lucide-react"
 
 import { useCreatePlan, usePlannerList } from "@/hooks/usePlannerApi"
@@ -10,8 +11,10 @@ type PlanSummary = { id: string; name: string; description?: string | null; colo
 
 export default function ProjectsLandingPage() {
   const { data, isLoading, error } = usePlannerList()
+  const router = useRouter()
   const createPlan = useCreatePlan()
   const plans = useMemo(() => (data?.plans as PlanSummary[]) ?? [], [data?.plans])
+  const hasPlans = plans.length > 0
 
   const [query, setQuery] = useState("")
   const [showCreate, setShowCreate] = useState(false)
@@ -24,6 +27,12 @@ export default function ProjectsLandingPage() {
       setShowCreate(true)
     }
   }, [isLoading, plans.length])
+
+  useEffect(() => {
+    if (!isLoading && !error && hasPlans) {
+      router.replace(`/projects/${plans[0].id}`)
+    }
+  }, [isLoading, error, hasPlans, plans, router])
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -50,6 +59,17 @@ export default function ProjectsLandingPage() {
     } catch (err: any) {
       setCreateError(err?.message ?? "Failed to create plan.")
     }
+  }
+
+  if (!isLoading && !error && hasPlans) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 py-10 text-neutral-200">
+        <div className="flex items-center gap-3 text-sm text-neutral-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Opening projects…
+        </div>
+      </main>
+    )
   }
 
   return (

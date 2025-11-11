@@ -23,6 +23,8 @@ export function renderDailyHTML(data: DailyReport): string {
 
   const yardList = Array.isArray(data.yardEmployees) ? data.yardEmployees.filter(Boolean) : []
   const noWorkList = Array.isArray(data.noWorkEmployees) ? data.noWorkEmployees.filter(Boolean) : []
+  const yardNote = typeof data.yardNote === 'string' ? data.yardNote.trim() : ''
+  const noWorkNote = typeof data.noWorkNote === 'string' ? data.noWorkNote.trim() : ''
 
   const bodyRows = (rows || []).map(r => {
     const vendorCls = vendorClass(r.vendor)
@@ -48,8 +50,7 @@ export function renderDailyHTML(data: DailyReport): string {
     return `<ul class="extra-list">${items.map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`
   }
 
-  const extras = (yardList.length || noWorkList.length)
-    ? `
+  const extras = `
   <div class="extras">
     <div class="extra-card">
       <div class="extra-title">Yard/Shop</div>
@@ -59,6 +60,13 @@ export function renderDailyHTML(data: DailyReport): string {
       <div class="extra-title">No Work</div>
       ${renderList(noWorkList)}
     </div>
+  </div>`
+
+  const notes = (yardNote || noWorkNote)
+    ? `
+  <div class="notes-card">
+    <div class="notes-title">Notes</div>
+    <div class="notes-body">${escapeHtml(yardNote || noWorkNote || '')}</div>
   </div>`
     : ''
 
@@ -105,6 +113,9 @@ export function renderDailyHTML(data: DailyReport): string {
   .extra-title { font-size: 10pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; }
   .extra-list { list-style: disc; padding-left: 14pt; margin: 0; font-size: 10pt; display: grid; gap: 2pt; }
   .extra-empty { font-size: 9pt; color: #666; }
+  .notes-card { margin-top: 16pt; border: 1pt solid #444; border-radius: 6pt; padding: 10pt; background: #f2f2f2; }
+  .notes-title { font-size: 10pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; }
+  .notes-body { font-size: 10pt; white-space: pre-wrap; color: #333; }
 </style>
 </head>
 <body>
@@ -128,6 +139,7 @@ export function renderDailyHTML(data: DailyReport): string {
     </tbody>
   </table>
   ${extras}
+  ${notes}
 </body>
 </html>`
 }
