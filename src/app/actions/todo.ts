@@ -13,7 +13,7 @@ export async function updateTodoTitle(todoId: string, title: string) {
     throw new Error('unauthorized')
   }
 
-  await ensureUserRecord({ id: user.id, name: user.name ?? null })
+  await ensureUserRecord({ id: userId, name: (session.user as any)?.name ?? null })
 
   const updated = await prisma.todo.update({
     where: { id: todoId },
