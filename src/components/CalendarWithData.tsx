@@ -1318,8 +1318,12 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
+  const [reportNote, setReportNote] = useState<string>('');
   const [payItemsDialog, setPayItemsDialog] = useState(false);
-  const closeReportPicker = useCallback(() => setReportPickerOpen(false), []);
+  const closeReportPicker = useCallback(() => {
+    setReportPickerOpen(false);
+    setReportNote('');
+  }, []);
   const closeHolidayDialog = useCallback(() => setHolidayDialog(false), []);
   const closeWeatherDialog = useCallback(() => setWeatherDialog(false), []);
   const closePayItemsDialog = useCallback(() => setPayItemsDialog(false), []);
@@ -1453,6 +1457,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             const m = String(now.getMonth() + 1).padStart(2, '0');
             const d = String(now.getDate()).padStart(2, '0');
             setReportDate(`${y}-${m}-${d}`);
+            setReportNote('');
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
           <button className="btn" onClick={() => setCutoffReportOpen(true)}>Generate Cut-Off Report</button>
@@ -1622,6 +1627,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <label><div className="label">Date</div>
                 <input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} />
               </label>
+              <label className="span-2">
+                <div className="label">Note (optional)</div>
+                <textarea
+                  value={reportNote}
+                  onChange={e => setReportNote(e.target.value)}
+                  rows={3}
+                  placeholder="This note will appear under Yard/Shop and No Work."
+                />
+              </label>
             </div>
             <div className="modal-actions">
               <button className="btn ghost" onClick={closeReportPicker}>Cancel</button>
@@ -1673,6 +1687,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                       force: true,
                       yardEmployees,
                       noWorkEmployees,
+                      note: reportNote.trim() || null,
                     }),
                   });
                   const j = await r.json();
