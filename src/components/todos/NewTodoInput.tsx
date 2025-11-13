@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type NewTodoInputProps = {
-  onSubmit(title: string): Promise<void> | void;
+  onSubmit(payload: { title: string; dueDate?: string | null; dueTime?: string | null }): Promise<void> | void;
   disabled?: boolean;
   placeholder?: string;
 };
@@ -14,14 +14,22 @@ export function NewTodoInput({ onSubmit, disabled, placeholder = "Add a task" }:
   const [value, setValue] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
 
   const handleSubmit = async () => {
     const title = value.trim();
     if (!title || loading) return;
     setLoading(true);
     try {
-      await onSubmit(title);
+      await onSubmit({
+        title,
+        dueDate: dueDate || null,
+        dueTime: dueTime || null,
+      });
       setValue("");
+      setDueDate("");
+      setDueTime("");
       setExpanded(false);
     } finally {
       setLoading(false);
@@ -46,6 +54,33 @@ export function NewTodoInput({ onSubmit, disabled, placeholder = "Add a task" }:
         data-testid="new-todo-input"
         className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-2 text-sm text-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
       />
+      {expanded ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
+          <label className="flex flex-col gap-1">
+            <span className="uppercase text-[0.6rem] tracking-wide text-white/40">Due date</span>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className="rounded-lg border border-border/60 bg-surface px-2 py-1 text-sm text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/30"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="uppercase text-[0.6rem] tracking-wide text-white/40">Due time</span>
+            <input
+              type="time"
+              value={dueTime}
+              onChange={(event) => setDueTime(event.target.value)}
+              disabled={!dueDate}
+              className={cn(
+                "rounded-lg border border-border/60 bg-surface px-2 py-1 text-sm text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/30",
+                !dueDate && "opacity-40",
+              )}
+            />
+          </label>
+          <span className="text-xs text-white/30">Leave time blank for all-day tasks.</span>
+        </div>
+      ) : null}
       <div className="mt-2 flex items-center justify-between text-xs text-white/40">
         <span>Press Enter to add · Shift+Enter for newline</span>
         <button
