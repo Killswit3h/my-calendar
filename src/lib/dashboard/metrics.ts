@@ -236,7 +236,7 @@ export const getActionQueueGroups = cache(async (): Promise<ActionQueueGroup[]> 
         take: 5,
       })
       .catch(() => []),
-    prisma.changeOrder
+    prisma.financeChangeOrder
       .findMany({
         orderBy: { updatedAt: 'desc' },
         take: 5,

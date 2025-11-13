@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { CalendarDays, Check, Copy, ListTodo, Star, Sun, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Clock3, Copy, ListTodo, Star, Sun, Trash2, X } from "lucide-react";
 import type { TodoItemModel, TodoListSummary, TodoStepModel } from "./types";
 import { SortableListItem } from "./TodoItem";
 import { cn } from "@/lib/cn";
@@ -367,42 +367,86 @@ type DuePickerProps = {
 
 function DuePicker({ label, value, onChange, withTime }: DuePickerProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const display = value
-    ? new Date(withTime ? `${value}:00` : `${value}T00:00:00`).toLocaleString(undefined, {
+  const datePart = value ? value.slice(0, 10) : "";
+  const timePart = value && withTime ? value.slice(11, 16) : "";
+  const [localTime, setLocalTime] = useState(timePart || "");
+  const displayDate = datePart
+    ? new Date(withTime ? value! : `${value}T00:00:00`).toLocaleString(undefined, {
         month: "short",
         day: "numeric",
         ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
       })
     : "Set";
 
+  useEffect(() => {
+    setLocalTime(timePart || "");
+  }, [timePart]);
+
   const open = () => {
     requestAnimationFrame(() => inputRef.current?.showPicker?.());
   };
 
+  const applyDateTime = (nextDate: string, nextTime?: string) => {
+    if (!withTime) {
+      onChange(`${nextDate}T00:00:00`);
+      return;
+    }
+    const timeValue = (nextTime ?? localTime) || "09:00";
+    const iso = new Date(`${nextDate}T${timeValue}`).toISOString();
+    onChange(iso);
+  };
+
+  const handleTimeChange = (raw: string) => {
+    if (!withTime) return;
+    setLocalTime(raw);
+    if (!raw) {
+      onChange(null);
+      return;
+    }
+    const dateValue = datePart || formatInTimeZone(new Date(), APP_TZ).date;
+    const iso = new Date(`${dateValue}T${raw}`).toISOString();
+    onChange(iso);
+  };
+
   return (
-    <div className="relative inline-flex">
-      <button
-        type="button"
-        onClick={open}
-        className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 transition hover:border-emerald-400 hover:text-emerald-200 bg-surface-soft/80"
-      >
-        <CalendarDays className="h-4 w-4" /> {label}: {display}
-      </button>
-      <input
-        ref={inputRef}
-        type={withTime ? "datetime-local" : "date"}
-        value={value ?? ""}
-        onChange={(event) => {
-          const raw = event.target.value;
-          if (!raw) {
-            onChange(null);
-            return;
-          }
-          onChange(raw);
-        }}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        data-testid={`${label.toLowerCase().replace(/\s+/g, '-')}-input`}
-      />
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative inline-flex">
+        <button
+          type="button"
+          onClick={open}
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-soft/80 px-3 py-1.5 transition hover:border-emerald-400 hover:text-emerald-200"
+        >
+          <CalendarDays className="h-4 w-4" /> {label}: {displayDate}
+        </button>
+        <input
+          ref={inputRef}
+          type="date"
+          value={datePart}
+          onChange={(event) => {
+            const raw = event.target.value;
+            if (!raw) {
+              onChange(null);
+              return;
+            }
+            applyDateTime(raw, withTime ? localTime : undefined);
+          }}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          data-testid={`${label.toLowerCase().replace(/\s+/g, "-")}-input`}
+        />
+      </div>
+      {withTime ? (
+        <label className="inline-flex items-center gap-3 rounded-full border border-border bg-surface-soft/80 px-3 py-1.5 text-sm text-white/80">
+          <Clock3 className="h-4 w-4" />
+          <span>Time</span>
+          <input
+            type="time"
+            value={localTime}
+            onChange={(event) => handleTimeChange(event.target.value)}
+            className="bg-transparent text-white outline-none"
+            step={300}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }
