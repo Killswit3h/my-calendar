@@ -1,4 +1,4 @@
-import type { ChangeOrder as ChangeOrderRecord } from '@prisma/client'
+import type { FinanceChangeOrder } from '@prisma/client'
 
 import { DataTable, type TableColumn } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -19,18 +19,18 @@ const columns: TableColumn<FinanceRow>[] = [
 
 export default async function FinanceChangeOrdersPage() {
   const useFixtures = process.env.PLAYWRIGHT_TEST === '1'
-  let changeOrdersDb: ChangeOrderRecord[] = []
+  let changeOrdersDb: FinanceChangeOrder[] = []
   if (!useFixtures) {
     const prisma = await getPrisma()
     try {
-      changeOrdersDb = await prisma.changeOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
+      changeOrdersDb = await prisma.financeChangeOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
     } catch {
       changeOrdersDb = []
     }
   }
 
   const rows: FinanceRow[] = changeOrdersDb.length
-    ? changeOrdersDb.map((order: ChangeOrderRecord): FinanceRow => {
+    ? changeOrdersDb.map((order: FinanceChangeOrder): FinanceRow => {
         const status = ['Draft', 'Pending', 'Approved'].includes(order.status)
           ? (order.status as FinanceFixture['status'])
           : ('Pending' as FinanceFixture['status'])

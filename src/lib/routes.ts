@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import {
   CalendarDays,
+  FileSpreadsheet,
   FileText,
   LayoutDashboard,
   LineChart,
@@ -24,6 +25,7 @@ export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'documents', label: 'Documents', href: '/documents', icon: FileText },
   { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart },
   { key: 'finance-jobs', label: 'Finance Jobs', href: '/finance/jobs', icon: LineChart },
+  { key: 'estimates', label: 'Estimates', href: '/estimates', icon: FileSpreadsheet },
   { key: 'employees', label: 'Employees', href: '/employees', icon: Users },
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
@@ -39,12 +41,12 @@ export const SHELL_NAV_GROUPS: NavGroup[] = [
   {
     key: 'work',
     label: 'Workspace',
-    items: SHELL_NAV_ITEMS.slice(0, 8),
+    items: SHELL_NAV_ITEMS.slice(0, 9),
   },
   {
     key: 'admin',
     label: 'Administration',
-    items: SHELL_NAV_ITEMS.slice(8),
+    items: SHELL_NAV_ITEMS.slice(9),
   },
 ]
 
