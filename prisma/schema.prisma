@@ -9,12 +9,12 @@ datasource db {
 }
 
 model Calendar {
-  id           String         @id
-  name         String
-  isPrivate    Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  Event        Event[]
-  ShareToken   ShareToken[]
+  id            String         @id
+  name          String
+  isPrivate     Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  Event         Event[]
+  ShareToken    ShareToken[]
   calendarTodos CalendarTodo[]
 }
 
@@ -30,7 +30,7 @@ model Certification {
   @@index([status, expiresOn], map: "Certification_status_expires_idx")
 }
 
-model ChangeOrder {
+model FinanceChangeOrder {
   id          String    @id
   project     String
   title       String
@@ -44,32 +44,35 @@ model ChangeOrder {
 }
 
 model Customer {
-  id        String   @id
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id        String     @id
+  name      String     @unique
+  createdAt DateTime   @default(now())
   updatedAt DateTime
   projects  Project[]
   events    Event[]
+  estimates Estimate[]
 }
 
 model Project {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  customerId  String
-  teamId      String?
-  updatedById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  team        Team?     @relation(fields: [teamId], references: [id])
-  updatedBy   User?     @relation("ProjectUpdatedBy", fields: [updatedById], references: [id])
-  events      Event[]
-  todos       Todo[]
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  customerId   String
+  teamId       String?
+  updatedById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now()) @updatedAt
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  team         Team?         @relation(fields: [teamId], references: [id])
+  updatedBy    User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id])
+  events       Event[]
+  todos        Todo[]
+  estimates    Estimate[]
+  changeOrders ChangeOrder[]
 
+  @@unique([name, customerId])
   @@index([customerId])
   @@index([teamId])
-  @@unique([name, customerId])
 }
 
 model DailyReportSnapshot {
@@ -80,6 +83,119 @@ model DailyReportSnapshot {
   createdAt   DateTime @default(now())
 
   @@index([reportDate, vendor])
+}
+
+model Estimate {
+  id            String             @id @default(cuid())
+  number        String             @unique
+  status        DocStatus          @default(DRAFT)
+  date          DateTime
+  customer      Customer           @relation(fields: [customerId], references: [id])
+  customerId    String
+  project       Project?           @relation(fields: [projectId], references: [id])
+  projectId     String?
+  attention     String?
+  shortDesc     String?
+  terms         String?
+  notes         String?
+  subtotalCents Int                @default(0)
+  discountCents Int                @default(0)
+  taxCents      Int                @default(0)
+  totalCents    Int                @default(0)
+  lineItems     EstimateLineItem[]
+  signatures    Signature[]
+  attachments   FileAttachment[]
+  createdById   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  changeOrders  ChangeOrder[]
+}
+
+model EstimateLineItem {
+  id          String   @id @default(cuid())
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  estimateId  String
+  sort        Int
+  description String
+  qty         Decimal  @db.Decimal(18, 6)
+  uom         String
+  rateCents   Int
+  totalCents  Int
+  taxable     Boolean  @default(false)
+  note        String?
+}
+
+model ChangeOrder {
+  id             String                @id @default(cuid())
+  number         String                @unique
+  status         DocStatus             @default(DRAFT)
+  date           DateTime
+  project        Project               @relation(fields: [projectId], references: [id])
+  projectId      String
+  baseEstimate   Estimate?             @relation(fields: [baseEstimateId], references: [id])
+  baseEstimateId String?
+  reason         String?
+  terms          String?
+  notes          String?
+  subtotalCents  Int                   @default(0)
+  discountCents  Int                   @default(0)
+  taxCents       Int                   @default(0)
+  totalCents     Int                   @default(0)
+  lineItems      ChangeOrderLineItem[]
+  signatures     Signature[]
+  attachments    FileAttachment[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model ChangeOrderLineItem {
+  id            String      @id @default(cuid())
+  changeOrder   ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  changeOrderId String
+  sort          Int
+  description   String
+  qty           Decimal     @db.Decimal(18, 6)
+  uom           String
+  rateCents     Int
+  totalCents    Int
+  taxable       Boolean     @default(false)
+  note          String?
+}
+
+model Signature {
+  id            String       @id @default(cuid())
+  docType       String
+  docId         String
+  signerName    String?
+  signerTitle   String?
+  accepted      Boolean      @default(false)
+  acceptedAt    DateTime?
+  type          String
+  dataUrl       String?
+  estimate      Estimate?    @relation(fields: [estimateId], references: [id])
+  estimateId    String?
+  changeOrder   ChangeOrder? @relation(fields: [changeOrderId], references: [id])
+  changeOrderId String?
+}
+
+model FileAttachment {
+  id            String       @id @default(cuid())
+  docType       String
+  docId         String
+  filename      String
+  url           String
+  size          Int
+  uploadedAt    DateTime     @default(now())
+  estimate      Estimate?    @relation(fields: [estimateId], references: [id])
+  estimateId    String?
+  changeOrder   ChangeOrder? @relation(fields: [changeOrderId], references: [id])
+  changeOrderId String?
+}
+
+model DocCounter {
+  key     String   @id
+  value   Int      @default(0)
+  updated DateTime @updatedAt
 }
 
 model Event {
@@ -422,28 +538,28 @@ model TodoList {
 }
 
 model Todo {
-  id               String     @id @default(cuid())
-  title            String
-  note             String?
-  isCompleted      Boolean    @default(false)
-  isImportant      Boolean    @default(false)
-  myDay            Boolean    @default(false)
-  dueAt            DateTime?  @db.Timestamptz(6)
-  allDay           Boolean    @default(false)
-  dueDate          String?    @db.VarChar(10)
-  remindAt         DateTime?  @db.Timestamptz(6)
-  reminderEnabled  Boolean    @default(false)
-  reminderOffsets  Json?
-  lastNotifiedAt   DateTime?  @db.Timestamptz(6)
-  repeatRule       String?
-  position         Int        @default(0)
-  projectId        String?
-  updatedById      String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  note            String?
+  isCompleted     Boolean   @default(false)
+  isImportant     Boolean   @default(false)
+  myDay           Boolean   @default(false)
+  dueAt           DateTime? @db.Timestamptz(6)
+  allDay          Boolean   @default(false)
+  dueDate         String?   @db.VarChar(10)
+  remindAt        DateTime? @db.Timestamptz(6)
+  reminderEnabled Boolean   @default(false)
+  reminderOffsets Json?
+  lastNotifiedAt  DateTime? @db.Timestamptz(6)
+  repeatRule      String?
+  position        Int       @default(0)
+  projectId       String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  listId String
-  list   TodoList @relation(fields: [listId], references: [id])
+  listId    String
+  list      TodoList @relation(fields: [listId], references: [id])
   project   Project? @relation(fields: [projectId], references: [id])
   updatedBy User?    @relation("TodoUpdatedBy", fields: [updatedById], references: [id])
 
@@ -469,16 +585,16 @@ model TodoStep {
 }
 
 model Reminder {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
   entityType String
   entityId   String
-  fireAt     DateTime @db.Timestamptz(6)
+  fireAt     DateTime  @db.Timestamptz(6)
   channel    String
-  status     String   @default("pending")
+  status     String    @default("pending")
   lastSentAt DateTime? @db.Timestamptz(6)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([userId, entityType, entityId])
   @@index([fireAt, status, channel])
@@ -589,29 +705,29 @@ model fdot_cutoffs {
 }
 
 model User {
-  id                  String                     @id @default(cuid())
-  email               String?                    @unique
-  name                String?
-  image               String?
-  memberships         Membership[]
-  notificationSubs    NotificationSubscription[]
-  resourceSubs        ResourceSubscription[]
-  notifications       Notification[]             @relation("UserNotifications")
-  auditLogs           AuditLog[]
-  notificationPrefs   NotificationPreference?
-  updatedProjects     Project[]                  @relation("ProjectUpdatedBy")
-  updatedTodos        Todo[]                     @relation("TodoUpdatedBy")
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
+  id                String                     @id @default(cuid())
+  email             String?                    @unique
+  name              String?
+  image             String?
+  memberships       Membership[]
+  notificationSubs  NotificationSubscription[]
+  resourceSubs      ResourceSubscription[]
+  notifications     Notification[]             @relation("UserNotifications")
+  auditLogs         AuditLog[]
+  notificationPrefs NotificationPreference?
+  updatedProjects   Project[]                  @relation("ProjectUpdatedBy")
+  updatedTodos      Todo[]                     @relation("TodoUpdatedBy")
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 }
 
 model Team {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   memberships Membership[]
   projects    Project[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Membership {
@@ -635,8 +751,8 @@ model Notification {
   resourceId   String
   actorId      String?
   readAt       DateTime?
-  createdAt    DateTime   @default(now())
-  user         User       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  user         User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model NotificationSubscription {
@@ -704,6 +820,15 @@ enum PlacementType {
   NO_WORK
 }
 
+enum DocStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  INVOICED
+}
+
 enum EventType {
   GUARDRAIL
   FENCE
@@ -759,17 +884,17 @@ enum WorkShift {
 /// === Planner namespace: add below your existing models ===
 
 model PlannerPlan {
-  id          String            @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
-  color       String?           // hex accent for header
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  color       String? // hex accent for header
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  buckets     PlannerBucket[]
-  tasks       PlannerTask[]   // convenience
-  labels      PlannerLabel[]
-  activity    PlannerActivity[]
+  buckets  PlannerBucket[]
+  tasks    PlannerTask[] // convenience
+  labels   PlannerLabel[]
+  activity PlannerActivity[]
 }
 
 model PlannerBucket {
@@ -777,17 +902,17 @@ model PlannerBucket {
   planId    String
   name      String
   order     Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  plan      PlannerPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
-  tasks     PlannerTask[]
+  plan  PlannerPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tasks PlannerTask[]
 
   @@index([planId, order])
 }
 
 model PlannerTask {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   planId      String
   bucketId    String
   title       String
@@ -798,11 +923,11 @@ model PlannerTask {
   dueAt       DateTime?
   completedAt DateTime?
   order       Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
-  plan        PlannerPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
-  bucket      PlannerBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  plan   PlannerPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  bucket PlannerBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
 
   labels      PlannerTaskLabelOnTask[]
   assignees   PlannerTaskAssignment[]
@@ -828,12 +953,12 @@ enum PlannerTaskProgress {
 }
 
 model PlannerLabel {
-  id      String @id @default(cuid())
-  planId  String
-  name    String
-  color   String
-  plan    PlannerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  tasks   PlannerTaskLabelOnTask[]
+  id     String                   @id @default(cuid())
+  planId String
+  name   String
+  color  String
+  plan   PlannerPlan              @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tasks  PlannerTaskLabelOnTask[]
 
   @@unique([planId, name])
 }
@@ -848,7 +973,7 @@ model PlannerTaskLabelOnTask {
 }
 
 model PlannerTaskAssignment {
-  id     String @id @default(cuid())
+  id     String      @id @default(cuid())
   taskId String
   userId String
   task   PlannerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -857,42 +982,42 @@ model PlannerTaskAssignment {
 }
 
 model PlannerChecklistItem {
-  id     String @id @default(cuid())
+  id     String      @id @default(cuid())
   taskId String
   title  String
-  done   Boolean @default(false)
+  done   Boolean     @default(false)
   order  Int
   task   PlannerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model PlannerAttachment {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   taskId    String
   name      String
   url       String
   mimeType  String?
   sizeBytes Int?
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   task      PlannerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model PlannerComment {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   taskId    String
   userId    String
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   task      PlannerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model PlannerActivity {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   planId    String
   taskId    String?
   userId    String
-  type      String   // "TASK_CREATED","MOVED_BUCKET","UPDATED_TITLE", etc.
+  type      String // "TASK_CREATED","MOVED_BUCKET","UPDATED_TITLE", etc.
   meta      Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
   plan      PlannerPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
   task      PlannerTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
