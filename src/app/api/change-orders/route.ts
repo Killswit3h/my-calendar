@@ -1,46 +1,110 @@
-import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 
-import { getPrisma } from '@/lib/db'
+import { prisma } from '@/lib/db'
+import { ChangeOrderCreateInput, ChangeOrderQuery } from '@/lib/dto'
+import { nextChangeOrderNumber } from '@/lib/docNumbers'
+import { recomputeFromLines } from '@/lib/calc'
+import { emitChange } from '@/lib/notifications'
 
-const createSchema = z.object({
-  project: z.string().min(1),
-  title: z.string().min(1),
-  amount: z.number().optional().nullable(),
-  status: z.string().min(1),
-  submittedAt: z.string().optional().nullable(),
-})
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url)
+  const parsed = ChangeOrderQuery.safeParse({
+    customerId: url.searchParams.get('customerId') || undefined,
+    projectId: url.searchParams.get('projectId') || undefined,
+    status: url.searchParams.get('status') || undefined,
+    q: url.searchParams.get('q') || undefined,
+    page: url.searchParams.get('page') || undefined,
+    pageSize: url.searchParams.get('pageSize') || undefined,
+  })
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
+  }
+  const { customerId, projectId, status, q, page, pageSize } = parsed.data
+  const where: any = {}
+  if (projectId) where.projectId = projectId
+  if (status) where.status = status
+  if (q) {
+    where.OR = [
+      { number: { contains: q, mode: 'insensitive' } },
+      { reason: { contains: q, mode: 'insensitive' } },
+      { notes: { contains: q, mode: 'insensitive' } },
+    ]
+  }
+  if (customerId) {
+    where.project = { customerId }
+  }
 
-export const runtime = 'nodejs'
-export const revalidate = 0
+  const [items, total] = await prisma.$transaction([
+    prisma.changeOrder.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        date: true,
+        projectId: true,
+        baseEstimateId: true,
+        reason: true,
+        totalCents: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.changeOrder.count({ where }),
+  ])
 
-export async function GET() {
-  const prisma = await getPrisma()
-  const items = await prisma.changeOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
-  return NextResponse.json({ items })
+  return NextResponse.json({ items, total, page, pageSize })
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = createSchema.parse(await req.json())
-    const prisma = await getPrisma()
-    const created = await prisma.changeOrder.create({
-      data: {
-        id: randomUUID(),
-        project: body.project,
-        title: body.title,
-        amount: body.amount ?? null,
-        status: body.status,
-        submittedAt: body.submittedAt ? new Date(body.submittedAt) : null,
-      },
-    })
-    return NextResponse.json({ item: created }, { status: 201 })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', issues: error.issues }, { status: 400 })
-    }
-    console.error(error)
-    return NextResponse.json({ error: 'Unable to create change order' }, { status: 500 })
+  const body = await req.json().catch(() => null)
+  const parsed = ChangeOrderCreateInput.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
   }
+
+  const dto = parsed.data
+  const number = await nextChangeOrderNumber()
+  const { lineTotals, subtotalCents, totalCents } = recomputeFromLines(dto.lineItems, dto.discountCents, dto.taxCents)
+
+  const created = await prisma.changeOrder.create({
+    data: {
+      number,
+      status: 'DRAFT',
+      date: new Date(dto.date as any),
+      projectId: dto.projectId,
+      baseEstimateId: dto.baseEstimateId ?? null,
+      reason: dto.reason ?? null,
+      terms: dto.terms ?? null,
+      notes: dto.notes ?? null,
+      subtotalCents,
+      discountCents: dto.discountCents,
+      taxCents: dto.taxCents,
+      totalCents,
+      lineItems: {
+        create: dto.lineItems.map((line, index) => ({
+          sort: line.sort,
+          description: line.description,
+          qty: String(line.qty),
+          uom: line.uom,
+          rateCents: line.rateCents,
+          totalCents: lineTotals[index],
+          taxable: line.taxable ?? false,
+          note: line.note ?? null,
+        })),
+      },
+    },
+    select: { id: true, number: true, projectId: true },
+  })
+
+  await emitChange({
+    type: 'changeOrder.created',
+    id: created.id,
+    projectId: created.projectId,
+    number,
+  })
+
+  return NextResponse.json(created, { status: 201 })
 }

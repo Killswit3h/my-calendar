@@ -59,6 +59,8 @@ type TodoCreatePayload = {
   myDay?: boolean;
   isImportant?: boolean;
   dueAt?: string | null;
+  dueDate?: string | null;
+  allDay?: boolean;
 };
 
 type TodoUpdatePayload = Partial<Omit<TodoItemModel, "id" | "steps" | "createdAt" | "updatedAt">> & {
@@ -539,7 +541,7 @@ export default function TodosApp() {
   }, [filteredTodos, processedPlannedGroups]);
 
   const handleCreateTodo = useCallback(
-    async (title: string) => {
+    async ({ title, dueDate, dueTime }: { title: string; dueDate?: string | null; dueTime?: string | null }) => {
       const targetListId =
         activeView.type === "list"
           ? activeView.id
@@ -547,11 +549,27 @@ export default function TodosApp() {
             ? tasksList?.id ?? lists.find((list) => !list.isSmart)?.id
             : tasksList?.id;
       if (!targetListId) return;
+      let dueAt: string | null = null;
+      let allDay: boolean | undefined;
+      let dueDateValue: string | null = null;
+      if (dueDate) {
+        if (dueTime) {
+          const asIso = new Date(`${dueDate}T${dueTime}`).toISOString();
+          dueAt = asIso;
+          allDay = false;
+        } else {
+          dueDateValue = dueDate;
+          allDay = true;
+        }
+      }
       const created = await createTodo({
         title,
         listId: targetListId,
         myDay: activeView.type === "smart" && activeView.key === "myday",
         isImportant: activeView.type === "smart" && activeView.key === "important",
+        dueAt,
+        dueDate: dueDateValue,
+        allDay,
       });
       setSelectedId(created.id);
     },
