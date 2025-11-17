@@ -33,8 +33,14 @@ const queryClient = new QueryClient({
 })
 
 function MuiBridge({ accent, children }: { accent: Accent; children: React.ReactNode }) {
-  const { resolvedTheme } = useNextTheme()
-  const mode = resolvedTheme === 'light' || resolvedTheme === 'dark' ? resolvedTheme : 'light'
+  const { resolvedTheme, setTheme } = useNextTheme()
+  const mode = resolvedTheme === 'light' || resolvedTheme === 'dark' ? resolvedTheme : 'dark'
+
+  useEffect(() => {
+    if (!resolvedTheme) {
+      setTheme('dark')
+    }
+  }, [resolvedTheme, setTheme])
   const theme = useMemo(() => createAppTheme(accent, mode), [accent, mode])
 
   useEffect(() => {
