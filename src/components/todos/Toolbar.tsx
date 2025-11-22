@@ -19,7 +19,7 @@ type ToolbarProps = {
 };
 
 const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
-  { value: "my-order", label: "My order" },
+  { value: "manual", label: "Manual (drag & drop)" },
   { value: "importance", label: "Importance" },
   { value: "due-date", label: "Due date" },
   { value: "alphabetical", label: "Alphabetical" },

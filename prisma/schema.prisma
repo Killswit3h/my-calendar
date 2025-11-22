@@ -532,6 +532,8 @@ model TodoList {
   icon      String?
   position  Int      @default(0)
   isSmart   Boolean  @default(false)
+  notificationEmail String?
+  notifyOnNewTask   Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   todos     Todo[]
@@ -553,6 +555,7 @@ model Todo {
   lastNotifiedAt  DateTime? @db.Timestamptz(6)
   repeatRule      String?
   position        Int       @default(0)
+  sortOrder       Int       @default(0)
   projectId       String?
   updatedById     String?
   createdAt       DateTime  @default(now())
@@ -568,6 +571,7 @@ model Todo {
   @@index([dueAt], map: "Todo_dueAt_idx")
   @@index([isImportant], map: "Todo_isImportant_idx")
   @@index([listId, position], map: "Todo_listId_position_idx")
+  @@index([listId, sortOrder], map: "Todo_listId_sortOrder_idx")
   @@index([myDay], map: "Todo_myDay_idx")
   @@index([projectId])
 }

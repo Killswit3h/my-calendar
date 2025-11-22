@@ -26,6 +26,7 @@ export type TodoItemModel = {
   reminderEnabled: boolean;
   reminderOffsets: number[];
   lastNotifiedAt: string | null;
+  sortOrder: number;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -47,7 +48,9 @@ export type TodoListSummary = {
   position: number;
   isSmart: boolean;
   incompleteCount: number;
+  notificationEmail: string | null;
+  notifyOnNewTask: boolean;
 };
 
-export type SortOption = "my-order" | "importance" | "due-date" | "alphabetical" | "created";
+export type SortOption = "manual" | "importance" | "due-date" | "alphabetical" | "created";
 export type GroupOption = "none" | "due-date";
