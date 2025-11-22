@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { subscribeUserToResource } from '@/lib/subscribe'
 import { emitChange } from '@/lib/notify'

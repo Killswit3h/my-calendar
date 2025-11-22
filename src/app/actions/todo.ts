@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 import { getServerSession } from '@/lib/auth'
 import { emitChange } from '@/lib/notify'
 import { subscribeUserToResource } from '@/lib/subscribe'

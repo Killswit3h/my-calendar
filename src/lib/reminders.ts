@@ -1,5 +1,5 @@
 // src/lib/reminders.ts
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 
 export type ReminderEntityType = 'event' | 'todo'
 

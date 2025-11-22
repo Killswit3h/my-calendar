@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     (p) =>
       p.todoList.findUnique({
         where: { id },
-        select: { id: true, name: true, color: true, icon: true, isSmart: true },
+        select: { id: true, name: true, color: true, icon: true, isSmart: true, notificationEmail: true, notifyOnNewTask: true },
       }),
     null as {
       id: string;
@@ -41,6 +41,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       color: string | null;
       icon: string | null;
       isSmart: boolean;
+      notificationEmail: string | null;
+      notifyOnNewTask: boolean;
     } | null,
   );
 
@@ -49,6 +51,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const updates: Record<string, any> = {};
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizeEmail = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return EMAIL_RE.test(trimmed) ? trimmed : null;
+  };
+
   if ((body as any).name !== undefined) {
     if (list.isSmart) {
       return NextResponse.json({ error: "cannot_rename_smart_list" }, { status: 400 });
@@ -65,6 +75,25 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ((body as any).icon !== undefined) {
     updates.icon = typeof (body as any).icon === "string" ? (body as any).icon.trim() || null : null;
   }
+  if ((body as any).notificationEmail !== undefined || (body as any).notifyOnNewTask !== undefined) {
+    if (list.isSmart) {
+      return NextResponse.json({ error: "cannot_configure_notifications_for_smart_list" }, { status: 400 });
+    }
+    const emailValue =
+      (body as any).notificationEmail === null
+        ? null
+        : normalizeEmail((body as any).notificationEmail ?? list.notificationEmail);
+    const notifyValue =
+      (body as any).notifyOnNewTask !== undefined ? Boolean((body as any).notifyOnNewTask) : list.notifyOnNewTask;
+    if (emailValue === null && typeof (body as any).notificationEmail === "string" && (body as any).notificationEmail.trim()) {
+      return NextResponse.json({ error: "invalid_notification_email" }, { status: 422 });
+    }
+    if (notifyValue && !emailValue) {
+      return NextResponse.json({ error: "notification_email_required" }, { status: 422 });
+    }
+    updates.notificationEmail = emailValue;
+    updates.notifyOnNewTask = notifyValue;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(list);
@@ -75,7 +104,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       p.todoList.update({
         where: { id },
         data: updates,
-        select: { id: true, name: true, color: true, icon: true, position: true, isSmart: true },
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          icon: true,
+          position: true,
+          isSmart: true,
+          notificationEmail: true,
+          notifyOnNewTask: true,
+        },
       }),
     null,
   );

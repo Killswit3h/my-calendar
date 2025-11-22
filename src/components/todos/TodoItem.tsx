@@ -1,9 +1,10 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Star, Trash2 } from "lucide-react";
+import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
+import { GripVertical, Star, Trash2 } from "lucide-react";
 import type { TodoItemModel } from "./types";
 import { cn } from "@/lib/cn";
 import { APP_TZ, formatInTimeZone } from "@/lib/timezone";
@@ -72,6 +73,10 @@ type TodoItemProps = {
   onToggleComplete(todo: TodoItemModel, value: boolean): void;
   onToggleImportant(todo: TodoItemModel, value: boolean): void;
   onDelete(todo: TodoItemModel): void;
+  manualSortActive: boolean;
+  manualReorderEnabled: boolean;
+  onRequestManualSort?: () => void;
+  dragHandleProps?: DraggableProvidedDragHandleProps;
 };
 
 export default function TodoItem({
@@ -81,8 +86,21 @@ export default function TodoItem({
   onToggleComplete,
   onToggleImportant,
   onDelete,
+  manualSortActive,
+  manualReorderEnabled,
+  onRequestManualSort,
+  dragHandleProps,
 }: TodoItemProps) {
   const dueLabel = formatDueLabel(todo);
+  const showHandle = manualReorderEnabled;
+  const draggableHandleProps = manualSortActive && dragHandleProps ? dragHandleProps : undefined;
+  const handleClick = !manualSortActive
+    ? (event: MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onRequestManualSort?.();
+      }
+    : undefined;
 
   return (
     <div
@@ -148,6 +166,22 @@ export default function TodoItem({
         >
           <Trash2 className="h-4 w-4" />
         </button>
+        {showHandle ? (
+          <button
+            type="button"
+            className={cn(
+              "hidden rounded-full border border-border/60 p-2 text-white/40 transition sm:flex",
+              manualSortActive
+                ? "cursor-grab hover:border-emerald-400 hover:text-emerald-200"
+                : "opacity-60 hover:text-white/80",
+            )}
+            aria-label={manualSortActive ? "Drag to reorder" : "Switch to manual sort to reorder"}
+            {...draggableHandleProps}
+            onClick={handleClick}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
     </div>
   );

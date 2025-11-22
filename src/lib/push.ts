@@ -1,5 +1,5 @@
 // src/lib/push.ts
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 import { getWebpush } from '@/lib/webpush'
 
 type PushPayload = {
