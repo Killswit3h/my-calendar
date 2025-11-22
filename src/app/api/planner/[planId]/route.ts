@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import prisma from '@/src/lib/db';
+import prisma from '@/lib/db';
 
 const planSelect = {
   id: true,

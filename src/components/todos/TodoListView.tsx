@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Sparkles } from "lucide-react";
 import TodoItem from "./TodoItem";
-import type { ActiveView, PlannedGroup, TodoItemModel } from "./types";
+import type { ActiveView, PlannedGroup, SortOption, TodoItemModel } from "./types";
 import { cn } from "@/lib/cn";
 import { APP_TZ, formatInTimeZone } from "@/lib/timezone";
 
@@ -16,12 +17,16 @@ type TodoListViewProps = {
   suggestions?: TodoItemModel[];
   loading?: boolean;
   selectedId: string | null;
+  sort: SortOption;
+  manualReorderEnabled?: boolean;
   onSelect(todo: TodoItemModel): void;
   onToggleComplete(todo: TodoItemModel, value: boolean): void;
   onToggleImportant(todo: TodoItemModel, value: boolean): void;
   onToggleMyDay(todo: TodoItemModel, value: boolean): void;
   onUpdateSchedule(todo: TodoItemModel, next: { allDay: boolean; dueAt: string | null; dueDate: string | null }): void;
   onDelete(todo: TodoItemModel): void;
+  onManualSortRequest?(): void;
+  onManualReorder?(ordered: TodoItemModel[]): void;
 };
 
 export default function TodoListView({
@@ -31,14 +36,19 @@ export default function TodoListView({
   suggestions,
   loading,
   selectedId,
+  sort,
+  manualReorderEnabled = false,
   onSelect,
   onToggleComplete,
   onToggleImportant,
   onToggleMyDay,
   onUpdateSchedule,
   onDelete,
+  onManualSortRequest,
+  onManualReorder,
 }: TodoListViewProps) {
-  const canDrag = !groups || groups.length === 0;
+  const manualModeActive = sort === "manual";
+  const allowManualDnd = manualModeActive && manualReorderEnabled && (!groups || groups.length === 0);
 
   const suggestionList = useMemo(() => suggestions?.slice(0, SUGGEST_LIMIT) ?? [], [suggestions]);
   const selectedTodo = useMemo(() => {
@@ -61,6 +71,20 @@ export default function TodoListView({
     const { date, time } = formatInTimeZone(target, APP_TZ);
     onUpdateSchedule(selectedTodo, { allDay: false, dueAt: `${date}T${time.slice(0, 5)}`, dueDate: null });
   };
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!allowManualDnd) return;
+      const { destination, source } = result;
+      if (!destination) return;
+      if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+      const ordered = Array.from(todos);
+      const [moved] = ordered.splice(source.index, 1);
+      ordered.splice(destination.index, 0, moved);
+      onManualReorder?.(ordered);
+    },
+    [allowManualDnd, onManualReorder, todos],
+  );
 
   return (
     <div className="flex-1 overflow-y-auto bg-surface-soft">
@@ -115,28 +139,8 @@ export default function TodoListView({
                 <span>{group.label}</span>
                 <span>{group.items.length}</span>
               </header>
-                <div className="space-y-2">
-                  {group.items.map((todo) => (
-                    <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    selected={selectedId === todo.id}
-                    onSelect={onSelect}
-                    onToggleComplete={onToggleComplete}
-                    onToggleImportant={onToggleImportant}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
-        ) : (
-          <>
-            {todos.length === 0 ? (
-              <EmptyState activeView={activeView} />
-            ) : (
               <div className="space-y-2">
-                {todos.map((todo) => (
+                {group.items.map((todo) => (
                   <TodoItem
                     key={todo.id}
                     todo={todo}
@@ -145,11 +149,67 @@ export default function TodoListView({
                     onToggleComplete={onToggleComplete}
                     onToggleImportant={onToggleImportant}
                     onDelete={onDelete}
+                    manualSortActive={false}
+                    manualReorderEnabled={false}
+                    onRequestManualSort={onManualSortRequest}
                   />
                 ))}
               </div>
-            )}
-          </>
+            </section>
+          ))
+        ) : todos.length === 0 ? (
+          <EmptyState activeView={activeView} />
+        ) : allowManualDnd ? (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="todo-manual-list">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
+                  {todos.map((todo, index) => (
+                    <Draggable key={todo.id} draggableId={todo.id} index={index} isDragDisabled={!allowManualDnd}>
+                      {(dragProvided, snapshot) => (
+                        <div
+                          ref={dragProvided.innerRef}
+                          {...dragProvided.draggableProps}
+                          className={cn(snapshot.isDragging ? "opacity-90" : undefined)}
+                        >
+                          <TodoItem
+                            todo={todo}
+                            selected={selectedId === todo.id}
+                            onSelect={onSelect}
+                            onToggleComplete={onToggleComplete}
+                            onToggleImportant={onToggleImportant}
+                            onDelete={onDelete}
+                            manualSortActive={manualModeActive}
+                            manualReorderEnabled={manualReorderEnabled}
+                            dragHandleProps={dragProvided.dragHandleProps ?? undefined}
+                            onRequestManualSort={onManualSortRequest}
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        ) : (
+          <div className="space-y-2">
+            {todos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                selected={selectedId === todo.id}
+                onSelect={onSelect}
+                onToggleComplete={onToggleComplete}
+                onToggleImportant={onToggleImportant}
+                onDelete={onDelete}
+                manualSortActive={manualModeActive}
+                manualReorderEnabled={manualReorderEnabled}
+                onRequestManualSort={onManualSortRequest}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

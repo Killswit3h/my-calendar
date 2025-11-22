@@ -49,7 +49,7 @@ type SidebarProps = {
   onSelect(view: ActiveView): void;
   onCreateList(data: { name: string; color?: string | null; icon?: string | null }): Promise<void>;
   onRenameList(id: string, name: string): Promise<void>;
-  onUpdateList(id: string, data: { color?: string | null; icon?: string | null }): Promise<void>;
+  onUpdateList(id: string, data: { color?: string | null; icon?: string | null; notificationEmail?: string | null; notifyOnNewTask?: boolean }): Promise<void>;
   onDeleteList(id: string): Promise<void>;
   onReorderLists(ids: string[]): Promise<void>;
 };
@@ -267,6 +267,9 @@ export default function Sidebar({
                     onUpdateColor={async (color) => {
                       await onUpdateList(list.id, { color });
                     }}
+                  onUpdateNotifications={async (data) => {
+                    await onUpdateList(list.id, data);
+                  }}
                     onDelete={() => onDeleteList(list.id)}
                     editing={selectedEditingId === list.id}
                     onToggleEdit={() =>
@@ -290,6 +293,7 @@ type SidebarListItemProps = {
   onSelect(): void;
   onRename(name: string): Promise<void>;
   onUpdateColor(color: string | null): Promise<void>;
+  onUpdateNotifications(data: { notificationEmail: string | null; notifyOnNewTask: boolean }): Promise<void>;
   onDelete(): Promise<void>;
   onToggleEdit(): void;
 };
@@ -301,15 +305,24 @@ function SidebarListItem({
   onSelect,
   onRename,
   onUpdateColor,
+  onUpdateNotifications,
   onDelete,
   onToggleEdit,
 }: SidebarListItemProps) {
   const [name, setName] = useState(list.name);
+  const [notificationEmail, setNotificationEmail] = useState(list.notificationEmail ?? "");
+  const [notifyOnNewTask, setNotifyOnNewTask] = useState(list.notifyOnNewTask);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setName(list.name);
   }, [list.name]);
+
+  useEffect(() => {
+    setNotificationEmail(list.notificationEmail ?? "");
+    setNotifyOnNewTask(list.notifyOnNewTask);
+  }, [list.notificationEmail, list.notifyOnNewTask]);
 
   const handleSubmit = async () => {
     if (saving) return;
@@ -319,9 +332,33 @@ function SidebarListItem({
       onToggleEdit();
       return;
     }
+    const normalizedEmail = notificationEmail.trim();
+    if (notifyOnNewTask && !normalizedEmail) {
+      setNotificationError("Email required to send notifications.");
+      return;
+    }
+    if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setNotificationError("Enter a valid email address.");
+      return;
+    }
+    setNotificationError(null);
     setSaving(true);
-    await onRename(trimmed);
-    setSaving(false);
+    try {
+      if (trimmed !== list.name) {
+        await onRename(trimmed);
+      }
+      if (
+        normalizedEmail !== (list.notificationEmail ?? "") ||
+        notifyOnNewTask !== list.notifyOnNewTask
+      ) {
+        await onUpdateNotifications({
+          notificationEmail: normalizedEmail ? normalizedEmail : null,
+          notifyOnNewTask,
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -397,11 +434,39 @@ function SidebarListItem({
                 Clear
               </button>
             </div>
+            <div className="space-y-2 pt-2">
+              <label className="block text-xs font-semibold uppercase text-white/60">
+                Notification email
+              </label>
+              <input
+                type="email"
+                value={notificationEmail}
+                onChange={(event) => {
+                  setNotificationEmail(event.target.value);
+                  setNotificationError(null);
+                }}
+                placeholder="name@company.com"
+                className="w-full rounded-md border border-border bg-surface-soft px-2 py-1 text-sm text-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40"
+              />
+              {notificationError ? (
+                <p className="text-xs text-red-400">{notificationError}</p>
+              ) : null}
+              <label className="flex items-center gap-2 text-white/80">
+                <input
+                  type="checkbox"
+                  checked={notifyOnNewTask}
+                  onChange={(event) => setNotifyOnNewTask(event.target.checked)}
+                  className="h-4 w-4 rounded border border-border bg-black/50 text-emerald-500 focus:ring-emerald-400"
+                />
+                <span>Email me when new tasks are added</span>
+              </label>
+            </div>
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-black hover:bg-emerald-400"
+                className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-black hover:bg-emerald-400 disabled:opacity-70"
+                disabled={saving}
               >
                 Save
               </button>
@@ -409,6 +474,9 @@ function SidebarListItem({
                 type="button"
                 onClick={() => {
                   setName(list.name);
+                  setNotificationEmail(list.notificationEmail ?? "");
+                  setNotifyOnNewTask(list.notifyOnNewTask);
+                  setNotificationError(null);
                   onToggleEdit();
                 }}
                 className="rounded-md px-3 py-1 text-xs text-white/70 hover:text-white"
