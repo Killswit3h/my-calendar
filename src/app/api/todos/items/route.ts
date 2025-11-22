@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/session";
 import { subscribeUserToResource } from "@/lib/subscribe";
 import { emitChange } from "@/lib/notify";
 import { ensureUserRecord } from "@/lib/users";
+import { sendTodoNotificationEmail } from "@/lib/mailer";
 
 type TodoPayload = {
   id: string;
@@ -27,6 +28,7 @@ type TodoPayload = {
   reminderEnabled: boolean;
   reminderOffsets: number[];
   lastNotifiedAt: string | null;
+  sortOrder: number;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +58,7 @@ function serializeTodo(todo: any): TodoPayload {
     reminderEnabled: !!todo.reminderEnabled,
     reminderOffsets: parseReminderOffsets(todo.reminderOffsets ?? []),
     lastNotifiedAt: todo.lastNotifiedAt ? new Date(todo.lastNotifiedAt).toISOString() : null,
+    sortOrder: todo.sortOrder ?? 0,
     position: todo.position,
     createdAt: todo.createdAt.toISOString(),
     updatedAt: todo.updatedAt.toISOString(),
@@ -175,7 +178,7 @@ export async function GET(req: NextRequest) {
       p.todo.findMany({
         where,
         include: { steps: { orderBy: { position: "asc" } } },
-        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        orderBy: [{ sortOrder: "asc" }, { position: "asc" }, { createdAt: "asc" }],
       }),
     [] as any[],
   );
@@ -260,10 +263,10 @@ export async function POST(req: NextRequest) {
   const created = await tryPrisma(
     async (p) => {
       const aggregate = await p.todo.aggregate({
-        _max: { position: true },
+        _max: { sortOrder: true },
         where: { listId },
       });
-      const position = (aggregate._max.position ?? -1) + 1;
+      const nextSortOrder = (aggregate._max.sortOrder ?? -10) + 10;
       return p.todo.create({
         data: {
           title: rawTitle,
@@ -278,11 +281,17 @@ export async function POST(req: NextRequest) {
           reminderEnabled,
           reminderOffsets: reminderEnabled ? reminderOffsets : [],
           listId,
-          position,
+          position: nextSortOrder,
+          sortOrder: nextSortOrder,
           projectId: projectId ?? undefined,
           updatedById: user.id,
         },
-        include: { steps: { orderBy: { position: "asc" } } },
+        include: {
+          steps: { orderBy: { position: "asc" } },
+          list: {
+            select: { id: true, name: true, notificationEmail: true, notifyOnNewTask: true },
+          },
+        },
       });
     },
     null,
@@ -305,6 +314,18 @@ export async function POST(req: NextRequest) {
     body: `${user.name ?? "Someone"} created: ${created.title}`,
     url: TODO_DETAIL_URL(created.id),
   });
+
+  if (created.list?.notifyOnNewTask && created.list.notificationEmail) {
+    await sendTodoNotificationEmail({
+      to: created.list.notificationEmail,
+      listName: created.list.name,
+      todo: {
+        title: created.title,
+        note: created.note,
+        url: TODO_DETAIL_URL(created.id),
+      },
+    });
+  }
 
   return NextResponse.json(serializeTodo(created), { status: 201 });
 }

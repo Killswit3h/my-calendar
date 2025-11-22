@@ -1,0 +1,7 @@
+id,name,color,icon,position,isSmart,createdAt,updatedAt,notificationEmail,notifyOnNewTask
+todo-my-day,My Day,amber,Sun,0,true,2025-11-04T17:57:01.107Z,2025-11-04T17:57:01.107Z,,false
+todo-important,Important,amber,Star,1,true,2025-11-04T17:57:01.195Z,2025-11-04T17:57:01.195Z,,false
+todo-planned,Planned,blue,Calendar,2,true,2025-11-04T17:57:01.238Z,2025-11-04T17:57:01.238Z,,false
+todo-tasks,Tasks,slate,ListTodo,3,false,2025-11-04T17:57:01.281Z,2025-11-04T17:57:01.281Z,,false
+cmhl5gffb0000s9v9tjahneqf,Robert,violet,,4,false,2025-11-04T22:37:44.087Z,2025-11-04T22:37:44.087Z,,false
+cmhm0ruld0000kv040dnwvc9g,Pedro,,,5,false,2025-11-05T13:14:25.056Z,2025-11-05T13:14:25.056Z,,false

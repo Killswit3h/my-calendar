@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getPrisma } from '@/src/lib/db';
+import { getPrisma } from '@/lib/db';
 
 export async function GET() {
   const prisma = await getPrisma();
