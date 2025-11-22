@@ -21,7 +21,18 @@ type ListResponse = {
   position: number;
   isSmart: boolean;
   incompleteCount: number;
+  notificationEmail: string | null;
+  notifyOnNewTask: boolean;
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return EMAIL_RE.test(trimmed) ? trimmed : null;
+}
 
 async function getSmartCounts() {
   const [myDay, important, planned] = await Promise.all([
@@ -44,9 +55,20 @@ export async function GET() {
           icon: true,
           position: true,
           isSmart: true,
+          notificationEmail: true,
+          notifyOnNewTask: true,
         },
       }),
-    [] as Array<{ id: string; name: string; color: string | null; icon: string | null; position: number; isSmart: boolean }>,
+    [] as Array<{
+      id: string;
+      name: string;
+      color: string | null;
+      icon: string | null;
+      position: number;
+      isSmart: boolean;
+      notificationEmail: string | null;
+      notifyOnNewTask: boolean;
+    }>,
   );
 
   if (lists.length === 0) {
@@ -86,6 +108,8 @@ export async function GET() {
       position: list.position,
       isSmart: list.isSmart,
       incompleteCount: incomplete,
+      notificationEmail: list.notificationEmail ?? null,
+      notifyOnNewTask: list.notifyOnNewTask,
     };
   });
 
@@ -103,6 +127,11 @@ export async function POST(req: NextRequest) {
   }
   const color = typeof (body as any).color === "string" ? (body as any).color.trim() || null : null;
   const icon = typeof (body as any).icon === "string" ? (body as any).icon.trim() || null : null;
+  const notificationEmail = normalizeEmail((body as any).notificationEmail);
+  const notifyOnNewTask = Boolean((body as any).notifyOnNewTask);
+  if (notifyOnNewTask && !notificationEmail) {
+    return NextResponse.json({ error: "notification_email_required" }, { status: 422 });
+  }
 
   const created = await tryPrisma(
     async (p) => {
@@ -115,6 +144,8 @@ export async function POST(req: NextRequest) {
           icon,
           position,
           isSmart: false,
+          notificationEmail,
+          notifyOnNewTask,
         },
         select: {
           id: true,
@@ -123,6 +154,8 @@ export async function POST(req: NextRequest) {
           icon: true,
           position: true,
           isSmart: true,
+          notificationEmail: true,
+          notifyOnNewTask: true,
         },
       });
     },
@@ -141,6 +174,8 @@ export async function POST(req: NextRequest) {
     position: created.position,
     isSmart: created.isSmart,
     incompleteCount: 0,
+    notificationEmail: created.notificationEmail ?? null,
+    notifyOnNewTask: created.notifyOnNewTask,
   };
 
   return NextResponse.json(response, { status: 201 });

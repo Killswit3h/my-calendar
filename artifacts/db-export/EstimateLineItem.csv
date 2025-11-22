@@ -1,0 +1,3 @@
+id,estimateId,sort,description,qty,uom,rateCents,totalCents,taxable,note
+cmhvb5h2b0002s9xz4re435vc,cmhvb5h2b0001s9xz7sbiv9ff,1,"Chain-link fence, galvanized, 6 ft, incl. posts and fittings","""150""",LF,18500,2775000,false,
+cmhvb5h2b0003s9xz0z5dhh8j,cmhvb5h2b0001s9xz7sbiv9ff,2,"End terminal assembly, TL-3, complete in place","""2""",EA,245000,490000,false,Includes hardware and pad

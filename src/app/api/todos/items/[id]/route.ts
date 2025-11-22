@@ -63,6 +63,7 @@ function serializeTodo(todo: any) {
     reminderEnabled: !!todo.reminderEnabled,
     reminderOffsets: parseReminderOffsets(todo.reminderOffsets ?? []),
     lastNotifiedAt: todo.lastNotifiedAt ? new Date(todo.lastNotifiedAt).toISOString() : null,
+    sortOrder: todo.sortOrder ?? 0,
     position: todo.position,
     createdAt: todo.createdAt.toISOString(),
     updatedAt: todo.updatedAt.toISOString(),
@@ -158,8 +159,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if ((body as any).reminderOffsets !== undefined) {
     data.reminderOffsets = parseReminderOffsets((body as any).reminderOffsets);
   }
+  if ((body as any).sortOrder !== undefined && Number.isInteger((body as any).sortOrder)) {
+    data.sortOrder = (body as any).sortOrder;
+    data.position = (body as any).sortOrder;
+  }
   if ((body as any).position !== undefined && Number.isInteger((body as any).position)) {
     data.position = (body as any).position;
+    if (data.sortOrder === undefined) {
+      data.sortOrder = data.position;
+    }
   }
   if ((body as any).listId !== undefined) {
     if (typeof (body as any).listId !== "string" || !(body as any).listId) {
@@ -173,12 +181,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     async (p) => {
       const todo = await p.todo.findUnique({ where: { id }, select: { id: true, listId: true } });
       if (!todo) return null;
-      if (data.listId && data.listId !== todo.listId && data.position === undefined) {
+      if (data.listId && data.listId !== todo.listId && data.sortOrder === undefined) {
         const aggregate = await p.todo.aggregate({
-          _max: { position: true },
+          _max: { sortOrder: true },
           where: { listId: data.listId },
         });
-        data.position = (aggregate._max.position ?? -1) + 1;
+        const nextSortOrder = (aggregate._max.sortOrder ?? -10) + 10;
+        data.sortOrder = nextSortOrder;
+        data.position = nextSortOrder;
       }
       return p.todo.update({
         where: { id },

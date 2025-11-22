@@ -2,7 +2,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 import { sendPushToUser } from '@/lib/push'
 import { markEntityLastNotified } from '@/lib/reminders'
 

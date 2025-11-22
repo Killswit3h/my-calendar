@@ -49,6 +49,7 @@ export class MockPrisma {
   payItems = new Map<string, PayItemRow>()
   events = new Map<string, EventRow>()
   eventQuantities = new Map<string, EventQuantityRow>()
+  users = new Map<string, { id: string; name: string | null }>()
   eventTimestampType: 'timestamp without time zone' | 'timestamp with time zone' = 'timestamp without time zone'
 
   setPayItems(items: Array<Omit<PayItemRow, 'createdAt' | 'updatedAt'> & Partial<Pick<PayItemRow, 'createdAt' | 'updatedAt'>>>) {
@@ -94,6 +95,7 @@ export class MockPrisma {
   }
 
   payItem: any
+  user: any
 
   constructor() {
     this.payItem = {}
@@ -141,6 +143,28 @@ export class MockPrisma {
       const next: PayItemRow = { ...row, ...data, updatedAt: new Date() }
       this.payItems.set(where.id, next)
       return { ...next }
+    }
+
+    this.user = {
+      upsert: async ({ where, update, create }: any) => {
+        const id = where?.id
+        if (!id) throw new Error('MockPrisma.user.upsert missing where.id')
+        const existing = this.users.get(id)
+        if (existing) {
+          const next = {
+            ...existing,
+            ...update,
+          }
+          this.users.set(id, next)
+          return { ...next }
+        }
+        const next = {
+          id,
+          name: create?.name ?? null,
+        }
+        this.users.set(id, next)
+        return { ...next }
+      },
     }
   }
 

@@ -65,7 +65,6 @@ type TodoCreatePayload = {
 
 type TodoUpdatePayload = Partial<Omit<TodoItemModel, "id" | "steps" | "createdAt" | "updatedAt">> & {
   listId?: string;
-  position?: number;
 };
 
 type TodoStepUpdate = { id: string; data: Partial<{ title: string; isCompleted: boolean; position: number }> };
@@ -74,7 +73,15 @@ type TodoStepCreate = { todoId: string; title: string };
 
 type TodoStepDelete = { id: string };
 
-type TodoReorderInput = { id: string; position: number; listId?: string }[];
+type TodoListUpdatePayload = {
+  name?: string;
+  color?: string | null;
+  icon?: string | null;
+  notificationEmail?: string | null;
+  notifyOnNewTask?: boolean;
+};
+
+type TodoManualOrderInput = { id: string; sortOrder: number }[];
 
 type ListSortEntry = { id: string; position: number };
 
@@ -82,7 +89,7 @@ type TodosHook = {
   lists: TodoListSummary[];
   listsLoading: boolean;
   createList: (data: { name: string; color?: string | null; icon?: string | null }) => Promise<void>;
-  updateList: (id: string, data: { name?: string; color?: string | null; icon?: string | null }) => Promise<void>;
+  updateList: (id: string, data: TodoListUpdatePayload) => Promise<void>;
   deleteList: (id: string) => Promise<void>;
   reorderLists: (ids: string[]) => Promise<void>;
   todos: TodoItemModel[];
@@ -92,7 +99,7 @@ type TodosHook = {
   createTodo: (payload: TodoCreatePayload) => Promise<TodoItemModel>;
   updateTodo: (id: string, payload: TodoUpdatePayload) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
-  reorderTodos: (input: TodoReorderInput) => Promise<void>;
+  reorderTodos: (input: TodoManualOrderInput) => Promise<void>;
   createStep: (payload: TodoStepCreate) => Promise<void>;
   updateStep: (payload: TodoStepUpdate) => Promise<void>;
   deleteStep: (payload: TodoStepDelete) => Promise<void>;
@@ -137,7 +144,7 @@ function useTodos(view: ActiveView): TodosHook {
   });
 
   const updateListMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string | null; icon?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: TodoListUpdatePayload }) =>
       fetchJson<TodoListSummary>(`/api/todos/lists/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -240,27 +247,26 @@ function useTodos(view: ActiveView): TodosHook {
   });
 
   const reorderTodosMutation = useMutation({
-    mutationFn: (items: TodoReorderInput) =>
-      fetchJson<void>("/api/todos/items/reorder", {
-        method: "POST",
+    mutationFn: (items: TodoManualOrderInput) =>
+      fetchJson<void>("/api/todos/reorder", {
+        method: "PATCH",
         body: JSON.stringify({ items }),
       }),
     onMutate: async (items) => {
       await queryClient.cancelQueries({ queryKey: ["todos", viewCacheKey(view)] });
       const prev = queryClient.getQueryData<TodosResponse>(["todos", viewCacheKey(view)]);
       if (prev && "todos" in prev) {
-        const positionMap = new Map(items.map((item) => [item.id, item.position] as const));
-        const listMap = new Map(items.map((item) => [item.id, item.listId] as const));
+        const orderMap = new Map(items.map((item) => [item.id, item.sortOrder] as const));
         const todos = prev.todos.map((todo) =>
-          positionMap.has(todo.id)
+          orderMap.has(todo.id)
             ? {
                 ...todo,
-                position: positionMap.get(todo.id)!,
-                listId: listMap.get(todo.id) ?? todo.listId,
+                sortOrder: orderMap.get(todo.id)!,
+                position: orderMap.get(todo.id)!,
               }
             : todo,
         );
-        todos.sort((a, b) => a.position - b.position);
+        todos.sort((a, b) => a.sortOrder - b.sortOrder);
         queryClient.setQueryData(["todos", viewCacheKey(view)], { ...prev, todos });
       }
       return { prev };
@@ -360,7 +366,7 @@ function useBreakpoint(maxWidth: number) {
 export default function TodosApp() {
   const [activeView, setActiveView] = useState<ActiveView>({ type: "smart", key: "myday" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortOption>("my-order");
+  const [sort, setSort] = useState<SortOption>("manual");
   const [group, setGroup] = useState<GroupOption>("none");
   const [hideCompleted, setHideCompleted] = useState(true);
 
@@ -469,6 +475,11 @@ export default function TodosApp() {
     return next.length > 0 ? next : undefined;
   }, [plannedGroups, hideCompleted]);
 
+  const manualReorderAvailable = useMemo(
+    () => activeView.type === "list" && group === "none" && !processedPlannedGroups,
+    [activeView, group, processedPlannedGroups],
+  );
+
   const sortedTodos = useMemo(() => {
     if (processedPlannedGroups) {
       return processedPlannedGroups.flatMap((group) => group.items);
@@ -476,7 +487,14 @@ export default function TodosApp() {
 
     const items = [...filteredTodos];
 
-    if (sort === "importance") {
+    if (sort === "manual") {
+      items.sort((a, b) => {
+        if (a.sortOrder === b.sortOrder) {
+          return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+        }
+        return a.sortOrder - b.sortOrder;
+      });
+    } else if (sort === "importance") {
       items.sort((a, b) => Number(b.isImportant) - Number(a.isImportant));
     } else if (sort === "due-date") {
       items.sort((a, b) => {
@@ -489,7 +507,7 @@ export default function TodosApp() {
     } else if (sort === "created") {
       items.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
     } else {
-      items.sort((a, b) => a.position - b.position);
+      items.sort((a, b) => a.sortOrder - b.sortOrder);
     }
 
     const ordered = hideCompleted
@@ -672,6 +690,27 @@ export default function TodosApp() {
     [],
   );
 
+  const handleManualSortRequest = useCallback(() => {
+    if (sort !== "manual") {
+      setSort("manual");
+    }
+  }, [sort]);
+
+  const handleManualReorder = useCallback(
+    async (ordered: TodoItemModel[]) => {
+      if (!manualReorderAvailable || ordered.length === 0) return;
+      if (sort !== "manual") {
+        setSort("manual");
+      }
+      const payload = ordered.map((todo, index) => ({
+        id: todo.id,
+        sortOrder: index * 10,
+      }));
+      await reorderTodos(payload);
+    },
+    [manualReorderAvailable, reorderTodos, sort],
+  );
+
   const activeTodo = useMemo(
     () => (selectedId ? todos.find((todo) => todo.id === selectedId) ?? null : null),
     [selectedId, todos],
@@ -773,12 +812,16 @@ export default function TodosApp() {
               groups={groupsForListView}
               suggestions={suggestions}
               loading={todosLoading}
+              sort={sort}
+              manualReorderEnabled={manualReorderAvailable}
               onToggleComplete={handleToggleComplete}
               onToggleImportant={handleToggleImportant}
               onToggleMyDay={handleToggleMyDay}
               onUpdateSchedule={handleScheduleUpdate}
               onDelete={handleDelete}
               onSelect={handleSelectTodo}
+              onManualSortRequest={handleManualSortRequest}
+              onManualReorder={handleManualReorder}
               selectedId={selectedId}
             />
           </div>

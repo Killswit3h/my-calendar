@@ -1,0 +1,89 @@
+id,checksum,finished_at,migration_name,logs,rolled_back_at,started_at,applied_steps_count
+903c84b7-37ca-484d-ae15-1c462456787a,a86eaff91b90eefa0cc23c383aec482e71dafb984d5436199ed076664a7b6600,2025-09-05T16:50:14.061Z,20250829131044_init,,,2025-09-05T16:50:13.873Z,1
+c941ee47-214d-44bd-860e-ec8aac53e4df,26e679b98de005a7f1878aa5db098159dcd9b3d6c1cf791ade7830b16c0dbb3c,2025-10-05T15:04:13.997Z,20250923094500_pay_items_quantities,,,2025-10-05T15:04:13.604Z,1
+b4796c94-332f-428d-bc2f-8f236fccf02c,23cdf859b3f8a81a0fb6ec5c932ec00f071f22b5eee9f717c93de760142cb269,2025-09-05T16:50:28.593Z,20250905165028_add_invoice_number_and_employees_to_event,,,2025-09-05T16:50:28.426Z,1
+d9dd6f43-8fca-4917-a44d-bfd3137f14ac,b0d25142ae0ecaa1aa88a239ad0e8dcb184fbdc75228ff36c3283281689be5a2,2025-09-12T00:39:28.053Z,20250911193000_add_customer,,,2025-09-12T00:39:27.801Z,1
+0f4081ec-5b18-4783-8632-5ca24ec21937,2b2c4a02ac7d3c67ea9fb61d0464195915c395a7ff439686d00aeee5b2cdfa68,2025-09-12T02:00:57.900Z,20250912013000_reports,,,2025-09-12T02:00:57.566Z,1
+c273b33d-2fc7-4e28-bfbb-56e5c79c4bd2,6e299b2c469320e52bd8b62af3176b88e0d776b978d2bc72a84616ccc81022d3,2025-10-06T10:15:08.189Z,20251001000000_fdot_cutoffs,,,2025-10-06T10:15:07.776Z,1
+652e7fc9-f2fd-4868-ada8-c36ddc584891,962d11c68d0be1a208f336fe6e14403ff46e052378425fd241a27b50f3decafd,2025-09-12T02:13:41.580Z,20250912020500_event_add_checklist_shift,,,2025-09-12T02:13:41.355Z,1
+8bbae6c4-0e0f-4568-b545-5284adf75ea1,a2ecf75d2d94666f7ccde1ce16c445c8fca14cc7d25960e7d9f57d0fac7de3c7,2025-09-12T02:15:28.635Z,20250912022000_event_add_starts_ends,,,2025-09-12T02:15:28.337Z,1
+dca7ea63-7fa5-4ddb-99f4-82a76f5103ce,b0e0cde64f48676aa39a65cc82d81591b34ad4a577892a5437f353710bc84317,,20250920143342_event_canonical_times,"A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20250920143342_event_canonical_times
+
+Database error code: 42601
+
+Database error:
+ERROR: syntax error at or near ""﻿""
+
+Position:
+[1m  0[0m
+[1m  1[1;31m ﻿-- Align Event table to canonical startsAt/endsAt columns[0m
+
+DbError { severity: ""ERROR"", parsed_severity: Some(Error), code: SqlState(E42601), message: ""syntax error at or near \""\u{feff}\"""", detail: None, hint: None, position: Some(Original(1)), where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some(""scan.l""), line: Some(1244), routine: Some(""scanner_yyerror"") }
+
+   0: sql_schema_connector::apply_migration::apply_script
+           with migration_name=""20250920143342_event_canonical_times""
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:113
+   1: schema_commands::commands::apply_migrations::Applying migration
+           with migration_name=""20250920143342_event_canonical_times""
+             at schema-engine/commands/src/commands/apply_migrations.rs:95
+   2: schema_core::state::ApplyMigrations
+             at schema-engine/core/src/state.rs:236",2025-09-21T19:32:36.057Z,2025-09-21T19:21:18.245Z,0
+d9a00090-f669-4a5c-a628-b8eef65d826b,d959070fce7aa42d83049a27e10ab8b74d9062574dda2dad16fd7da9c8e019e5,2025-10-07T11:53:14.327Z,20251006000000_event_timestamptz,,,2025-10-07T11:53:13.942Z,1
+17b2b1f1-5e1e-423c-869a-fb761e8cd2b1,2cfdbb3fad6a2a32bf1843143351842f50138c2e4f99676b33ce727cb4193e01,2025-09-21T19:32:42.337Z,20250920143342_event_canonical_times,,,2025-09-21T19:32:42.007Z,1
+499462b0-f11c-4405-9ecd-529219144a3b,609bc946fefa4e111270aa19dde903d122ebae511f08c8f0f076e19b261b46a7,2025-10-12T19:34:59.049Z,20251010150000_inventory_core,,,2025-10-12T19:34:58.593Z,1
+653482d5-a9b0-4034-b84f-e9c64219dc82,30181c391205118e9cd8f9a441c35a027a912197f390e5a1ee9a6eb98be8a643,2025-10-13T15:31:43.348Z,20251015120000_operational_records,,,2025-10-13T15:31:43.068Z,1
+a214be3a-bf2d-4c79-b0c4-30a5354cd6d0,d73a840466aab680ccaa3b2c409f919a6cf9fdf8ce4da1f4889b55b36f4382ea,2025-10-22T21:11:22.196Z,20251025090000_finance_labor,,,2025-10-22T21:11:21.787Z,1
+d2c2319f-bf72-4659-8a09-efb496ecb97b,57b52ecc0a09820d03029694e96daec74c6db06696209b5b4e61375b05332100,2025-10-29T12:08:12.724Z,20251106143000_planner_phase1,,,2025-10-29T12:08:12.724Z,0
+b8f44054-e8d6-491b-9dbd-66a5db748f22,1e78b30e8c372c0907f096d6f852559db48c120c42b930e08326db80b2c6b6f5,,20251026120000_create_todo_table,"A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20251026120000_create_todo_table
+
+Database error code: 42P07
+
+Database error:
+ERROR: relation ""Todo"" already exists
+
+DbError { severity: ""ERROR"", parsed_severity: Some(Error), code: SqlState(E42P07), message: ""relation \""Todo\"" already exists"", detail: None, hint: None, position: None, where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some(""heap.c""), line: Some(1160), routine: Some(""heap_create_with_catalog"") }
+
+",2025-11-07T01:55:05.880Z,2025-11-07T01:54:28.531Z,0
+0c64a868-d50e-49c9-aeec-460e949a21d5,2b3e92303c7274df7eb6d4c1b40fe881360a1255039daba45b4f2b4fc9f1e829,,20251026103000_finance_labor_projects,"A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20251026103000_finance_labor_projects
+
+Database error code: 42P07
+
+Database error:
+ERROR: relation ""Project"" already exists
+
+DbError { severity: ""ERROR"", parsed_severity: Some(Error), code: SqlState(E42P07), message: ""relation \""Project\"" already exists"", detail: None, hint: None, position: None, where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some(""heap.c""), line: Some(1160), routine: Some(""heap_create_with_catalog"") }
+
+",2025-11-07T01:54:24.099Z,2025-11-04T17:56:42.058Z,0
+e5311bfc-e831-4de4-a2f8-b331b62096f7,2b3e92303c7274df7eb6d4c1b40fe881360a1255039daba45b4f2b4fc9f1e829,2025-11-07T01:54:24.185Z,20251026103000_finance_labor_projects,,,2025-11-07T01:54:24.185Z,0
+e2643f5b-11e5-4bcf-940c-71770a0dabe8,c26c8191c14e7791ba3ed75350da2703713cccf61cf0b99eb10fd1264caaee36,2025-11-07T01:55:26.467Z,20251112120000_event_all_day_dates,,,2025-11-07T01:55:26.467Z,0
+1d53679b-7236-43a2-8fc4-a57612487c5a,1e78b30e8c372c0907f096d6f852559db48c120c42b930e08326db80b2c6b6f5,2025-11-07T01:55:05.969Z,20251026120000_create_todo_table,,,2025-11-07T01:55:05.969Z,0
+0bd7ec66-6d0c-4e14-bb28-062ec081384d,4b26fc1e5bcb1ffed6591e29821c36ada8348f595a1714af1cccdf6e9a503b6b,2025-11-07T01:55:11.123Z,20251110100000_todos_module,,,2025-11-07T01:55:11.123Z,0
+387ff805-da07-462b-830d-61d7d9f70ae8,70c4b4428837d6686690e69df46f3ebc5123413085b5936c3dd8c657a8bbbee7,2025-11-07T23:58:40.712Z,20251112133000_todo_all_day_and_reminders,,,2025-11-07T23:58:40.349Z,1
+e59099d6-6936-4dd7-b30a-24c0abc98ae5,e1981c8f65d01092eb3baf88471c76c52aa2316c5b76397981d655a87d884170,2025-11-08T01:51:03.848Z,20251112143000_create_reminders,,,2025-11-08T01:51:03.325Z,1
+c537659e-9024-45ec-9780-f64bcec4e622,f43ac75998192c2eb9e5a5abd7ab6689912821f7d6ec62149a332826bc84dc75,2025-11-12T01:12:59.294Z,20251112190000_add_estimates_change_orders,,,2025-11-12T01:12:59.294Z,0
+fcb79900-7afa-46e1-9c0e-d2f43cc7a5b6,81eeeac4b4d779d5fe0e8d060ec9e54931610cdf0512f30341cf0c69d5cc1060,2025-11-09T23:35:23.681Z,20251112150000_event_reminders,,,2025-11-09T23:35:23.340Z,1
+5186b2b5-2376-4927-b240-53da38c89dd7,985341c5e1ed4f34d92a2cbf64460fba47126ba097132ba2bc7f4a3bb9d73185,,20251112170000_notifications_v1,"A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20251112170000_notifications_v1
+
+Database error code: 42710
+
+Database error:
+ERROR: type ""Role"" already exists
+
+DbError { severity: ""ERROR"", parsed_severity: Some(Error), code: SqlState(E42710), message: ""type \""Role\"" already exists"", detail: None, hint: None, position: None, where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some(""typecmds.c""), line: Some(1177), routine: Some(""DefineEnum"") }
+
+   0: sql_schema_connector::apply_migration::apply_script
+           with migration_name=""20251112170000_notifications_v1""
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:113
+   1: schema_commands::commands::apply_migrations::Applying migration
+           with migration_name=""20251112170000_notifications_v1""
+             at schema-engine/commands/src/commands/apply_migrations.rs:95
+   2: schema_core::state::ApplyMigrations
+             at schema-engine/core/src/state.rs:260",,2025-11-21T19:32:35.871Z,0
