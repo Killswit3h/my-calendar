@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client'
-import prisma from '@/src/lib/db'
+import prisma from '@/lib/db'
 
 export type ProjectLink = {
   customerId: string
