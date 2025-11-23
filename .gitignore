@@ -26,3 +26,6 @@ turbo/
 .cache/
 .vscode/
 .vercel
+
+# From Helper Scripts
+/artifacts/db-export
