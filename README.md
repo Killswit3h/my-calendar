@@ -75,7 +75,7 @@ pg_dump --version
 pg_restore --version
 ```
 
-**Alternative:** If you prefer not to install locally, you can use the tools inside the Docker container:
+**NOTE**: If this returns a `zsh: command not found` error, restart your terminal.
 
 ```bash
 docker compose exec db psql -U user -d db
@@ -95,13 +95,6 @@ docker compose exec db psql -U user -d db
    docker compose up -d db
    ```
 
-   This will:
-
-   - Pull the PostgreSQL 15 image (first time only)
-   - Start a container named `db`
-   - Expose PostgreSQL on `localhost:5432`
-   - Create a persistent volume `pgdata` for data storage
-
 3. Verify it's running:
 
    ```bash
@@ -118,14 +111,6 @@ Once running, your local database connection string is:
 postgresql://user:password@localhost:5432/db
 ```
 
-Configuration (from `docker-compose.yml`):
-
-- **Host:** `localhost`
-- **Port:** `5432`
-- **User:** `user`
-- **Password:** `password`
-- **Database:** `db`
-
 ### Testing the Connection
 
 Test with `psql`:
@@ -135,12 +120,6 @@ psql -h localhost -U user -d db
 ```
 
 When prompted, enter password: `password`
-
-Or test with a simple query:
-
-```bash
-docker compose exec db psql -U user -d db -c "SELECT version();"
-```
 
 ### Managing the Database
 
@@ -182,6 +161,27 @@ docker compose logs db
 docker compose logs -f db
 ```
 
+### Next Steps
+
+After the database is running:
+
+1. Apply Prisma migrations:
+
+   ```bash
+   npx prisma migrate dev
+   ```
+
+2. (Optional) Seed the database:
+
+   ```bash
+   npm run seed
+   ```
+
+3. Open Prisma Studio to view/edit data:
+   ```bash
+   npx prisma studio
+   ```
+
 ### Troubleshooting
 
 #### Port 5432 Already in Use
@@ -212,45 +212,6 @@ If you get an error that port 5432 is already in use:
    docker compose ps
    ```
 
-#### psql Command Not Found
-
-If `psql` isn't found after installation:
-
-1. Verify libpq is installed:
-
-   ```bash
-   brew --prefix libpq
-   ```
-
-2. Check if binaries exist:
-
-   ```bash
-   ls -la /opt/homebrew/opt/libpq/bin/
-   ```
-
-3. Use full path temporarily:
-
-   ```bash
-   /opt/homebrew/opt/libpq/bin/psql --version
-   ```
-
-4. If full path works, reload your shell:
-   ```bash
-   exec zsh
-   # or close and reopen your terminal
-   ```
-
-#### Reset Database (Start Fresh)
-
-To completely reset the local database and start over:
-
-```bash
-docker compose down -v
-docker compose up -d db
-```
-
-This removes the volume and all data, then creates a fresh database.
-
 #### Connection Refused
 
 If you can't connect to the database:
@@ -270,27 +231,6 @@ If you can't connect to the database:
 3. Restart the container:
    ```bash
    docker compose restart db
-   ```
-
-### Next Steps
-
-After the database is running:
-
-1. Apply Prisma migrations:
-
-   ```bash
-   npx prisma migrate dev
-   ```
-
-2. (Optional) Seed the database:
-
-   ```bash
-   npm run seed
-   ```
-
-3. Open Prisma Studio to view/edit data:
-   ```bash
-   npx prisma studio
    ```
 
 ### Todo email notifications
@@ -423,7 +363,6 @@ Migrations
 Revert
 
 - To undo the Customer table, drop the `Customer` table and the `Customer_name_key` index in your database, or roll back your migration.
-
 
 ## Design System
 
