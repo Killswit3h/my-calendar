@@ -424,13 +424,6 @@ Revert
 
 - To undo the Customer table, drop the `Customer` table and the `Customer_name_key` index in your database, or roll back your migration.
 
-#   m y - c a l e n d a r 
- 
- #   m y - c a l e n d a r 
- 
- #   m y - c a l e n d a r 
- 
- 
 
 ## Design System
 
