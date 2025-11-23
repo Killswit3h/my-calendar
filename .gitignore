@@ -27,5 +27,26 @@ turbo/
 .vscode/
 .vercel
 
-# From Helper Scripts
-/artifacts/db-export
+# Database exports
+artifacts/db-export/
+*.dump
+
+# Artifacts and generated files
+artifacts/reports/
+artifacts/*.png
+artifacts/*.json
+
+# Nested project directories
+my-calendar-main/
+my-calendar.zip
+
+# Build artifacts
+*.tsbuildinfo
+config.tsbuildinfo*
+out.css
+
+# Backup files
+*.bak
+neon_backup_*.dump
+tmp_restore.dump
+restore.log
