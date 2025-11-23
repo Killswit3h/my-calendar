@@ -26,3 +26,7 @@ turbo/
 .cache/
 .vscode/
 .vercel
+
+# Database exports
+artifacts/db-export/
+*.dump

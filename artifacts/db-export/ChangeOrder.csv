@@ -1,2 +1,0 @@
-id,number,status,date,projectId,baseEstimateId,reason,terms,notes,subtotalCents,discountCents,taxCents,totalCents,createdAt,updatedAt
-cmhvb5hlh0005s9xz2rnpddfs,CO-2025-0001,DRAFT,2025-11-12T01:14:53.141Z,seed-project-1,cmhvb5h2b0001s9xz7sbiv9ff,Scope enhancement requested by owner,Same terms as base estimate.,To be installed contiguous with existing run.,675000,0,0,675000,2025-11-12T01:14:53.142Z,2025-11-12T01:14:53.142Z
