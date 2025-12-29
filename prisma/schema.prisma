@@ -10,7 +10,7 @@ datasource db {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model customer {
-  id           Int       @id
+  id           Int       @id @default(autoincrement())
   name         String    @unique @db.VarChar
   address      String    @db.VarChar
   phone_number String    @db.VarChar
@@ -22,7 +22,7 @@ model customer {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model employee {
-  id               Int                @id
+  id               Int                @id @default(autoincrement())
   name             String             @db.VarChar
   wage_rate        Decimal            @db.Decimal
   start_date       DateTime           @db.Timestamp(6)
@@ -35,7 +35,7 @@ model employee {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model event {
-  id               Int                @id
+  id               Int                @id @default(autoincrement())
   project_id       Int
   scope_of_work_id Int
   payment_type_id  Int
@@ -57,7 +57,7 @@ model event {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model event_assignment {
-  id          Int      @id
+  id          Int      @id @default(autoincrement())
   event_id    Int
   employee_id Int
   employee    employee @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -68,7 +68,7 @@ model event_assignment {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model event_quantity {
-  id                  Int              @id
+  id                  Int              @id @default(autoincrement())
   event_id            Int
   project_pay_item_id Int
   quantity            Decimal          @db.Decimal
@@ -78,7 +78,7 @@ model event_quantity {
 }
 
 model invoice {
-  id                  Int      @id
+  id                  Int      @id @default(autoincrement())
   number              String   @unique @db.VarChar
   is_contract_invoice Boolean? @default(false)
   event               event[]
@@ -86,7 +86,7 @@ model invoice {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model pay_item {
-  id               Int                @id
+  id               Int                @id @default(autoincrement())
   number           String             @unique @db.VarChar
   description      String
   unit             String             @db.VarChar
@@ -95,14 +95,14 @@ model pay_item {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model payment_type {
-  id          Int     @id
+  id          Int     @id @default(autoincrement())
   description String  @unique @db.VarChar
   event       event[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model project {
-  id               Int                @id
+  id               Int                @id @default(autoincrement())
   customer_id      Int?
   name             String             @unique @db.VarChar
   location         String             @db.VarChar
@@ -120,7 +120,7 @@ model project {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model project_pay_item {
-  id                  Int              @id
+  id                  Int              @id @default(autoincrement())
   project_id          Int
   pay_item_id         Int
   contracted_quantity Decimal          @db.Decimal
@@ -141,7 +141,7 @@ model project_pay_item {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model scope_of_work {
-  id          Int     @id
+  id          Int     @id @default(autoincrement())
   description String  @unique @db.VarChar
   event       event[]
 }
