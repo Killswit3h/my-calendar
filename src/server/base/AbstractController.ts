@@ -60,6 +60,27 @@ export abstract class AbstractController<
   }
 
   /**
+   * Parse ID from path parameter
+   * This ensures all endpoints use path parameters for IDs by default
+   */
+  protected async parseId(
+    req: NextRequest,
+    context?: { params: Promise<Record<string, string>> }
+  ): Promise<number | null> {
+    const pathParams = await this.parsePathParams(context)
+    const pathId = pathParams.id
+    
+    if (pathId) {
+      const id = parseInt(pathId, 10)
+      if (!isNaN(id)) {
+        return id
+      }
+    }
+
+    return null
+  }
+
+  /**
    * Parse JSON body from request
    */
   protected async parseBody<T = unknown>(req: NextRequest): Promise<T> {
