@@ -1,4 +1,10 @@
-## CSS best practices
+---
+alwaysApply: true
+---
+
+## CSS Best Practices
+
+Follow these standards for all CSS/styling:
 
 - **Consistent Methodology**: Apply and stick to the project's consistent CSS methodology (Tailwind, BEM, utility classes, CSS modules, etc.) across the entire project
 - **Avoid Overriding Framework Styles**: Work with your framework's patterns rather than fighting against them with excessive overrides

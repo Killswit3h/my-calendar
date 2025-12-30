@@ -1,4 +1,10 @@
-## API endpoint standards and conventions
+---
+alwaysApply: true
+---
+
+## API Endpoint Standards
+
+Follow these standards for all API endpoints:
 
 - **RESTful Design**: Follow REST principles with clear resource-based URLs and appropriate HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - **Consistent Naming**: Use consistent, lowercase, hyphenated or underscored naming conventions for endpoints across the API

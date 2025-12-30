@@ -1,4 +1,10 @@
-## Responsive design best practices
+---
+alwaysApply: true
+---
+
+## Responsive Design Best Practices
+
+Follow these standards for all responsive UI development:
 
 - **Mobile-First Development**: Start with mobile layout and progressively enhance for larger screens
 - **Standard Breakpoints**: Consistently use standard breakpoints across the application (e.g., mobile, tablet, desktop)

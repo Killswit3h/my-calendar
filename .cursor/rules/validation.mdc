@@ -1,4 +1,10 @@
-## Validation best practices
+---
+alwaysApply: true
+---
+
+## Validation Best Practices
+
+Follow these standards for all input validation:
 
 - **Validate on Server Side**: Always validate on the server; never trust client-side validation alone for security or data integrity
 - **Client-Side for UX**: Use client-side validation to provide immediate user feedback, but duplicate checks server-side

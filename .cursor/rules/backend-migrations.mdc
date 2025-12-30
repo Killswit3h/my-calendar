@@ -1,4 +1,10 @@
-## Database migration best practices
+---
+alwaysApply: true
+---
+
+## Database Migration Best Practices
+
+Follow these standards for all database migrations:
 
 - **Reversible Migrations**: Always implement rollback/down methods to enable safe migration reversals
 - **Small, Focused Changes**: Keep each migration focused on a single logical change for clarity and easier troubleshooting

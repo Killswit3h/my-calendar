@@ -1,4 +1,10 @@
-## Error handling best practices
+---
+alwaysApply: true
+---
+
+## Error Handling Best Practices
+
+Follow these standards for all error handling:
 
 - **User-Friendly Messages**: Provide clear, actionable error messages to users without exposing technical details or security information
 - **Fail Fast and Explicitly**: Validate input and check preconditions early; fail with clear error messages rather than allowing invalid state

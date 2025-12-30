@@ -1,4 +1,10 @@
-## Database model best practices
+---
+alwaysApply: true
+---
+
+## Database Model Best Practices
+
+Follow these standards for all database models:
 
 - **Clear Naming**: Use singular names for models and plural for tables following your framework's conventions
 - **Timestamps**: Include created and updated timestamps on all tables for auditing and debugging
