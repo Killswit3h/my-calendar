@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     include: ['tests/**/*.test.ts', '__tests__/**/*.test.ts'],
+    exclude: ['tests/server/**/Abstract*.test.ts'], // Exclude abstract test utilities
     setupFiles: ['tests/setup.ts'],
     coverage: {
       enabled: false,

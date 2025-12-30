@@ -84,6 +84,101 @@ N/A
 - Reference the Customer entity implementation pattern once it's created as a template
 - Follow the same structure: Repository → Service → Controller → Route handlers
 
+## Testing Requirements
+
+**Test Structure**
+
+All tests follow a layered structure organized by layer type:
+
+- `tests/server/repositories/` - Repository tests
+- `tests/server/services/` - Service tests
+- `tests/server/controllers/` - Controller tests
+
+**Abstract Test Suites**
+
+Abstract test suites provide reusable test factories that validate generic CRUD and HTTP functionality:
+
+- `tests/server/repositories/AbstractRepository.test.ts` - Exports `createAbstractRepositoryTests()` factory
+- `tests/server/services/AbstractService.test.ts` - Exports `createAbstractServiceTests()` factory
+- `tests/server/controllers/AbstractController.test.ts` - Exports `createAbstractControllerTests()` factory
+
+**Note**: Abstract test files are excluded from test runs (they're utilities, not test suites themselves).
+
+**Entity-Specific Test Implementation**
+
+Each entity should have three test files that:
+
+1. **Import and configure the abstract test factory** with entity-specific configuration
+2. **Execute the abstract tests** by calling the factory function
+3. **Add custom business logic tests** for entity-specific methods and validation rules
+
+**Repository Tests** (`tests/server/repositories/{Entity}Repository.test.ts`)
+
+- Import `createAbstractRepositoryTests` from `./AbstractRepository.test`
+- Configure with:
+  - `repositoryClass`: The repository class constructor
+  - `modelName`: Prisma model name (e.g., 'employee')
+  - `createValidInput()`: Factory function for valid create input
+  - `createUpdateInput()`: Factory function for valid update input
+  - `createUniqueInput(id)`: Factory function for unique identifier
+  - `createWhereInput(filters)`: Factory function for where clauses
+  - `addMockRecord(mockPrisma, data)`: Function to add test data to mock Prisma
+  - `getIdFromModel(model)`: Function to extract ID from model
+  - `extendMockPrisma`: Function to extend MockPrisma with model support
+- Call the factory function to run all abstract repository tests
+- Add tests for custom repository methods (e.g., `findByEmail`, `findActive`)
+
+**Service Tests** (`tests/server/services/{Entity}Service.test.ts`)
+
+- Import `createAbstractServiceTests` from `./AbstractService.test`
+- Configure with similar factory functions as repository tests
+- Include `createInvalidInput()` factory for validation testing
+- Call the factory function to run all abstract service tests
+- Add tests for:
+  - Custom validation rules
+  - Business logic hooks (beforeCreate, beforeUpdate, etc.)
+  - Entity-specific business methods (e.g., `activateEmployee`, `deactivateEmployee`)
+  - Custom error handling scenarios
+
+**Controller Tests** (`tests/server/controllers/{Entity}Controller.test.ts`)
+
+- Import `createAbstractControllerTests` from `./AbstractController.test`
+- Configure with:
+  - `controllerClass`: The controller class constructor
+  - `apiPath`: Base API path (e.g., '/api/employees')
+  - Factory functions for valid/invalid inputs
+  - Mock record creation functions
+- Call the factory function to run all abstract controller tests
+- Abstract tests cover: GET (list/by ID), POST, PATCH, DELETE, error handling
+
+**Mock Prisma Setup**
+
+- Create `tests/utils/mockPrisma{Entity}.ts` to extend MockPrisma with entity support
+- Export `extendMockPrismaWith{Entity}(mockPrisma)` function
+- Implement Prisma model delegate methods (findMany, findUnique, create, update, delete, count)
+- Throw proper `Prisma.PrismaClientKnownRequestError` instances for error scenarios
+- Provide helper methods like `add{Entity}()` for test data creation
+
+**Test Execution**
+
+- Run all server tests: `npm test -- tests/server`
+- Run specific layer: `npm test -- tests/server/repositories`
+- Run specific file: `npm test -- tests/server/repositories/EmployeeRepository.test.ts`
+- Watch mode: `npx vitest tests/server`
+
+**What Gets Tested**
+
+- **Abstract Tests** (via factory): Generic CRUD operations, error handling, pagination, filtering
+- **Entity-Specific Tests**: Custom query methods, business validation rules, lifecycle hooks, domain-specific methods
+
+**Testing Best Practices**
+
+- Abstract tests validate generic functionality inherited from base classes
+- Entity tests focus only on custom business logic and validation
+- Use MockPrisma to avoid database dependencies
+- Test error scenarios (not found, validation failures, conflicts)
+- Keep tests focused and independent (use `beforeEach` to reset state)
+
 ## Out of Scope
 
 - Frontend UI components for employee management

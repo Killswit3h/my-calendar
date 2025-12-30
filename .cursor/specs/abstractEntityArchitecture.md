@@ -380,6 +380,32 @@ AbstractController<
 - **Controller Tests**: Mock Service, test HTTP handling
 - **Integration Tests**: Test full stack with test database
 
+## Testing Extensions for Concrete Models
+
+- Abstract classes should remain untested directly; focus on validating the public contracts exposed by each concrete implementation.
+- **Repository suites** for each model should verify:
+
+  - CRUD helpers inherited from `AbstractRepository` behave as expected (find, create, update, delete, exists)
+  - Prisma error handling converts to the right domain errors (`NotFoundError`, `ConflictError`, etc.)
+  - Custom helpers (e.g., `findByEmail`, `findActive`) cover success and failure scenarios.
+  - Tests run with a mocked Prisma client or dedicated test client to keep isolates fast.
+
+- **Service suites** should cover:
+
+  - Business-specific logic that extends the abstract hooks (`validate`, `beforeCreate`, `beforeUpdate`)
+    - Happy and failure paths for required fields, unique constraints, and other domain rules
+  - Domain methods (e.g., `activateEmployee`, `assignToProject`) verifying state changes, repository interactions, and side effects.
+  - Lifecycle hooks: mock repository responses to ensure `afterCreate`/`afterUpdate` or other overrides behave without throwing.
+  - Transactional flows via `withTransaction()` helpers for multi-step updates.
+
+- **Controller suites** should:
+
+  - Mock the underlying service to verify each HTTP handler method calls the right service method and returns the expected NextResponse (success and error cases)
+  - Exercise `parseQueryParams`, `parsePathParams`, and `parseId` helpers indirectly through different route inputs to ensure IDs and filters are interpreted consistently
+  - Assert error translation to HTTP status codes, especially for `ValidationError`, `NotFoundError`, and `ConflictError`.
+
+- **Per-model integration tests** (optional but encouraged) can spin up a test database (e.g., using Prisma + sqlite) to verify the repository-service-controller stack together, ensuring the API surface behaves as documented.
+
 ## Migration Strategy
 
 1. Create abstract base classes first
