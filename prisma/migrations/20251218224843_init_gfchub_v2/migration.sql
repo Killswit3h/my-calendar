@@ -1,0 +1,2 @@
+-- Baseline migration for gfchub_v2 schema
+-- Database already initialized via SQL file
