@@ -714,11 +714,7 @@ model User {
   name              String?
   image             String?
   memberships       Membership[]
-  notificationSubs  NotificationSubscription[]
-  resourceSubs      ResourceSubscription[]
-  notifications     Notification[]             @relation("UserNotifications")
-  auditLogs         AuditLog[]
-  notificationPrefs NotificationPreference?
+  accessAreas       UserAccessArea[]
   updatedProjects   Project[]                  @relation("ProjectUpdatedBy")
   updatedTodos      Todo[]                     @relation("TodoUpdatedBy")
   createdAt         DateTime                   @default(now())
@@ -743,79 +739,6 @@ model Membership {
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
-}
-
-model Notification {
-  id           String    @id @default(cuid())
-  userId       String
-  kind         String
-  title        String
-  body         String
-  resourceType String
-  resourceId   String
-  actorId      String?
-  readAt       DateTime?
-  createdAt    DateTime  @default(now())
-  user         User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model NotificationSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  userAgent String?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ResourceSubscription {
-  id           String   @id @default(cuid())
-  userId       String
-  resourceType String
-  resourceId   String
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, resourceType, resourceId])
-  @@index([resourceType, resourceId])
-}
-
-model NotificationPreference {
-  id             String  @id @default(cuid())
-  userId         String  @unique
-  inAppEnabled   Boolean @default(true)
-  pushEnabled    Boolean @default(true)
-  emailEnabled   Boolean @default(false)
-  todoEvents     Boolean @default(true)
-  calendarEvents Boolean @default(true)
-  projectEvents  Boolean @default(true)
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Outbox {
-  id           String   @id @default(cuid())
-  type         String
-  payload      Json
-  status       String   @default("pending")
-  attemptCount Int      @default(0)
-  lastError    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([status])
-}
-
-model AuditLog {
-  id           String   @id @default(cuid())
-  actorId      String?
-  action       String
-  resourceType String
-  resourceId   String
-  changes      Json?
-  createdAt    DateTime @default(now())
-  actor        User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 }
 
 enum PlacementType {
@@ -872,6 +795,26 @@ enum Role {
   ADMIN
   MEMBER
   VIEWER
+}
+
+enum AccessArea {
+  REPORTS_DAILY
+  REPORTS_WEEKLY
+  REPORTS_FINANCE
+  REPORTS_EXPORTS
+}
+
+model UserAccessArea {
+  id        String     @id @default(cuid())
+  userId    String
+  area      AccessArea
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, area])
+  @@index([userId], map: "UserAccessArea_user_idx")
+  @@index([area], map: "UserAccessArea_area_idx")
 }
 
 enum WeeklyStatus {

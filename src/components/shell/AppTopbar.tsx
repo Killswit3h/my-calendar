@@ -1,7 +1,5 @@
 "use client";
 
-import { NotifyBell } from "@/app/_notify-bell";
-
 type AppTopbarProps = {
   onToggleSidebar?: () => void;
   title?: string;
@@ -19,7 +17,7 @@ export default function AppTopbar({ onToggleSidebar, title = "Planner" }: AppTop
         ☰
       </button>
       <span className="text-sm font-semibold text-white">{title}</span>
-      <NotifyBell />
+      <div className="inline-flex h-9 w-9 items-center justify-center" aria-hidden="true" />
     </header>
   );
 }

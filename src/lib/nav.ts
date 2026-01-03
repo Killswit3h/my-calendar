@@ -4,9 +4,6 @@ import {
   LayoutDashboard,
   CalendarDays,
   FolderKanban,
-  FileText,
-  LineChart,
-  Package,
   PackageSearch,
   Users,
   Truck,
@@ -34,9 +31,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, section: 'workspace' },
   { key: 'calendar', label: 'Calendar', href: '/calendar', icon: CalendarDays, section: 'workspace' },
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban, section: 'workspace' },
-  { key: 'documents', label: 'Documents', href: '/documents', icon: FileText, section: 'workspace' },
-  { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart, section: 'workspace' },
-  { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package, section: 'workspace' },
   { key: 'procurement', label: 'Procurement', href: '/procurement', icon: PackageSearch, section: 'workspace' },
   { key: 'hr', label: 'HR', href: '/hr', icon: Users, section: 'workspace' },
   { key: 'fleet', label: 'Fleet', href: '/fleet', icon: Truck, section: 'workspace' },
@@ -70,7 +64,6 @@ export const NAV_SECTIONS: NavSection[] = [
 export const QUICK_LINKS = [
   { label: 'New Project', href: '/projects?create=1' },
   { label: 'Log Incident', href: '/compliance/incidents?create=1' },
-  { label: 'Add Inventory Item', href: '/inventory/items?create=1' },
 ]
 
 export const HOTKEYS = {

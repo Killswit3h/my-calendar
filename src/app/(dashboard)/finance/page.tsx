@@ -1,3 +1,8 @@
+// Removed module; redirect to 404
+import { notFound } from "next/navigation";
+export default function Page() {
+  notFound();
+}
 import { notFound } from 'next/navigation'
 import { LaborDashboard } from '@/components/finance/LaborDashboard'
 import { isFinanceLaborEnabled } from '@/lib/finance/config'

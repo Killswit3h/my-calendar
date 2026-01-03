@@ -1,3 +1,8 @@
+// Removed module; redirect to 404
+import { notFound } from "next/navigation";
+export default function Page() {
+  notFound();
+}
 import { DataTable, type TableColumn } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'

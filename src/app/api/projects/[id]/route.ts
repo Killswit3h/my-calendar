@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { subscribeUserToResource } from '@/lib/subscribe'
-import { emitChange } from '@/lib/notify'
 import { ensureUserRecord } from '@/lib/users'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -49,17 +47,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const updated = await prisma.project.update({
     where: { id },
     data,
-  })
-
-  await subscribeUserToResource(user.id, 'Project', updated.id)
-  await emitChange({
-    actorId: user.id,
-    resourceType: 'Project',
-    resourceId: updated.id,
-    kind: 'project.updated',
-    title: 'Project updated',
-    body: `${user.name ?? 'Someone'} updated project: ${updated.name}`,
-    url: `/projects/${updated.id}`,
   })
 
   return NextResponse.json(updated)
