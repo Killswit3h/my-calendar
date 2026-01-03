@@ -1,3 +1,16 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function PATCH() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function DELETE() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 // src/app/api/todos/[id]/route.ts
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

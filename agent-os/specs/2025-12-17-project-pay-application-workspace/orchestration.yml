@@ -1,0 +1,50 @@
+task_groups:
+  - name: Phase 1 — UX & Data Mapping
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 2 — Checklist + Notes
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 3 — Contract Quantities Table
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 4 — Stockpile Deductions
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 5 — Change Orders
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 6 — Phases Section + Search
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 7 — CSV Pay Application Export
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+  - name: Phase 8 — Integration, Roles, QA
+    claude_code_subagent: frontend-specialist
+    standards:
+      - global/*
+      - frontend/*
+      - testing/*
+

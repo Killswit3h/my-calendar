@@ -6,7 +6,11 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { serializeCalendarEvent } from '@/lib/events/serializer'
-import { parseAppDateTime, parseAppDateOnly, addDaysUtc } from '@/lib/timezone'
+import { parseAppDateOnly, localISOToUTC, nextDateISO, formatInTimeZone } from '@/lib/timezone'
+import { APP_TZ } from '@/lib/appConfig'
+import { ensureProjectForEventTitle } from '@/src/lib/finance/projectLink'
+import { parseReminderOffsets } from '@/lib/reminders'
+import { getCurrentUser } from '@/lib/session'
 
 type PatchPayload = {
   title?: string
@@ -108,20 +112,31 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'database unavailable' }, { status: 503, headers: cors as any })
     }
 
-    const payload = serializeCalendarEvent({
-      id: updated.id,
-      calendarId: updated.calendarId,
-      title: updated.title,
-      description: updated.description ?? '',
-      startsAt: updated.startsAt,
-      endsAt: updated.endsAt,
-      allDay: updated.allDay,
-      location: updated.location ?? '',
-      type: updated.type ?? null,
-      shift: updated.shift ?? null,
-      checklist: updated.checklist ?? null,
-      hasQuantities: !!(updated._count?.quantities ?? 0),
-    }, { timezone: 'UTC' })
+    const base = serializeCalendarEvent(
+      {
+        id: updated.id,
+        calendarId: updated.calendarId,
+        title: updated.title,
+        description: updated.description ?? '',
+        startsAt: updated.startsAt,
+        endsAt: updated.endsAt,
+        startDate: updated.startDate ?? null,
+        endDate: updated.endDate ?? null,
+        allDay: updated.allDay,
+        location: updated.location ?? '',
+        type: updated.type ?? null,
+        shift: updated.shift ?? null,
+        checklist: updated.checklist ?? null,
+        hasQuantities: !!(updated._count?.EventQuantity ?? 0),
+      },
+      { timezone: APP_TZ },
+    )
+
+    const payload = {
+      ...base,
+      reminderEnabled: !!updated.reminderEnabled,
+      reminderOffsets: parseReminderOffsets(updated.reminderOffsets ?? []),
+    }
 
     return NextResponse.json(payload, { status: 200, headers: cors as any })
   } catch (e: any) {

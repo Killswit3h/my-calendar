@@ -137,6 +137,293 @@
 .modal-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
 .form-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; align-items: start; }
 .form-grid * { box-sizing: border-box; min-width: 0; }
+.form-grid label { display: grid; gap: 0.5rem; }
+.form-grid .label { 
+  font-size: 0.875rem; 
+  color: #FFFFFF; 
+  font-weight: 500; 
+  font-family: Inter, system-ui, sans-serif;
+}
+.form-grid input, .form-grid select, .form-grid textarea { 
+  width: 100%; 
+  border: 1px solid #4B5563; 
+  border-radius: 0.5rem; 
+  padding: 0.75rem 1rem; 
+  background: #000000; 
+  color: #FFFFFF; 
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: Inter, system-ui, sans-serif;
+  transition: all 0.2s ease;
+}
+.form-grid input::placeholder, .form-grid textarea::placeholder {
+  color: #FFFFFF;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus {
+  outline: none;
+  border-color: #22C55E;
+  background: #000000;
+}
+.form-grid input:hover, .form-grid select:hover, .form-grid textarea:hover {
+  border-color: #6B7280;
+  background: #000000;
+}
+.form-grid textarea { min-height: 100px; resize: vertical; }
+.inline { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+/* Select dropdown styling - White arrow */
+.form-grid select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23E5E5E5' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+@media (min-width: 640px) { 
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } 
+  .span-2 { grid-column: 1 / -1; } 
+}
+
+/* Helper Text and Additional Elements */
+.helper-text {
+  color: #9CA3AF;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+.muted-text {
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.disabled-text {
+  color: #6B7280;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* Ensure all text in modal has proper contrast */
+.modal-content p, .modal-content span, .modal-content div {
+  color: #FFFFFF;
+}
+.modal-content .text-muted {
+  color: #FFFFFF;
+  opacity: 0.8;
+}
+.modal-content .text-disabled {
+  color: #FFFFFF;
+  opacity: 0.6;
+}
+
+/* Force white text for all form elements */
+.form-grid * {
+  color: #FFFFFF !important;
+}
+.form-grid input, .form-grid select, .form-grid textarea {
+  color: #FFFFFF !important;
+}
+.form-grid label, .form-grid .label {
+  color: #FFFFFF !important;
+}
+
+/* Ensure input values are always white */
+input[type="text"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+select,
+textarea {
+  color: #FFFFFF !important;
+}
+
+/* Force white text for all input elements in modal */
+.bg-\[#1A1A1A\] input,
+.bg-\[#1A1A1A\] select,
+.bg-\[#1A1A1A\] textarea {
+  color: #FFFFFF !important;
+}
+
+/* Ensure all modal elements have white text */
+.modal-card,
+.modal-card * {
+  color: #FFFFFF !important;
+}
+
+/* Force white text for all text elements in modals */
+.modal-card p,
+.modal-card span,
+.modal-card div,
+.modal-card label,
+.modal-card .label {
+  color: #FFFFFF !important;
+}
+
+/* Ensure checkbox labels are white */
+.modal-card label.inline span {
+  color: #FFFFFF !important;
+}
+
+/* Modal actions buttons styling */
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.btn {
+  height: 40px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 20px;
+  border: none;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+.btn:hover { 
+  filter: brightness(1.1); 
+}
+.btn.ghost { 
+  background: transparent; 
+  color: #22C55E; 
+  border: 1px solid transparent;
+}
+.btn.ghost:hover {
+  background: #22C55E;
+  background-opacity: 0.1;
+}
+.btn.primary { 
+  background: #22C55E; 
+  color: #FFFFFF; 
+}
+.btn.tiny { 
+  height: 28px; 
+  padding: 0 12px; 
+  font-size: 0.75rem; 
+}
+
+/* Toggle Switch Styling - Reference Screenshot Match */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.toggle-switch input[type="checkbox"] {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: #374151;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #4B5563;
+}
+.toggle-switch input[type="checkbox"]:checked {
+  background: #22C55E;
+  border-color: #22C55E;
+}
+.toggle-switch input[type="checkbox"]:hover {
+  border-color: #6B7280;
+}
+.toggle-switch input[type="checkbox"]:checked:hover {
+  border-color: #16A34A;
+  background: #16A34A;
+}
+.toggle-switch input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.toggle-switch input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+}
+.toggle-switch label {
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+
+/* Work Time Toggle - Reference Screenshot Match */
+.work-time-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.work-time-toggle button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #4B5563;
+  background: #000000;
+  color: #FFFFFF;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: Inter, system-ui, sans-serif;
+}
+.work-time-toggle button.active {
+  background: #22C55E;
+  color: #FFFFFF;
+  border-color: #22C55E;
+}
+.work-time-toggle button:hover:not(.active) {
+  color: #FFFFFF;
+  border-color: #6B7280;
+  background: #000000;
+}
+.work-time-toggle button:focus {
+  outline: none;
+  border-color: #22C55E;
+}
+
+/* ===== Modal tabs ===== */
+.modal-card--wide { width: min(860px, 96vw); max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; }
+.modal-content { display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; padding-right: 0.25rem; flex: 1 1 auto; }
+.tab-nav { display: flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 0.5rem; flex-wrap: wrap; }
+.tab-button { padding: 0.4rem 0.9rem; border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--text-dim); font-size: 0.9rem; cursor: pointer; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.tab-button:hover { color: var(--text); }
+.tab-button.active { background: rgba(31, 122, 77, 0.2); color: var(--text); border-color: rgba(34, 160, 107, 0.4); }
+.tab-panels { display: block; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.tab-stack { display: grid; gap: 1.25rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field-grid { display: grid; gap: 1rem; align-items: start; }
+.field-grid.two { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.field-grid.three { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.field.span-2 { grid-column: 1 / -1; }
+.field input,
+.field textarea,
+.field select { width: 100%; border-radius: 10px; border: 1px solid var(--border); padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
+.field textarea { min-height: 110px; resize: vertical; }
+.inline-select { display: flex; align-items: center; gap: 0.5rem; }
+.inline-select select { flex: 1; padding: 0.5rem 0.65rem; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); min-height: 44px; }
+.footer-left { justify-content: flex-start; }
+.footer-left .btn { min-width: 100px; }
+
+@media (max-width: 768px) {
+  .field-grid.two,
+  .field-grid.three { grid-template-columns: minmax(0, 1fr); }
+  .modal-card--wide { max-height: 94vh; }
+}
 .form-grid label { display: grid; gap: 0.25rem; }
 .form-grid .label { font-size: 0.875rem; color: var(--text-dim); }
 .form-grid input, .form-grid select, .form-grid textarea { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); }
@@ -206,20 +493,20 @@
 .cal-controls { display: flex; align-items: center; justify-content: flex-start; min-height: 56px; padding: 0 16px; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
 .cal-controls input { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
 /* Make search and quick-add inputs share the same width */
-.search-input { width: 100%; max-width: 36rem; }
+.search-input { width: min(100%, 600px); max-width: 600px; }
 /* Ensure the quick-add form itself adopts the same max width so the input matches the Search box */
-#quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; max-width: 36rem; }
+#quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: min(100%, 600px); max-width: 600px; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
 /* Prioritize calendar: 75% calendar, 25% sidebar */
 .calendar-pane { flex: 1 1 75%; }
-.details-pane { flex: 1 1 25%; overflow: auto; min-width: 240px; }
+.details-pane { flex: 0 0 488px; width: 488px; height: 471px; overflow: auto; min-width: 240px; }
 mark { background: var(--primary); color: var(--primary-contrast); }
 
 /* ===== Options dropdown ===== */
 .options-wrap { position: relative; display: inline-block; }
 .cal-controls .options-wrap:first-of-type { position: absolute; left: 8px; top: 6px; z-index: 60; }
-.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--elevated); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,.35); backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); }
+.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background-color: rgba(23,23,23,1); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,.35); backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); color: rgba(23,23,23,1); }
 .menu-item, .menu-card .btn, .menu-row, .menu-card a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent !important; color: var(--text) !important; border: 0 !important; padding: 10px 12px; border-radius: 10px; text-decoration: none; font-size: 0.95rem; line-height: 1.2; }
 .menu-item:hover, .menu-card .btn:hover, .menu-row:hover, .menu-card a:hover { background: var(--elev-2) !important; filter: none !important; }
 .menu-ico { width: 18px; display: inline-block; text-align: center; opacity: .9; }

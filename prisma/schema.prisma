@@ -173,9 +173,104 @@ model FdotCutoff {
   @@map("fdot_cutoffs")
 }
 
-enum ShareRole {
-  VIEWER
-  EDITOR
+model HourlyRate {
+  id            String   @id @default(cuid())
+  employeeId    String
+  effectiveDate DateTime @db.Date
+  rate          Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, effectiveDate], map: "HourlyRate_employee_effective_date_key")
+  @@index([effectiveDate], map: "HourlyRate_effective_idx")
+}
+
+model LaborDaily {
+  id              String   @id @default(cuid())
+  jobId           String
+  jobName         String
+  day             DateTime @db.Date
+  eventId         String
+  eventTitle      String?
+  employeeId      String
+  employeeName    String
+  assignmentId    String?
+  hoursDecimal    Decimal  @db.Decimal(6, 2)
+  regularHours    Decimal  @db.Decimal(6, 2)
+  overtimeHours   Decimal  @db.Decimal(6, 2)
+  rateUsd         Decimal  @db.Decimal(10, 2)
+  regularCostUsd  Decimal  @db.Decimal(12, 2)
+  overtimeCostUsd Decimal  @db.Decimal(12, 2)
+  totalCostUsd    Decimal  @db.Decimal(12, 2)
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([day, eventId, employeeId], map: "LaborDaily_unique_row")
+  @@index([employeeId, day], map: "LaborDaily_employee_day_idx")
+  @@index([jobId, day], map: "LaborDaily_job_day_idx")
+}
+
+model fdot_cutoffs {
+  id          String   @id
+  year        Int
+  cutoff_date DateTime
+  label       String?
+  created_by  String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  @@unique([year, cutoff_date])
+}
+
+model User {
+  id                String                     @id @default(cuid())
+  email             String?                    @unique
+  name              String?
+  image             String?
+  memberships       Membership[]
+  accessAreas       UserAccessArea[]
+  updatedProjects   Project[]                  @relation("ProjectUpdatedBy")
+  updatedTodos      Todo[]                     @relation("TodoUpdatedBy")
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  memberships Membership[]
+  projects    Project[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Membership {
+  id     String @id @default(cuid())
+  role   Role
+  userId String
+  teamId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+enum PlacementType {
+  FREE
+  YARD_SHOP
+  NO_WORK
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  INVOICED
 }
 
 enum EventType {
@@ -195,6 +290,38 @@ enum ReportKind {
   DAILY_PDF
   DAILY_XLSX
   WEEKLY_PDF
+}
+
+enum ShareRole {
+  VIEWER
+  EDITOR
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum AccessArea {
+  REPORTS_DAILY
+  REPORTS_WEEKLY
+  REPORTS_FINANCE
+  REPORTS_EXPORTS
+}
+
+model UserAccessArea {
+  id        String     @id @default(cuid())
+  userId    String
+  area      AccessArea
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, area])
+  @@index([userId], map: "UserAccessArea_user_idx")
+  @@index([area], map: "UserAccessArea_area_idx")
 }
 
 enum WeeklyStatus {

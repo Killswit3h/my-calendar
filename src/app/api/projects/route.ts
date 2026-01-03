@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { subscribeUserToResource } from '@/lib/subscribe'
-import { emitChange } from '@/lib/notify'
 import { ensureUserRecord } from '@/lib/users'
 
 export async function POST(req: NextRequest) {
@@ -32,17 +30,6 @@ export async function POST(req: NextRequest) {
       description,
       updatedById: user.id,
     },
-  })
-
-  await subscribeUserToResource(user.id, 'Project', project.id)
-  await emitChange({
-    actorId: user.id,
-    resourceType: 'Project',
-    resourceId: project.id,
-    kind: 'project.created',
-    title: 'New project',
-    body: `${user.name ?? 'Someone'} created project: ${project.name}`,
-    url: `/projects/${project.id}`,
   })
 
   return NextResponse.json(project, { status: 201 })

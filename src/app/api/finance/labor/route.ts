@@ -1,3 +1,8 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 import type { Customer, Employee, Event, EventAssignment, Project } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'

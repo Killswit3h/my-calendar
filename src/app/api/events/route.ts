@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tryPrisma } from '@/lib/dbSafe'
 import { parseAppDateTime, parseAppDateOnly, addDaysUtc, formatInTimeZone } from '@/lib/timezone'
 import { APP_TZ } from '@/lib/appConfig'
+import { serializeCalendarEvent } from '@/lib/events/serializer'
+import { parseReminderOffsets } from '@/lib/reminders'
+import { getCurrentUser } from '@/lib/session'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
