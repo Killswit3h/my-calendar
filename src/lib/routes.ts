@@ -1,11 +1,8 @@
 import type { ComponentType } from 'react'
 import {
   CalendarDays,
-  FileSpreadsheet,
-  FileText,
   LayoutDashboard,
   LineChart,
-  Package,
   Settings2,
   FolderKanban,
   Users,
@@ -22,12 +19,7 @@ export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { key: 'calendar', label: 'Calendar', href: '/calendar', icon: CalendarDays },
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
-  { key: 'documents', label: 'Documents', href: '/documents', icon: FileText },
-  { key: 'finance', label: 'Finance', href: '/finance', icon: LineChart },
-  { key: 'finance-jobs', label: 'Finance Jobs', href: '/finance/jobs', icon: LineChart },
-  { key: 'estimates', label: 'Estimates', href: '/estimates', icon: FileSpreadsheet },
   { key: 'employees', label: 'Employees', href: '/employees', icon: Users },
-  { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Package },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
 ]
 
@@ -41,19 +33,18 @@ export const SHELL_NAV_GROUPS: NavGroup[] = [
   {
     key: 'work',
     label: 'Workspace',
-    items: SHELL_NAV_ITEMS.slice(0, 9),
+  items: SHELL_NAV_ITEMS.slice(0, 6),
   },
   {
     key: 'admin',
     label: 'Administration',
-    items: SHELL_NAV_ITEMS.slice(9),
+  items: SHELL_NAV_ITEMS.slice(6),
   },
 ]
 
 export const QUICK_LINKS = [
   { label: 'New Project', href: '/projects?create=1' },
   { label: 'Log Incident', href: '/compliance/incidents?create=1' },
-  { label: 'Add Inventory Item', href: '/inventory/items?create=1' },
 ]
 
 export const HOTKEYS = {

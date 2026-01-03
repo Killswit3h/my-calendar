@@ -1,15 +1,23 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function POST() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 // src/app/api/todos/items/route.ts
 export const runtime = 'nodejs';
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { tryPrisma } from "@/lib/dbSafe";
 import { parseReminderOffsets } from "@/lib/reminders";
 import { anchorAllDayAtNineLocal, localISOToUTC } from "@/lib/timezone";
 import { getCurrentUser } from "@/lib/session";
-import { subscribeUserToResource } from "@/lib/subscribe";
-import { emitChange } from "@/lib/notify";
 import { ensureUserRecord } from "@/lib/users";
 import { sendTodoNotificationEmail } from "@/lib/mailer";
 
@@ -122,6 +130,33 @@ const BUCKET_LABEL: Record<string, string> = {
 
 const TODO_DETAIL_URL = (todoId: string) => `/planner/todos?todo=${todoId}`;
 
+type SortModeParam = "manual" | "created" | "due-date" | "alphabetical" | "importance";
+
+function normalizeSortParam(raw: string | null): SortModeParam {
+  if (!raw) return "manual";
+  if (raw === "created" || raw === "createdAt") return "created";
+  if (raw === "due-date" || raw === "dueDate") return "due-date";
+  if (raw === "alpha" || raw === "alphabetical") return "alphabetical";
+  if (raw === "importance") return "importance";
+  return "manual";
+}
+
+function buildOrder(sortMode: SortModeParam): Prisma.TodoOrderByWithRelationInput[] {
+  switch (sortMode) {
+    case "created":
+      return [{ createdAt: "desc" }, { sortOrder: "asc" }, { position: "asc" }];
+    case "due-date":
+      return [{ dueAt: "asc" }, { createdAt: "asc" }];
+    case "alphabetical":
+      return [{ title: "asc" }, { createdAt: "asc" }];
+    case "importance":
+      return [{ isImportant: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }];
+    case "manual":
+    default:
+      return [{ sortOrder: "asc" }, { position: "asc" }, { createdAt: "asc" }];
+  }
+}
+
 function parseDate(input: unknown): Date | null {
   if (typeof input !== "string") return null;
   const candidate = new Date(input);
@@ -159,6 +194,7 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const listId = params.get("listId");
   const view = params.get("view")?.toLowerCase() ?? null;
+  const sortMode = normalizeSortParam(params.get("sort"));
   const today = new Date();
 
   const where: any = {};
@@ -173,12 +209,14 @@ export async function GET(req: NextRequest) {
     where.dueAt = { not: null };
   }
 
+  const orderBy = buildOrder(sortMode);
+
   const todos = await tryPrisma(
     (p) =>
       p.todo.findMany({
         where,
         include: { steps: { orderBy: { position: "asc" } } },
-        orderBy: [{ sortOrder: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+        orderBy,
       }),
     [] as any[],
   );
@@ -300,20 +338,6 @@ export async function POST(req: NextRequest) {
   if (!created) {
     return NextResponse.json({ error: "database_unavailable" }, { status: 503 });
   }
-
-  await subscribeUserToResource(user.id, "Todo", created.id);
-  if (created.projectId) {
-    await subscribeUserToResource(user.id, "Project", created.projectId);
-  }
-  await emitChange({
-    actorId: user.id,
-    resourceType: "Todo",
-    resourceId: created.id,
-    kind: "todo.created",
-    title: "New todo",
-    body: `${user.name ?? "Someone"} created: ${created.title}`,
-    url: TODO_DETAIL_URL(created.id),
-  });
 
   if (created.list?.notifyOnNewTask && created.list.notificationEmail) {
     await sendTodoNotificationEmail({

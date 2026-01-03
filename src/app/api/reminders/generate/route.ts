@@ -125,24 +125,14 @@ async function regenerateReminders(args: {
     return { created: 0 }
   }
 
-  const data = upcoming.flatMap(date => [
-    {
-      userId,
-      entityType,
-      entityId,
-      fireAt: date,
-      channel: 'inapp',
-      status: 'pending' as const,
-    },
-    {
-      userId,
-      entityType,
-      entityId,
-      fireAt: date,
-      channel: 'push',
-      status: 'pending' as const,
-    },
-  ])
+  const data = upcoming.map(date => ({
+    userId,
+    entityType,
+    entityId,
+    fireAt: date,
+    channel: 'inapp',
+    status: 'pending' as const,
+  }))
 
   await prisma.reminder.createMany({ data })
   return { created: data.length }

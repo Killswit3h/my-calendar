@@ -950,11 +950,11 @@ export default function EmployeesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 md:px-8 lg:px-10">
-      <div className="flex flex-col gap-4 rounded-3xl border border-border/60 bg-surface-soft/60 p-4 shadow-inner-md backdrop-blur md:p-6">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-6 md:px-8 lg:px-10">
+      <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-[rgba(23,23,23,0.3)] p-4 text-white shadow-[0_20px_60px_rgba(3,6,23,0.45)] backdrop-blur-xl md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-            <Users className="h-4 w-4 text-accent" />
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
+            <Users className="h-4 w-4 text-emerald-300" />
             Employees
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -975,13 +975,13 @@ export default function EmployeesPage() {
           </div>
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 items-center gap-3 rounded-2xl border border-border/60 bg-foreground/5 px-4 py-2">
-            <Filter className="h-4 w-4 text-muted" />
+          <div className="flex flex-1 items-center gap-3 rounded-2xl border border-white/15 bg-white/5 px-4 py-2">
+            <Filter className="h-4 w-4 text-white/60" />
             <Input
               value={query}
               onChange={(event) => onSearch(event.target.value)}
               placeholder="Search name, crew, or contact"
-              className="border-none bg-transparent px-0 focus-visible:ring-0"
+              className="border-none bg-transparent px-0 text-white placeholder:text-white/50 focus-visible:ring-0"
             />
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -1031,22 +1031,26 @@ export default function EmployeesPage() {
             </Select>
           </div>
         </div>
-        <div className="flex flex-col gap-2 text-sm text-muted md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 text-sm text-white/70 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-accent" />
+            <Users className="h-4 w-4 text-emerald-300" />
             <span>
               {filteredEmployees.length} team member
               {filteredEmployees.length === 1 ? "" : "s"} ready for Guardrail & Fence ops
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em] text-muted">
+          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/50">
             <Building2 className="h-4 w-4" />
             Today {dayKey}
           </div>
         </div>
       </div>
 
-      <Card tone="surface" bordered className="overflow-hidden">
+    <Card
+      tone="surface"
+      bordered
+      className="overflow-hidden rounded-2xl border border-white/10 bg-[rgba(23,23,23,1)] text-white shadow-[0_20px_60px_rgba(3,6,23,0.45)] backdrop-blur-xl"
+    >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -1099,10 +1103,7 @@ export default function EmployeesPage() {
               </TableHeader>
               <TableBody>
                 {filteredEmployees.map((emp) => (
-                  <TableRow
-                    key={emp.id}
-                    className="border-border/40 hover:bg-foreground/[0.04]"
-                  >
+                  <TableRow key={emp.id} className="border-white/10 hover:bg-white/5">
                     <TableCell>
                       <EmployeesCheckbox
                         checked={selectedIds.includes(emp.id)}

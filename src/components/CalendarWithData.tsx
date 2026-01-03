@@ -291,6 +291,8 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [yardTick, setYardTick] = useState(0);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
+  const optsRef = useRef<HTMLDivElement | null>(null);
+  const legacyOptsRef = useRef<HTMLDivElement | null>(null);
   const touchStart = useRef<number | null>(null);
 
   useEffect(() => {
@@ -314,6 +316,23 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  useEffect(() => {
+    if (!optsOpen) return;
+    const handleOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const inPrimary = optsRef.current?.contains(target);
+      const inLegacy = legacyOptsRef.current?.contains(target);
+      if (!inPrimary && !inLegacy) setOptsOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [optsOpen]);
 
   useEffect(() => {
     refetchCalendar();
@@ -1395,9 +1414,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     <div className="cal-shell">
       <Toast message={toast.message} open={toast.open} onClose={closeToast} />
       {/* controls */}
-      <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap">
+      <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap text-[rgba(23,23,23,1)]">
         <div className="flex gap-2 items-center flex-wrap">
-          <div className="options-wrap">
+          <div className="options-wrap" ref={optsRef}>
             <button
               type="button"
               className="icon-btn"
@@ -1409,13 +1428,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <EllipsisVertical size={18} aria-hidden="true" />
             </button>
             {optsOpen ? (
-              <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
+              <div className="menu-card" role="menu">
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
-                <Link className="menu-row" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛣️</span><span className="menu-text">FDOT Cut-Off Dates</span></Link>
-                <Link className="menu-row" role="menuitem" href="/inventory" onClick={() => setOptsOpen(false)}><span className="menu-ico">🛠️</span><span className="menu-text">Inventory</span></Link>
-                <Link className="menu-row" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}><span className="menu-ico">📂</span><span className="menu-text">Customers</span></Link>
               </div>
             ) : null}
           </div>
@@ -1428,7 +1444,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <div className="options-wrap">
+          <div className="options-wrap" ref={legacyOptsRef}>
             <button
               type="button"
               className="btn"
@@ -1437,12 +1453,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               onClick={() => setOptsOpen(v => !v)}
             >Options ▾</button>
             {optsOpen ? (
-              <div className="menu-card" role="menu" onMouseLeave={() => setOptsOpen(false)}>
+              <div className="menu-card" role="menu">
                 <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
-                <a className="menu-item" role="menuitem" href="/admin/fdot-cutoffs" onClick={() => setOptsOpen(false)}>FDOT Cut-Off Dates…</a>
-                <a className="menu-item" role="menuitem" href="/customers" onClick={() => setOptsOpen(false)}>Customers</a>
               </div>
             ) : null}
           </div>

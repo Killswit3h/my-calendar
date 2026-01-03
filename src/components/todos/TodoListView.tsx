@@ -19,6 +19,7 @@ type TodoListViewProps = {
   selectedId: string | null;
   sort: SortOption;
   manualReorderEnabled?: boolean;
+  orderSaving?: boolean;
   onSelect(todo: TodoItemModel): void;
   onToggleComplete(todo: TodoItemModel, value: boolean): void;
   onToggleImportant(todo: TodoItemModel, value: boolean): void;
@@ -38,6 +39,7 @@ export default function TodoListView({
   selectedId,
   sort,
   manualReorderEnabled = false,
+  orderSaving = false,
   onSelect,
   onToggleComplete,
   onToggleImportant,
@@ -161,6 +163,12 @@ export default function TodoListView({
           <EmptyState activeView={activeView} />
         ) : allowManualDnd ? (
           <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="mb-3 flex items-center justify-between rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs text-white/70">
+              <span>Manual ordering is active. Drag tasks to rearrange.</span>
+              <span className={cn("font-medium", orderSaving ? "text-emerald-200" : "text-white/60")}>
+                {orderSaving ? "Saving order…" : "Changes save automatically"}
+              </span>
+            </div>
             <Droppable droppableId="todo-manual-list">
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">

@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ChangeOrderUpdateInput } from '@/lib/dto'
 import { recomputeFromLines, lineTotalCents } from '@/lib/calc'
-import { emitChange } from '@/lib/notifications'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -85,23 +84,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
   })
 
-  if (dto.status && dto.status !== existing.status) {
-    await emitChange({
-      type: 'changeOrder.statusChanged',
-      id: updated.id,
-      projectId: updated.projectId,
-      number: updated.number,
-      status: dto.status,
-    })
-  } else {
-    await emitChange({
-      type: 'changeOrder.updated',
-      id: updated.id,
-      projectId: updated.projectId,
-      number: updated.number,
-    })
-  }
-
   return NextResponse.json(updated)
 }
 
@@ -117,13 +99,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     prisma.changeOrderLineItem.deleteMany({ where: { changeOrderId: id } }),
     prisma.changeOrder.delete({ where: { id } }),
   ])
-
-  await emitChange({
-    type: 'changeOrder.deleted',
-    id: existing.id,
-    projectId: existing.projectId,
-    number: existing.number,
-  })
 
   return NextResponse.json({ ok: true })
 }

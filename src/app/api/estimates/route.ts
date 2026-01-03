@@ -1,10 +1,14 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 import { NextRequest, NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/db'
 import { EstimateCreateInput, EstimateQuery } from '@/lib/dto'
 import { nextEstimateNumber } from '@/lib/docNumbers'
 import { recomputeFromLines } from '@/lib/calc'
-import { emitChange } from '@/lib/notifications'
 
 const normalizeId = (value?: string | null) => {
   if (typeof value !== 'string') return undefined
@@ -156,14 +160,6 @@ export async function POST(req: NextRequest) {
       },
     },
     select: { id: true, number: true, projectId: true, customerId: true },
-  })
-
-  await emitChange({
-    type: 'estimate.created',
-    id: created.id,
-    projectId: created.projectId,
-    customerId: created.customerId,
-    number: created.number,
   })
 
   return NextResponse.json(created, { status: 201 })

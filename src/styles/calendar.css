@@ -406,7 +406,7 @@ textarea {
   gap: 8px;
   border-radius: 20px;
   border: none;
-  background: #22C55E;
+  background: var(--primary);
   color: #FFFFFF;
   font-weight: 600;
   cursor: pointer;
@@ -620,20 +620,20 @@ textarea {
 .cal-controls { display: flex; align-items: center; justify-content: flex-start; min-height: 56px; padding: 0 16px; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
 .cal-controls input { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.65rem; background: var(--card-2); color: var(--text); min-height: 44px; }
 /* Make search and quick-add inputs share the same width */
-.search-input { width: 100%; max-width: 36rem; }
+.search-input { width: min(100%, 600px); max-width: 600px; }
 /* Ensure the quick-add form itself adopts the same max width so the input matches the Search box */
-#quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; max-width: 36rem; }
+#quick-add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: min(100%, 600px); max-width: 600px; }
 .view-toggle .btn { min-height: 44px; }
 .tablet-split { display: flex; gap: 1rem; }
 /* Prioritize calendar: 75% calendar, 25% sidebar */
 .calendar-pane { flex: 1 1 75%; }
-.details-pane { flex: 1 1 25%; overflow: auto; min-width: 240px; }
+.details-pane { flex: 0 0 488px; width: 488px; height: 471px; overflow: auto; min-width: 240px; }
 mark { background: var(--primary); color: var(--primary-contrast); }
 
 /* ===== Options dropdown ===== */
 .options-wrap { position: relative; display: inline-block; }
 .cal-controls .options-wrap:first-of-type { position: absolute; left: 8px; top: 6px; z-index: 60; }
-.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--elevated); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,.35); backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); }
+.menu-card { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background-color: rgba(23,23,23,1); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,.35); backdrop-filter: blur(var(--glass-blur-12)); -webkit-backdrop-filter: blur(var(--glass-blur-12)); color: rgba(23,23,23,1); }
 .menu-item, .menu-card .btn, .menu-row, .menu-card a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent !important; color: var(--text) !important; border: 0 !important; padding: 10px 12px; border-radius: 10px; text-decoration: none; font-size: 0.95rem; line-height: 1.2; }
 .menu-item:hover, .menu-card .btn:hover, .menu-row:hover, .menu-card a:hover { background: var(--elev-2) !important; filter: none !important; }
 .menu-ico { width: 18px; display: inline-block; text-align: center; opacity: .9; }
