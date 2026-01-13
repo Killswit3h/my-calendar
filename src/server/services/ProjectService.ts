@@ -3,6 +3,12 @@ import { AbstractService } from "../base/AbstractService"
 import { ProjectRepository } from "../repositories/ProjectRepository"
 import { ValidationError, ConflictError } from "../base/types"
 import { getPrisma } from "@/lib/db"
+import { toZonedTime } from "date-fns-tz"
+
+const TIMEZONE = "America/New_York"
+
+// Helper to get current time in EST
+const getESTDate = () => toZonedTime(new Date(), TIMEZONE)
 
 /**
  * Valid project status values
@@ -291,8 +297,10 @@ export class ProjectService extends AbstractService<
       }
     }
 
-    // Note: created_at and updated_at are handled automatically by Prisma defaults
-    // Do not include them in the input
+    // Set EST timestamps for created_at and updated_at
+    const now = getESTDate()
+    processed.created_at = now
+    processed.updated_at = now
 
     return processed
   }
@@ -364,8 +372,8 @@ export class ProjectService extends AbstractService<
       processed.status = trimmed
     }
 
-    // Note: updated_at is handled automatically by Prisma
-    // Do not include it in the input
+    // Refresh updated_at in EST only on update (PATCH)
+    processed.updated_at = getESTDate()
 
     return processed
   }
