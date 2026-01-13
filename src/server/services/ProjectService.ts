@@ -261,6 +261,12 @@ export class ProjectService extends AbstractService<
       processed.customer =
         normalizedCustomer as Prisma.customerCreateNestedOneWithoutProjectInput
     }
+    // Prisma "checked" inputs don't allow setting foreign keys directly.
+    // If the API provided customer_id, we convert it to a relation connect above
+    // and must strip the raw customer_id before calling prisma.project.create().
+    if ((data as any).customer_id !== undefined) {
+      delete (processed as any).customer_id
+    }
 
     // Set defaults for optional fields
     if (processed.is_payroll === undefined || processed.is_payroll === null) {
@@ -334,6 +340,11 @@ export class ProjectService extends AbstractService<
     if (normalizedCustomer) {
       processed.customer =
         normalizedCustomer as Prisma.customerUpdateOneWithoutProjectNestedInput
+    }
+    // Same as create: if API provided customer_id, we translated it to a relation
+    // update above; remove raw customer_id so Prisma doesn't reject the input.
+    if ((data as any).customer_id !== undefined) {
+      delete (processed as any).customer_id
     }
 
     if (

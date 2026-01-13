@@ -124,7 +124,8 @@ export class ProjectController extends AbstractController<
     try {
       const queryParams = this.parseQueryParams(req)
       const expandOptions = this.parseExpand(queryParams.expanded)
-      const body = await this.parseBody<Prisma.projectCreateInput>(req)
+      // Accept API-friendly `customer_id` and let the service normalize it.
+      const body = await this.parseBody<Prisma.projectCreateInput & { customer_id?: number | null }>(req)
 
       const project = await this.service.create(body, expandOptions)
       return this.successResponse(project, 201)
@@ -151,7 +152,8 @@ export class ProjectController extends AbstractController<
         return this.badRequestResponse("Project ID is required in path")
       }
 
-      const body = await this.parseBody<Prisma.projectUpdateInput>(req)
+      // Accept API-friendly `customer_id` and let the service normalize it.
+      const body = await this.parseBody<Prisma.projectUpdateInput & { customer_id?: number | null }>(req)
 
       const project = await this.service.update(id, body, expandOptions)
       return this.successResponse(project, 200)
