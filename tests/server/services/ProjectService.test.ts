@@ -303,14 +303,14 @@ describe("ProjectService", () => {
           expect(result.is_EEO).toBe(false)
         })
 
-        it("should default status to ACTIVE", async () => {
+        it("should default status to Not Started", async () => {
           const result = await service.create({
             name: "Test Project",
             location: "Test Location",
             retainage: 5.0,
             vendor: "Test Vendor",
           })
-          expect(result.status).toBe("ACTIVE")
+          expect(result.status).toBe("Not Started")
         })
 
         it("should accept is_payroll as true", async () => {

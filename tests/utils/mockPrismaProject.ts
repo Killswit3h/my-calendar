@@ -176,9 +176,17 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         retainage = new Prisma.Decimal(0)
       }
 
+      // Handle customer relation format (customer: { connect: { id: ... } })
+      let customer_id: number | null = null
+      if (data.customer_id !== undefined) {
+        customer_id = data.customer_id
+      } else if (data.customer?.connect?.id !== undefined) {
+        customer_id = data.customer.connect.id
+      }
+
       const row: ProjectRow = {
         id,
-        customer_id: data.customer_id ?? null,
+        customer_id,
         name: data.name,
         location: data.location,
         retainage,
@@ -234,9 +242,19 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         }
       }
 
+      // Handle customer relation format (customer: { connect: { id: ... } } or { disconnect: true })
+      let customer_id = row.customer_id
+      if (data.customer_id !== undefined) {
+        customer_id = data.customer_id
+      } else if (data.customer?.connect?.id !== undefined) {
+        customer_id = data.customer.connect.id
+      } else if (data.customer?.disconnect === true) {
+        customer_id = null
+      }
+
       const updated: ProjectRow = {
         ...row,
-        ...(data.customer_id !== undefined && { customer_id: data.customer_id }),
+        customer_id,
         ...(data.name !== undefined && { name: data.name }),
         ...(data.location !== undefined && { location: data.location }),
         retainage,
