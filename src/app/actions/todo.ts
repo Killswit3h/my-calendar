@@ -1,6 +1,6 @@
 'use server'
 
-import prisma from '@/lib/db'
+import prisma from '@/src/lib/db'
 import { getServerSession } from '@/lib/auth'
 import { ensureUserRecord } from '@/lib/users'
 
