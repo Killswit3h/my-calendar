@@ -155,6 +155,7 @@ export function PayApplicationWorkspace({
       const next: Record<string, number> = {};
       contractItems.forEach((item) => {
         next[item.id] = prev[item.id] ?? 0;
+        next[`purchased-${item.id}`] = prev[`purchased-${item.id}`] ?? 0;
       });
       return next;
     });
