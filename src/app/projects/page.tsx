@@ -141,7 +141,7 @@ export default function ProjectsPage() {
                           <div className="mt-4 flex items-center justify-between text-xs text-white/60">
                             <span>Updated 2h ago</span>
                             <Link
-                              href={`/projects/${project.companyId}`}
+                              href={`/projects/${project.companyId}/${project.id}`}
                               className="inline-flex items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white hover:border-white/40"
                             >
                               <ArrowUpRight className="h-3.5 w-3.5" />
