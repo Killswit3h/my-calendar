@@ -3,75 +3,16 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/theme";
 import type { ProjectType } from "@/lib/mock/projects";
-
-type ChecklistKey =
-  | "scope"
-  | "changeOrders"
-  | "materialCompliance"
-  | "eeo"
-  | "payroll"
-  | "locate"
-  | "onsiteReview"
-  | "materials"
-  | "handrail";
-
-type ChecklistStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE";
-
-type ChecklistItem = {
-  key: ChecklistKey;
-  title: string;
-  description: string;
-  visible?: (type?: ProjectType) => boolean;
-};
-
-const STATUS_LABEL: Record<ChecklistStatus, string> = {
-  NOT_STARTED: "Not Started",
-  IN_PROGRESS: "In Progress",
-  COMPLETE: "Complete",
-};
-
-const STATUS_CLASS: Record<ChecklistStatus, string> = {
-  NOT_STARTED: "bg-white/10 text-white",
-  IN_PROGRESS: "bg-amber-500/20 text-amber-200",
-  COMPLETE: "bg-emerald-500/20 text-emerald-200",
-};
-
-const ITEMS: ChecklistItem[] = [
-  { key: "scope", title: "Scope of Work", description: "Review contract scope, plans, and specs." },
-  {
-    key: "changeOrders",
-    title: "Change Orders / Conflicts",
-    description: "Log any conflicts, RFIs, or potential COs to raise.",
-  },
-  {
-    key: "materialCompliance",
-    title: "Material Compliance Forms",
-    description: "Verify all material compliance forms are completed/approved.",
-  },
-  { key: "eeo", title: "EEO Compliance", description: "Confirm EEO requirements and documentation are up to date." },
-  { key: "payroll", title: "Payroll", description: "Verify payroll and certified payroll submissions." },
-  {
-    key: "locate",
-    title: "Locate Tickets",
-    description: "Confirm utility locate tickets requested/cleared.",
-  },
-  {
-    key: "onsiteReview",
-    title: "Onsite Review",
-    description: "Perform onsite review / preconstruction walk-through.",
-  },
-  {
-    key: "materials",
-    title: "Materials Ordered / In Stock",
-    description: "Confirm materials have been ordered or are available in stock.",
-  },
-  {
-    key: "handrail",
-    title: "Handrail Measurements Confirmed Onsite",
-    description: "Confirm field measurements for handrail runs and details.",
-    visible: (type) => type === "HANDRAIL",
-  },
-];
+import {
+  CHECKLIST_ITEMS,
+  CHECKLIST_STATUS_ORDER,
+  STATUS_CLASS,
+  STATUS_LABEL,
+} from "@/components/project/ProjectChecklistCard.data";
+import type {
+  ChecklistKey,
+  ChecklistStatus,
+} from "@/components/project/ProjectChecklistCard.types";
 
 type Props = {
   projectType?: ProjectType;
@@ -79,32 +20,26 @@ type Props = {
 
 export function ProjectChecklistCard({ projectType }: Props) {
   const visibleItems = useMemo(
-    () => ITEMS.filter((item) => (item.visible ? item.visible(projectType) : true)),
+    () => CHECKLIST_ITEMS.filter((item) => (item.visible ? item.visible(projectType) : true)),
     [projectType],
   );
 
-  const [statusMap, setStatusMap] = useState<Record<ChecklistKey, ChecklistStatus>>(() => {
-    const initial: Record<ChecklistKey, ChecklistStatus> = {
-      scope: "NOT_STARTED",
-      changeOrders: "NOT_STARTED",
-      materialCompliance: "NOT_STARTED",
-      eeo: "NOT_STARTED",
-      payroll: "NOT_STARTED",
-      locate: "NOT_STARTED",
-      onsiteReview: "NOT_STARTED",
-      materials: "NOT_STARTED",
-      handrail: "NOT_STARTED",
-    };
-    return initial;
-  });
+  const [statusMap, setStatusMap] = useState<Record<ChecklistKey, ChecklistStatus>>(() =>
+    CHECKLIST_ITEMS.reduce(
+      (acc, item) => ({
+        ...acc,
+        [item.key]: "NOT_STARTED",
+      }),
+      {} as Record<ChecklistKey, ChecklistStatus>,
+    ),
+  );
   const [expanded, setExpanded] = useState<Record<ChecklistKey, boolean>>({} as Record<ChecklistKey, boolean>);
   const [notes, setNotes] = useState<Record<ChecklistKey, string>>({} as Record<ChecklistKey, string>);
   const [saved, setSaved] = useState<Record<ChecklistKey, boolean>>({} as Record<ChecklistKey, boolean>);
 
   const cycleStatus = (key: ChecklistKey) => {
     setStatusMap((prev) => {
-      const order: ChecklistStatus[] = ["NOT_STARTED", "IN_PROGRESS", "COMPLETE"];
-      const next = order[(order.indexOf(prev[key]) + 1) % order.length];
+      const next = CHECKLIST_STATUS_ORDER[(CHECKLIST_STATUS_ORDER.indexOf(prev[key]) + 1) % CHECKLIST_STATUS_ORDER.length];
       return { ...prev, [key]: next };
     });
   };
