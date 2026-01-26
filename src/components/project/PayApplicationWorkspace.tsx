@@ -204,30 +204,32 @@ export function PayApplicationWorkspace({
   };
 
   const handleAddPhase = () => {
-    const nextIndex = phases.length + 1;
-    const fallbackItems = enrichedPayItems.slice(0, 2).map((item, idx) => ({
-      id: `p${nextIndex}-item-${idx}`,
-      payItem: item.payItem,
-      description: item.description,
-      quantity: item.contractQty,
-      installedQty: item.installedQty,
-    }));
-    setPhases((prev) => [
-      ...prev,
-      {
-        id: `phase-${nextIndex}`,
-        name: `Phase ${nextIndex}`,
-        locateTicket: "",
-        dateCreated: "",
-        readyToWorkDate: "",
-        onsiteReview: false,
-        surveyed: false,
-        status: "Pending",
-        statusDate: "",
-        notes: "",
-        items: fallbackItems,
-      },
-    ]);
+    setPhases((prev) => {
+      const nextIndex = prev.length + 1;
+      const fallbackItems = enrichedPayItems.slice(0, 2).map((item, idx) => ({
+        id: `p${nextIndex}-item-${idx}`,
+        payItem: item.payItem,
+        description: item.description,
+        quantity: item.contractQty,
+        installedQty: item.installedQty,
+      }));
+      return [
+        ...prev,
+        {
+          id: `phase-${nextIndex}`,
+          name: `Phase ${nextIndex}`,
+          locateTicket: "",
+          dateCreated: "",
+          readyToWorkDate: "",
+          onsiteReview: false,
+          surveyed: false,
+          status: "Pending",
+          statusDate: "",
+          notes: "",
+          items: fallbackItems,
+        },
+      ];
+    });
   };
 
   return (
