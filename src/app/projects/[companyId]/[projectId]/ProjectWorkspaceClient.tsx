@@ -6,6 +6,11 @@ import PayApplicationWorkspace, { type PayApplicationView } from "@/components/p
 import type { QuantityItem } from "@/components/project/ProjectQuantitiesCard";
 import type { Company, Project } from "@/lib/mock/projects";
 
+const PROJECT_STATUS_LABELS: Record<Project["status"], string> = {
+  ACTIVE: "Active",
+  COMPLETED: "Completed",
+};
+
 type Props = {
   company: Company;
   project: Project;
@@ -25,7 +30,7 @@ export function ProjectWorkspaceClient({ company, project, quantityItems, prefil
         projectName={project.name}
         owner={project.owner}
         district={project.district}
-        status={project.status === "ACTIVE" ? "Active" : "Completed"}
+        status={PROJECT_STATUS_LABELS[project.status]}
         viewMode={viewMode}
         onChangeView={setViewMode}
       />
