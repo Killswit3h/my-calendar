@@ -6,6 +6,7 @@ type PageProps = {
   searchParams?: Promise<{ companyId?: string }>;
 };
 
+const NEW_PROJECT_NAME = "New Project";
 const emptyQuantities: QuantityItem[] = [];
 
 export default async function NewProjectPage({ searchParams }: PageProps) {
@@ -15,14 +16,14 @@ export default async function NewProjectPage({ searchParams }: PageProps) {
 
   const blankCompany = {
     id: companyId,
-    name: company?.name ?? "New Project",
+    name: company?.name ?? NEW_PROJECT_NAME,
   };
 
   const blankProject = {
     id: "new-project",
     companyId: blankCompany.id,
     code: "",
-    name: "New Project",
+    name: NEW_PROJECT_NAME,
     status: "ACTIVE" as const,
     owner: "",
     district: "",
