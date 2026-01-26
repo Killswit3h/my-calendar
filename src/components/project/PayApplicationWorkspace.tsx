@@ -53,6 +53,8 @@ const CHECKLIST_ITEMS = [
   { key: "payroll", label: "Payroll" },
 ] as const;
 
+const PAY_ITEM_LABEL = "Pay Item";
+
 const STATUS_LABEL: Record<ChecklistStatus, string> = {
   NOT_STARTED: "Not Started",
   IN_PROGRESS: "In Progress",
@@ -389,7 +391,7 @@ export function PayApplicationWorkspace({
           {showContractForm ? (
             <form onSubmit={handleAddContractItem} className="mb-4 space-y-3 rounded-xl border border-white/15 bg-black/25 p-3">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/60">Pay Item</label>
+                <label className="text-xs font-semibold text-white/60">{PAY_ITEM_LABEL}</label>
                 <input
                   value={newContractItem.payItem}
                   onChange={(event) => setNewContractItem((prev) => ({ ...prev, payItem: event.target.value }))}
@@ -453,7 +455,7 @@ export function PayApplicationWorkspace({
             </form>
           ) : null}
           <div className="hidden text-xs text-white/60 md:grid md:grid-cols-[1fr,1.6fr,0.8fr,0.8fr,0.7fr] md:gap-2">
-            <span>Pay Item</span>
+            <span>{PAY_ITEM_LABEL}</span>
             <span>Description</span>
             <span className="text-right">Contract</span>
             <span className="text-right">Installed</span>
@@ -481,7 +483,7 @@ export function PayApplicationWorkspace({
             <p className="text-xs text-white/60">Enter stockpiled quantities; unit-rate deductions are shown.</p>
           </div>
           <div className="hidden text-xs text-white/60 md:grid md:grid-cols-[1fr,1.3fr,0.65fr,0.65fr,1.4fr] md:gap-2">
-            <span>Pay Item</span>
+            <span>{PAY_ITEM_LABEL}</span>
             <span>Description</span>
             <span className="text-center">Contract Qty</span>
             <span className="text-right">Purchased Qty</span>
@@ -562,7 +564,7 @@ export function PayApplicationWorkspace({
             <p className="text-xs text-white/60">Separate CO pay items and quantities.</p>
           </div>
           <div className="hidden text-xs text-white/60 md:grid md:grid-cols-[1fr,1.6fr,0.8fr,0.8fr] md:gap-2">
-            <span>Pay Item</span>
+            <span>{PAY_ITEM_LABEL}</span>
             <span>Description</span>
             <span className="text-right">Qty</span>
             <span className="text-right">Rate / Amount</span>
@@ -724,7 +726,7 @@ export function PayApplicationWorkspace({
 
               <div className="mt-4 space-y-3">
                 <div className="hidden text-xs text-white/60 md:grid md:grid-cols-[1fr,1.6fr,0.8fr,0.8fr] md:gap-2">
-                  <span>Pay Item</span>
+                  <span>{PAY_ITEM_LABEL}</span>
                   <span>Description</span>
                   <span className="text-right">Quantity</span>
                   <span className="text-right">Installed</span>
