@@ -5,13 +5,20 @@ import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { ProjectRow } from "@/components/ui/ProjectRow";
 import type { Project } from "@/lib/mock/projects";
 
+const PROJECT_STATUS = {
+  ACTIVE: "ACTIVE",
+  COMPLETED: "COMPLETED",
+} as const;
+
+type ProjectStatus = (typeof PROJECT_STATUS)[keyof typeof PROJECT_STATUS];
+
 type Props = {
   companyId: string;
   projects: Project[];
 };
 
 export function CompanyProjectsClient({ companyId, projects }: Props) {
-  const [status, setStatus] = useState<"ACTIVE" | "COMPLETED">("ACTIVE");
+  const [status, setStatus] = useState<ProjectStatus>(PROJECT_STATUS.ACTIVE);
   const filtered = useMemo(() => projects.filter((project) => project.status === status), [projects, status]);
 
   return (
@@ -19,10 +26,10 @@ export function CompanyProjectsClient({ companyId, projects }: Props) {
       <div className="flex justify-center">
         <SegmentedTabs
           value={status}
-          onChange={(value) => setStatus(value as "ACTIVE" | "COMPLETED")}
+          onChange={(value) => setStatus(value as ProjectStatus)}
           options={[
-            { value: "ACTIVE", label: "Active" },
-            { value: "COMPLETED", label: "Completed" },
+            { value: PROJECT_STATUS.ACTIVE, label: "Active" },
+            { value: PROJECT_STATUS.COMPLETED, label: "Completed" },
           ]}
         />
       </div>
