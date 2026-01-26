@@ -57,11 +57,11 @@ export function ProjectHeader({
       `Status: ${info.status}`,
       `Generated: ${new Date().toLocaleString()}`,
     ].join("\n");
-    const blob = new Blob([exportContent], { type: "application/pdf" });
+    const blob = new Blob([exportContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${projectCode}-summary.pdf`;
+    anchor.download = `${projectCode}-summary.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
     setTimeout(() => setIsExporting(false), 1000);
@@ -186,7 +186,7 @@ export function ProjectHeader({
               disabled={isExporting}
               className="inline-flex items-center rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 disabled:opacity-60"
             >
-              {isExporting ? "Exporting…" : "Export PDF"}
+              {isExporting ? "Exporting…" : "Export Summary"}
             </button>
           </div>
         }
