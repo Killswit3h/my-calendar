@@ -30,3 +30,7 @@ turbo/
 # Database exports
 artifacts/db-export/
 *.dump
+
+#agent.os
+agent.os/commands
+agent.os/product
