@@ -34,3 +34,6 @@ artifacts/db-export/
 #agent.os
 agent.os/commands
 agent.os/product
+
+#claude 
+.claude/
