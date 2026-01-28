@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent } from 'react';
 import type { ReactNode } from 'react';
@@ -52,7 +52,12 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { EllipsisVertical, X } from 'lucide-react';
 
-type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
+type Props = {
+  calendarId: string;
+  initialYear?: number | null;
+  initialMonth0?: number | null;
+  onOpenSidebar?: () => void;
+};
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
 type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
 type Checklist = {
@@ -144,7 +149,7 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
   return { ...obj, start, end } as NormalizedEvent<T>
 }
 
-export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
+export default function CalendarWithData({ calendarId, initialYear, initialMonth0, onOpenSidebar }: Props) {
   const initialDate = useMemo(() => {
     const now = new Date();
     const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
@@ -1415,8 +1420,25 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       <Toast message={toast.message} open={toast.open} onClose={closeToast} />
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap text-[rgba(23,23,23,1)]">
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="options-wrap" ref={optsRef}>
+        <div className="flex w-full gap-2 items-center flex-wrap">
+          {onOpenSidebar ? (
+            <button
+              type="button"
+              onClick={onOpenSidebar}
+              className="btn inline-flex items-center justify-center"
+              aria-label="Toggle navigation"
+            >
+              ☰
+            </button>
+          ) : null}
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <div className="options-wrap ml-auto" ref={optsRef}>
             <button
               type="button"
               className="icon-btn"
@@ -1435,13 +1457,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               </div>
             ) : null}
           </div>
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <div className="options-wrap" ref={legacyOptsRef}>
