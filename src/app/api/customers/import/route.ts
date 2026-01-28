@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           skipped++
           continue
         }
-        await p.customer.create({ data: { name: display } })
+        await p.customer.create({ data: { name: display, address: '', phone_number: '', email: `customer${inserted}@placeholder.local` } })
         inserted++
       } catch (e: any) {
         errors++

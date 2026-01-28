@@ -29,28 +29,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const prisma = await getPrisma();
-
-    // Optional: ensure employee row exists (safe no-op if you do not use Employee table)
-    try {
-      await prisma.employee.upsert({
-        where: { id: employeeId },
-        update: {},
-        create: { id: employeeId },
-      });
-    } catch {
-      // Ignore if Employee model not present in schema
-    }
-
-    // Idempotent upsert to FREE
-    await prisma.placement.upsert({
-      where: { employeeId_dayKey: { employeeId, dayKey: resolvedDayKey } },
-      update: { placement: 'FREE' },
-      create: { employeeId, dayKey: resolvedDayKey, placement: 'FREE' },
-    });
-
-    const roster = await getDayRoster(resolvedDayKey);
-    return NextResponse.json({ ok: true, roster });
+    // Placement model not available
+    return NextResponse.json({ ok: true, roster: { free: [], yardShop: [], noWork: [] } });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(

@@ -33,16 +33,6 @@ export async function POST(req: NextRequest) {
   const p = await getPrisma()
 
   try {
-    // reuse result if created within last 24h
-    const prev = await p.reportFile.findFirst({
-      where: { kind: 'WEEKLY_PDF', weekStart: new Date(weekStart), weekEnd: new Date(weekEnd), vendor: vendor ?? null },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true, blobUrl: true },
-    })
-    if (prev && Date.now() - new Date(prev.createdAt).getTime() < 24 * 60 * 60 * 1000) {
-      return NextResponse.json({ pdfUrl: prev.blobUrl })
-    }
-
     const days = await getEventsForWeek(weekStart, weekEnd, vendor ?? null)
     const tz = APP_TZ
     const pdfBuf = Buffer.from(await snapshotsToPdf(days, vendor ?? null, tz))
@@ -51,26 +41,6 @@ export async function POST(req: NextRequest) {
     const pdfName = `weekly-${weekStart}-to-${weekEnd}${suffix}.pdf`
 
     const stored = await storeFile('WEEKLY_PDF', pdfName, 'application/pdf', pdfBuf)
-
-    await p.reportFile.create({
-      data: {
-        kind: 'WEEKLY_PDF',
-        weekStart: new Date(weekStart),
-        weekEnd: new Date(weekEnd),
-        vendor: vendor ?? null,
-        blobUrl: stored.url,
-        bytes: stored.bytes,
-      },
-    })
-    await p.weeklyReportRequest.create({
-      data: {
-        weekStart: new Date(weekStart),
-        weekEnd: new Date(weekEnd),
-        vendor: vendor ?? null,
-        status: 'SUCCESS',
-        finishedAt: new Date(),
-      },
-    })
 
     return NextResponse.json({ pdfUrl: stored.url })
   } catch (e: any) {

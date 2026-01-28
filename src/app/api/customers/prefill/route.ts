@@ -23,7 +23,7 @@ export async function POST() {
       select: { id: true },
     })
     if (existing) { skipped++; continue }
-    await p.customer.create({ data: { name: display } })
+    await p.customer.create({ data: { name: display, address: '', phone_number: '', email: `${display.toLowerCase().replace(/\s+/g, '')}@placeholder.local` } })
     inserted++
   }
 

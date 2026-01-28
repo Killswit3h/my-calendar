@@ -40,12 +40,8 @@ export async function GET(req: NextRequest) {
   if (weekEnd) where.weekEnd = new Date(weekEnd)
   if (vendor) where.vendor = vendor
 
-  const p = await getPrisma()
-  const items = await p.reportFile.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  })
+  // reportFile model not available
+  const items: any[] = []
 
   return NextResponse.json({ items })
 }

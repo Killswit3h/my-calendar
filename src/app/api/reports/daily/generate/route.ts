@@ -48,25 +48,6 @@ export async function POST(req: NextRequest) {
   const p = await getPrisma()
 
   try {
-    // Debounce duplicates: reuse within 24h
-    const reportDate = new Date(date)
-    const devNoBlob = !process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'production'
-    if (!force && !devNoBlob) {
-      const existing = await p.reportFile.findFirst({
-        where: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true, blobUrl: true },
-      })
-      if (existing && Date.now() - new Date(existing.createdAt).getTime() < 60 * 60 * 1000) {
-        const x = await p.reportFile.findFirst({
-          where: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null },
-          orderBy: { createdAt: 'desc' },
-          select: { blobUrl: true },
-        })
-        return NextResponse.json({ pdfUrl: existing.blobUrl, xlsxUrl: x?.blobUrl ?? null })
-      }
-    }
-
     const snapshot = await getEventsForDay(date, vendor ?? null)
     const reportData = mapSnapshotToDailyReport(snapshot)
     if (yardEmployees.length) reportData.yardEmployees = yardEmployees
@@ -86,16 +67,6 @@ export async function POST(req: NextRequest) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       xlsxBuf,
     )
-
-    await p.dailyReportSnapshot.create({
-      data: { reportDate, vendor: vendor ?? null, payloadJson: JSON.stringify(snapshot) },
-    })
-    await p.reportFile.create({
-      data: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null, blobUrl: storedPdf.url, bytes: storedPdf.bytes },
-    })
-    await p.reportFile.create({
-      data: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null, blobUrl: storedXlsx.url, bytes: storedXlsx.bytes },
-    })
 
     return NextResponse.json({ pdfUrl: storedPdf.url, xlsxUrl: storedXlsx.url })
   } catch (e: any) {

@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import type { PlannerTaskPriority, PlannerTaskProgress } from '@prisma/client';
 import BucketColumn from './BucketColumn';
 import TaskDetailSheet from './TaskDetailSheet';
+
+type PlannerTaskPriority = 'URGENT' | 'IMPORTANT' | 'MEDIUM' | 'LOW';
+type PlannerTaskProgress = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
 
 type Task = {
   id: string;

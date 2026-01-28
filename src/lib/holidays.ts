@@ -1,6 +1,12 @@
 // src/lib/holidays.ts
 import { tryPrisma } from '@/lib/dbSafe'
-import type { Holiday } from '@prisma/client'
+
+type Holiday = {
+  date: Date
+  localName: string
+  name: string
+  countryCode: string
+}
 
 const NAGER = (year: number, cc: string) =>
   `https://date.nager.at/api/v3/PublicHolidays/${year}/${cc}`

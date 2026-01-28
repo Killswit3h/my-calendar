@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
-import { mulQtyRate, computeTotals } from '../lib/money'
-import { nextChangeOrderNumber, nextEstimateNumber } from '../lib/docNumbers'
+import { mulQtyRate, computeTotals } from '../src/lib/money'
+import { nextChangeOrderNumber, nextEstimateNumber } from '../src/lib/docNumbers'
 
 const prisma = new PrismaClient()
 
