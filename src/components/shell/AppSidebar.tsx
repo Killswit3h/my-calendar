@@ -83,7 +83,7 @@ export default function AppSidebar({ current = "/", className = "", style, onNav
 
   return (
     <aside
-      className={`md:sticky md:top-0 h-dvh shrink-0 ${chromeClasses} z-30 overflow-hidden transition-[width,transform] duration-300 ease-out ${className}`}
+      className={`md:fixed md:left-0 md:top-0 h-dvh ${chromeClasses} z-30 overflow-hidden transition-[width,transform] duration-300 ease-out ${className}`}
       style={mergedStyle}
     >
       <div className="flex items-center gap-2 p-3">
