@@ -17,7 +17,6 @@ import { getAbsentForDate } from '@/lib/absent';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
-import PayItemsManager from '@/components/PayItemsManager';
 import useOverlayA11y from '@/hooks/useOverlayA11y';
 import { EditEventDialog } from '@/components/events/EditEventDialog';
 import {
@@ -203,7 +202,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const reportPickerRef = useRef<HTMLDivElement>(null);
   const holidayDialogRef = useRef<HTMLDivElement>(null);
   const weatherDialogRef = useRef<HTMLDivElement>(null);
-  const payItemsDialogRef = useRef<HTMLDivElement>(null);
   const todoDialogRef = useRef<HTMLDivElement>(null);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const [visibleDate, setVisibleDate] = useState<Date | null>(null);
@@ -1341,20 +1339,17 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
   const [reportNote, setReportNote] = useState<string>('');
-  const [payItemsDialog, setPayItemsDialog] = useState(false);
   const closeReportPicker = useCallback(() => {
     setReportPickerOpen(false);
     setReportNote('');
   }, []);
   const closeHolidayDialog = useCallback(() => setHolidayDialog(false), []);
   const closeWeatherDialog = useCallback(() => setWeatherDialog(false), []);
-  const closePayItemsDialog = useCallback(() => setPayItemsDialog(false), []);
   const closeTodoDialog = useCallback(() => { setTodoEdit(null); setTodoForm(null); }, []);
   const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
   useOverlayA11y(reportPickerOpen, reportPickerRef, closeReportPicker);
   useOverlayA11y(holidayDialog, holidayDialogRef, closeHolidayDialog);
   useOverlayA11y(weatherDialog, weatherDialogRef, closeWeatherDialog);
-  useOverlayA11y(payItemsDialog, payItemsDialogRef, closePayItemsDialog);
   useOverlayA11y(!!(todoEdit && todoForm), todoDialogRef, closeTodoDialog);
   useOverlayA11y(mobileSidebarOpen, mobileDrawerRef, closeMobileSidebar);
   const reloadTodos = useCallback(async () => {
@@ -1451,7 +1446,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <div className="menu-card" role="menu">
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
-                <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
               </div>
             ) : null}
           </div>
@@ -1469,7 +1463,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <div className="menu-card" role="menu">
                 <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
                 <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
-                <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
               </div>
             ) : null}
           </div>
@@ -1811,19 +1804,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       )}
 
-      {payItemsDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) closePayItemsDialog(); }}>
-          <div ref={payItemsDialogRef} className="modal-card" role="dialog" aria-modal="true" tabIndex={-1} style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
-            <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Pay Items</span>
-              <button className="icon-btn" aria-label="Close" onClick={closePayItemsDialog}>
-                <X size={18} aria-hidden="true" />
-              </button>
-            </div>
-            <PayItemsManager condensed />
-          </div>
-        </div>
-      )}
 
       {/* Todo edit prompt */}
       {todoEdit && todoForm && (
