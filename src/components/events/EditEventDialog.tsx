@@ -58,8 +58,6 @@ type EventForm = {
   reminderOffsets: number[];
 };
 
-type Subtask = { id: string; text: string; done: boolean };
-
 interface EditEventDialogProps {
   initial?: Partial<EventForm>;
   onSave: (data: EventForm) => Promise<void> | void;
@@ -79,65 +77,6 @@ function defaultChecklist(): Checklist {
     subtasks: [],
     employees: [],
   };
-}
-
-function SubtasksEditor({
-  value,
-  onChange,
-}: {
-  value: Subtask[];
-  onChange: (subs: Subtask[]) => void;
-}) {
-  const [local, setLocal] = useState(value);
-
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-
-  const add = () => {
-    const newSub: Subtask = { id: `tmp-${Date.now()}`, text: '', done: false };
-    const updated = [...local, newSub];
-    setLocal(updated);
-    onChange(updated);
-  };
-
-  const update = (id: string, text: string) => {
-    const updated = local.map(s => (s.id === id ? { ...s, text } : s));
-    setLocal(updated);
-    onChange(updated);
-  };
-
-  const remove = (id: string) => {
-    const updated = local.filter(s => s.id !== id);
-    setLocal(updated);
-    onChange(updated);
-  };
-
-  return (
-    <div className="space-y-2">
-      {local.map(sub => (
-        <div key={sub.id} className="flex gap-2 items-center">
-          <Input
-            value={sub.text}
-            onChange={e => update(sub.id, e.target.value)}
-            placeholder="Subtask description"
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => remove(sub.id)}
-          >
-            Remove
-          </Button>
-        </div>
-      ))}
-      <Button type="button" variant="outline" size="sm" onClick={add}>
-        + Add Subtask
-      </Button>
-    </div>
-  );
 }
 
 export function EditEventDialog({
@@ -267,10 +206,9 @@ export function EditEventDialog({
         </DialogHeader>
 
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="info">Event Info</TabsTrigger>
             <TabsTrigger value="work">Work & Payroll</TabsTrigger>
-            <TabsTrigger value="tickets">Tickets & Subtasks</TabsTrigger>
             <TabsTrigger value="quantities">Quantities</TabsTrigger>
           </TabsList>
 
@@ -462,88 +400,6 @@ export function EditEventDialog({
                 }
                 rows={4}
                 placeholder="Additional notes..."
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="tickets" className="space-y-4 mt-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ticket">Ticket #</Label>
-                  <Input
-                    id="ticket"
-                    value={form.checklist?.locate?.ticket || ''}
-                    onChange={e =>
-                      setForm(prev => ({
-                        ...prev,
-                        checklist: {
-                          ...(form.checklist ?? defaultChecklist()),
-                          locate: {
-                            ...(form.checklist?.locate ?? {}),
-                            ticket: e.target.value,
-                          },
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="requested">Requested</Label>
-                  <Input
-                    id="requested"
-                    type="date"
-                    value={(form.checklist?.locate?.requested || '').slice(0, 10)}
-                    onChange={e =>
-                      setForm(prev => ({
-                        ...prev,
-                        checklist: {
-                          ...(form.checklist ?? defaultChecklist()),
-                          locate: {
-                            ...(form.checklist?.locate ?? {}),
-                            requested: e.target.value,
-                          },
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expires">Expires</Label>
-                  <Input
-                    id="expires"
-                    type="date"
-                    value={(form.checklist?.locate?.expires || '').slice(0, 10)}
-                    onChange={e =>
-                      setForm(prev => ({
-                        ...prev,
-                        checklist: {
-                          ...(form.checklist ?? defaultChecklist()),
-                          locate: {
-                            ...(form.checklist?.locate ?? {}),
-                            expires: e.target.value,
-                          },
-                        },
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Subtasks</Label>
-              <SubtasksEditor
-                value={form.checklist?.subtasks ?? []}
-                onChange={subs =>
-                  setForm(prev => ({
-                    ...prev,
-                    checklist: {
-                      ...(form.checklist ?? defaultChecklist()),
-                      subtasks: subs,
-                    },
-                  }))
-                }
               />
             </div>
           </TabsContent>
