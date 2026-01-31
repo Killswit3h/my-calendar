@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
 import CustomerCombobox from '@/components/CustomerCombobox';
 import EmployeeMultiSelect from '@/components/EmployeeMultiSelect';
@@ -192,6 +191,13 @@ export function EditEventDialog({
     setForm(prev => ({ ...prev, end: parsed }));
   };
 
+  const toggleShift = () => {
+    setForm(prev => ({
+      ...prev,
+      shift: prev.shift === 'NIGHT' ? 'DAY' : 'NIGHT',
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -241,16 +247,33 @@ export function EditEventDialog({
             <div className="flex flex-col md:flex-row gap-4 items-start">
               <div className="space-y-2">
                 <Label>Work Time</Label>
-                <SegmentedControl
-                  options={[
-                    { value: 'DAY', label: 'Day' },
-                    { value: 'NIGHT', label: 'Night' },
-                  ]}
-                  value={form.shift || 'DAY'}
-                  onChange={value =>
-                    setForm(prev => ({ ...prev, shift: value as WorkShift }))
-                  }
-                />
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={(form.shift || 'DAY') === 'NIGHT'}
+                  onClick={toggleShift}
+                  className="relative inline-flex h-10 w-[140px] items-center rounded-full border border-white/15 bg-black/40 px-1 transition"
+                >
+                  <span
+                    className={`absolute left-1 top-1 h-8 w-[64px] rounded-full bg-white/80 text-black shadow-sm transition-transform ${
+                      (form.shift || 'DAY') === 'NIGHT' ? 'translate-x-[64px]' : ''
+                    }`}
+                  />
+                  <span
+                    className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                      (form.shift || 'DAY') === 'DAY' ? 'text-black' : 'text-white/70'
+                    }`}
+                  >
+                    Day
+                  </span>
+                  <span
+                    className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                      (form.shift || 'DAY') === 'NIGHT' ? 'text-black' : 'text-white/70'
+                    }`}
+                  >
+                    Night
+                  </span>
+                </button>
               </div>
 
               <div className="space-y-2 flex-1">
