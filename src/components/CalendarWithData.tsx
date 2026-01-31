@@ -18,7 +18,6 @@ import UnassignedSidebar from '@/components/UnassignedSidebar';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
 import PayItemsManager from '@/components/PayItemsManager';
-import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
 import useOverlayA11y from '@/hooks/useOverlayA11y';
 import { EditEventDialog } from '@/components/events/EditEventDialog';
 import {
@@ -1340,7 +1339,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
-  const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
   const [reportNote, setReportNote] = useState<string>('');
   const [payItemsDialog, setPayItemsDialog] = useState(false);
@@ -1489,7 +1487,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             setReportNote('');
             setReportPickerOpen(true);
           }}>Generate Daily Report</button>
-          <button className="btn" onClick={() => setCutoffReportOpen(true)}>Generate Cut-Off Report</button>
         </div>
       </div>
 
@@ -1729,7 +1726,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       ) : null}
 
-      <CutoffReportDialog open={cutoffReportOpen} onClose={() => setCutoffReportOpen(false)} />
 
       <EditEventDialog
         open={open && !!draft}
