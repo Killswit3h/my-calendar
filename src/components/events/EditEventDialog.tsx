@@ -549,16 +549,15 @@ export function EditEventDialog({
           </TabsContent>
 
           <TabsContent value="quantities" className="mt-4">
-            {eventId ? (
-              <EventQuantitiesEditor
-                eventId={eventId}
-                onHasQuantitiesChange={() => {}}
-              />
-            ) : (
-              <p className="text-sm text-muted">
+            <EventQuantitiesEditor
+              eventId={eventId ?? undefined}
+              onHasQuantitiesChange={() => {}}
+            />
+            {!eventId ? (
+              <p className="mt-3 text-sm text-muted">
                 Save the event to add quantities.
               </p>
-            )}
+            ) : null}
           </TabsContent>
         </Tabs>
 
