@@ -13,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -193,10 +192,6 @@ export function EditEventDialog({
     setForm(prev => ({ ...prev, end: parsed }));
   };
 
-  const handleAllDayToggle = (checked: boolean) => {
-    setForm(prev => ({ ...prev, allDay: checked }));
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -256,17 +251,6 @@ export function EditEventDialog({
                     setForm(prev => ({ ...prev, shift: value as WorkShift }))
                   }
                 />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="all-day"
-                  checked={form.allDay}
-                  onCheckedChange={handleAllDayToggle}
-                />
-                <Label htmlFor="all-day">
-                  {form.allDay ? 'All-day event' : 'Timed event'}
-                </Label>
               </div>
 
               <div className="space-y-2 flex-1">
