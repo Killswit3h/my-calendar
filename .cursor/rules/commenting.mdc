@@ -1,11 +1,33 @@
 ---
+description: my-calendar commenting style (JSDoc where it helps, no “commented-out code”)
 alwaysApply: true
 ---
 
-## Code Commenting Best Practices
+## Commenting conventions (my-calendar)
 
-Follow these standards for all code comments:
+### What to comment
 
-- **Self-Documenting Code**: Write code that explains itself through clear structure and naming
-- **Minimal, helpful comments**: Add concise, minimal comments to explain large sections of code logic
-- **Don't comment changes or fixes**: Do not leave code comments that speak to recent or temporary changes or fixes. Comments should be evergreen informational texts that are relevant far into the future
+- **Module/class headers**: Use short JSDoc blocks on controllers/services/repositories describing what they handle (keeps the code skimmable).
+- **Public handlers**: For controller handler methods, document:
+  - supported routes (`/api/<resource>` vs `/api/<resource>/[id]`)
+  - supported query params (filters like `?name=`, flags like `?expanded=true`)
+  - any non-obvious parsing/normalization
+- **Tricky logic only**: Add inline comments for “why” (not “what”) when the code is subtle (e.g. normalization, coercion rules, uniqueness checks, relation connect/disconnect behavior).
+
+### What not to comment
+
+- **No commented-out code**: delete it (use git history).
+- **No “recent fix” narration**: avoid comments like “TEMP”, “HACK”, “fixed bug”, etc.
+- **Don’t restate types**: if TypeScript makes intent clear, skip the comment.
+
+### Comment tone + style
+
+- Prefer concise, factual phrasing and stable language that won’t rot.
+- If you need a list, keep it short and scoped to the function/class it documents.
+
+### Spec alignment
+
+- Prefer comments that make it easy to connect code back to the spec:
+  - “Supports: GET /api/<resource> with ?foo= filter”
+  - “Defaults: is_payroll/is_EEO/status handled in service beforeCreate”
+- Avoid copying the spec verbatim into comments—capture only the bits that help a future reader understand the contract.

@@ -1,16 +1,58 @@
 ---
+description: my-calendar TypeScript style (readability-first, thin controllers, domain errors)
 alwaysApply: true
 ---
 
-## Coding Style Best Practices
+## Coding style (my-calendar)
 
-Follow these standards for all code:
+### Formatting + syntax conventions
 
-- **Consistent Naming Conventions**: Establish and follow naming conventions for variables, functions, classes, and files across the codebase
-- **Automated Formatting**: Maintain consistent code style (indenting, line breaks, etc.)
-- **Meaningful Names**: Choose descriptive names that reveal intent; avoid abbreviations and single-letter variables except in narrow contexts
-- **Small, Focused Functions**: Keep functions small and focused on a single task for better readability and testability
-- **Consistent Indentation**: Use consistent indentation (spaces or tabs) and configure your editor/linter to enforce it
-- **Remove Dead Code**: Delete unused code, commented-out blocks, and imports rather than leaving them as clutter
-- **Backward compatibility only when required**: Unless specifically instructed otherwise, assume you do not need to write additional code logic to handle backward compatibility
-- **DRY Principle**: Avoid duplication by extracting common logic into reusable functions or modules
+- **TypeScript/JS**:
+  - prefer **double quotes** for strings (match existing server code + tests)
+  - prefer **no semicolons**; if a line must start with `(` or `[` in tests/helpers, use the safe pattern `;(expr)` to avoid ASI hazards
+  - prefer trailing commas in multi-line objects/params
+  - keep functions small and single-purpose; if a function is getting long, extract helpers (especially filter-building/normalization)
+- **Imports**:
+  - prefer alias imports `@/…` where available for app code
+  - keep imports grouped and remove unused imports (don’t leave commented imports)
+
+### Code “shape” (what good code looks like here)
+
+- **Guard clauses first**: handle missing/invalid inputs early (`if (id === null) return badRequest…`) and keep the happy path unindented.
+- **Readable filter building**:
+  - pull query params into named variables (`const nameFilter = queryParams.name`)
+  - build `filters` incrementally with small, obvious `if` blocks
+- **Normalize at boundaries**:
+  - controllers should parse/coerce request body shapes only when needed for request decoding
+  - services should normalize data into Prisma-friendly shapes (relations, decimals, trimming)
+- **Prefer “small helpers” over comments**:
+  - if you’re about to write a multi-line comment, consider extracting a helper like `parseExpand()` or `normalizeCustomerRelation()`.
+
+### Naming + structure
+
+- **Files/classes**:
+  - controllers: `src/server/controllers/<Entity>Controller.ts` exporting `<Entity>Controller`
+  - services: `src/server/services/<Entity>Service.ts` exporting `<Entity>Service`
+  - repositories: `src/server/repositories/<Entity>Repository.ts` exporting `<Entity>Repository`
+- **API resources**:
+  - API paths are **plural + kebab-case** (e.g. `payment-types`, `pay-items`)
+  - controller methods use the stable naming `handleGet/handlePost/handlePatch/handleDelete`
+
+### “Thin edges, thick core”
+
+- **Keep route handlers thin**: in `src/app/api/**/route.ts`, only delegate to a controller and export runtime/dynamic settings.
+- **Keep controllers thin**:
+  - parse request (`parseQueryParams`, `parseId`, `parseBody`)
+  - call the service
+  - return `successResponse(...)`
+  - `catch` and return `errorResponse(error)`
+- **Keep services responsible**:
+  - validate and normalize input
+  - enforce business rules
+  - throw typed domain errors (don’t return `NextResponse` from services)
+
+### Type discipline (pragmatic)
+
+- **Avoid `any`** in app/server code unless it’s a boundary where TypeScript is impractical (e.g. query params objects).
+- **Prefer explicit return types** for controller methods (`Promise<NextResponse>`) and exported functions that are part of a “public” internal API.
+- **When supporting “API-friendly” inputs** (example: `customer_id`), represent it explicitly in the parsed body type and normalize it in the service.

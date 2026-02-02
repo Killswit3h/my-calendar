@@ -1,17 +1,55 @@
 ---
+description: my-calendar project conventions (where things go, what not to change, how to extend APIs)
 alwaysApply: true
 ---
 
-## General Development Conventions
+## Project conventions (my-calendar)
 
-Follow these standards for project organization and workflow:
+### Specs are first-class
 
-- **Consistent Project Structure**: Organize files and directories in a predictable, logical structure that team members can navigate easily
-- **Clear Documentation**: Maintain up-to-date README files with setup instructions, architecture overview, and contribution guidelines
-- **Version Control Best Practices**: Use clear commit messages, feature branches, and meaningful pull/merge requests with descriptions
-- **Environment Configuration**: Use environment variables for configuration; never commit secrets or API keys to version control
-- **Dependency Management**: Keep dependencies up-to-date and minimal; document why major dependencies are used
-- **Code Review Process**: Establish a consistent code review process with clear expectations for reviewers and authors
-- **Testing Requirements**: Define what level of testing is required before merging (unit tests, integration tests, etc.)
-- **Feature Flags**: Use feature flags for incomplete features rather than long-lived feature branches
-- **Changelog Maintenance**: Keep a changelog or release notes to track significant changes and improvements
+- Specs live in `.cursor/specs/*.md` and should be treated as:
+  - the requirements contract, and
+  - the checklist for implementation + tests.
+- A good spec (example: `projectEndpoint.md`) includes:
+  - exact files to add
+  - validation/default rules
+  - error semantics (status codes)
+  - test expectations
+  - explicit out-of-scope items
+
+### Keep the existing architecture
+
+- **Don’t invent new backend patterns**: follow the existing API stack:
+  - `src/app/api/**/route.ts` (thin route handler)
+  - `src/server/controllers/*Controller.ts`
+  - `src/server/services/*Service.ts`
+  - `src/server/repositories/*Repository.ts`
+  - shared base classes in `src/server/base/*`
+- **Don’t change schema/endpoints unless instructed**: Prisma schema and public API shapes are treated as contracts.
+- **Timezone-sensitive code is sacred**: preserve timezone handling logic (especially anything using `date-fns-tz` or all-day date formats).
+
+### Where to put new work
+
+- **New CRUD API**:
+  - add `src/app/api/<resource>/route.ts` and `src/app/api/<resource>/[id]/route.ts`
+  - add `src/server/controllers/<Entity>Controller.ts`
+  - add `src/server/services/<Entity>Service.ts`
+  - add `src/server/repositories/<Entity>Repository.ts`
+- **Error/validation behavior**:
+  - domain errors live in `src/server/base/types.ts`
+  - parsing/response helpers live in `src/server/base/AbstractController.ts`
+  - Prisma-to-domain translation lives in `src/server/base/AbstractRepository.ts`
+
+### Testing conventions (automation-friendly)
+
+- **Use the generic test suites**:
+  - controllers: `createAbstractControllerTests(...)`
+  - services: `createAbstractServiceTests(...)`
+  - repositories: `createAbstractRepositoryTests(...)`
+- **Extend `MockPrisma` per model** in `tests/utils/mockPrisma<Entity>.ts` and wire it with `setMockPrisma(...)` in `beforeEach`.
+
+### Repo hygiene
+
+- **Environment**: never commit secrets; keep examples in `.env.example`.
+- **Dependencies/lockfiles**: avoid churn—don’t touch lockfiles unless your change actually requires it.
+- **Cleanup**: delete dead code and unused files rather than commenting them out.
