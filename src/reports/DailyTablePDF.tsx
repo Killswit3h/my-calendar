@@ -126,13 +126,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 1,
   },
-  nightCell: {
-    backgroundColor: '#FFF3B0',
-  },
-  nightText: {
-    fontWeight: 700,
-    color: '#7C2D12',
-  },
 })
 
 function formatTitle(iso: string): string {
@@ -194,12 +187,6 @@ function BodyRow({ r, index }: { r: JobRow; index: number }) {
   if (bg) vendorCellStyle.push({ backgroundColor: bg })
   const vendorTextStyle: any[] = [styles.vendorText]
   if (bg) vendorTextStyle.push({ color: '#fff' })
-  const timeText = toText(r.time)
-  const isNight = timeText.trim().toLowerCase() === 'night'
-  const timeCellStyle: any[] = [styles.cell, styles.colTime, styles.center]
-  if (isNight) timeCellStyle.push(styles.nightCell)
-  const timeTextStyle: any[] = []
-  if (isNight) timeTextStyle.push(styles.nightText)
   return (
     <View style={rowStyle}>
       <View style={[styles.cell, styles.colStatus]}><Text>{''}</Text></View>
@@ -210,7 +197,7 @@ function BodyRow({ r, index }: { r: JobRow; index: number }) {
       <View style={[styles.cell, styles.colPayroll, styles.center]}><Text>{r.payroll ? 'Yes' : 'No'}</Text></View>
       <View style={[styles.cell, styles.colPayment, styles.center]}><Text style={styles.bold}>{toText(r.payment)}</Text></View>
       <View style={vendorCellStyle}><Text style={vendorTextStyle} wrap={false}>{toText(r.vendor)}</Text></View>
-      <View style={timeCellStyle}><Text style={timeTextStyle.length ? timeTextStyle : undefined}>{timeText}</Text></View>
+      <View style={[styles.cell, styles.colTime, styles.center]}><Text>{toText(r.time)}</Text></View>
     </View>
   )
 }

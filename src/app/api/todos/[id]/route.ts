@@ -1,3 +1,16 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function PATCH() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function DELETE() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 // src/app/api/todos/[id]/route.ts
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -8,7 +21,7 @@ import { tryPrisma } from '@/lib/dbSafe'
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const row = await tryPrisma(p => p.calendarTodo.findUnique({ where: { id } }), null as any)
+  const row = await tryPrisma(p => p.todo.findUnique({ where: { id } }), null as any)
   if (!row) return NextResponse.json({ error: 'not_found' }, { status: 404 })
   return NextResponse.json(row)
 }
@@ -18,7 +31,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const b = await req.json().catch(() => ({} as any))
   const updated = await tryPrisma(
     p =>
-      p.calendarTodo.update({
+      p.todo.update({
         where: { id },
         data: {
           ...(b.title !== undefined ? { title: String(b.title) } : {}),
@@ -34,6 +47,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  await tryPrisma(p => p.calendarTodo.delete({ where: { id }, select: { id: true } }), null as any)
+  await tryPrisma(p => p.todo.delete({ where: { id }, select: { id: true } }), null as any)
   return new NextResponse(null, { status: 204 })
 }

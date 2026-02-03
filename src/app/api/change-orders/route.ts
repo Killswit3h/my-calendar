@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db'
 import { ChangeOrderCreateInput, ChangeOrderQuery } from '@/lib/dto'
 import { nextChangeOrderNumber } from '@/lib/docNumbers'
 import { recomputeFromLines } from '@/lib/calc'
-import { emitChange } from '@/lib/notifications'
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
@@ -97,13 +96,6 @@ export async function POST(req: NextRequest) {
       },
     },
     select: { id: true, number: true, projectId: true },
-  })
-
-  await emitChange({
-    type: 'changeOrder.created',
-    id: created.id,
-    projectId: created.projectId,
-    number,
   })
 
   return NextResponse.json(created, { status: 201 })

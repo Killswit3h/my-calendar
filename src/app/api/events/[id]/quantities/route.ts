@@ -66,7 +66,6 @@ function decimalToString(value: Prisma.Decimal): string {
 
 function formatRow(row: any) {
   const quantityValue = row.quantity instanceof Prisma.Decimal ? row.quantity : new Prisma.Decimal(row.quantity ?? 0)
-  const payItemRow = row.PayItem ?? row.payItem
   return {
     id: String(row.id ?? ''),
     eventId: String(row.eventId ?? ''),
@@ -75,12 +74,12 @@ function formatRow(row: any) {
     stationFrom: row.stationFrom ?? null,
     stationTo: row.stationTo ?? null,
     notes: row.notes ?? null,
-    payItem: payItemRow
+    payItem: row.payItem
       ? {
-          id: String(payItemRow.id ?? ''),
-          number: String(payItemRow.number ?? ''),
-          description: String(payItemRow.description ?? ''),
-          unit: String(payItemRow.unit ?? ''),
+          id: String(row.payItem.id ?? ''),
+          number: String(row.payItem.number ?? ''),
+          description: String(row.payItem.description ?? ''),
+          unit: String(row.payItem.unit ?? ''),
         }
       : null,
   }
@@ -102,7 +101,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
           stationFrom: true,
           stationTo: true,
           notes: true,
-          PayItem: { select: { id: true, number: true, description: true, unit: true } },
+          payItem: { select: { id: true, number: true, description: true, unit: true } },
         },
       }),
     [] as any[],
@@ -227,7 +226,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
             stationFrom: true,
             stationTo: true,
             notes: true,
-            PayItem: { select: { id: true, number: true, description: true, unit: true } },
+            payItem: { select: { id: true, number: true, description: true, unit: true } },
           },
         }),
       [] as any[],

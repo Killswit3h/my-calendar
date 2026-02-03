@@ -30,3 +30,12 @@ turbo/
 # Database exports
 artifacts/db-export/
 *.dump
+
+# agent-os
+agent-os/*
+!agent-os/specs/
+!agent-os/specs/**
+agent-os/specs/**/.DS_Store
+
+# claude
+.claude/

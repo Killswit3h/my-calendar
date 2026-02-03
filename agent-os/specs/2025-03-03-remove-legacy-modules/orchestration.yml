@@ -1,0 +1,10 @@
+task_groups:
+  - name: Discovery & Audit
+  - name: UI / Navigation Cleanup
+  - name: Routing & Pages
+  - name: Backend / API
+  - name: Data & Config
+  - name: Cross-Link & Dependency Scrub
+  - name: QA & Regression
+  - name: Release Notes
+

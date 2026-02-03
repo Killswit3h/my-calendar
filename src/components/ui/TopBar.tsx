@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import { Bell, CalendarDays, Home, Moon, Plus, Search, SunMedium } from 'lucide-react'
+import { CalendarDays, Home, Moon, Plus, Search, SunMedium } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { CALENDAR_HOME_PATH } from '@/lib/calendar/constants'
@@ -101,13 +101,6 @@ export default function TopBar() {
           className="focus-ring inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-surface-soft transition hover:border-border hover:bg-surface-elevated"
         >
           {mounted && resolvedTheme === 'dark' ? <SunMedium className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="focus-ring inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-surface-soft text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground"
-        >
-          <Bell className="h-5 w-5" />
         </button>
         <ProfileAvatar />
       </div>

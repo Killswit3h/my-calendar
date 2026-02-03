@@ -1,7 +1,7 @@
-// src/server/fdot_cutoffss.ts
+// src/server/fdotCutoffs.ts
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/db'
-import type { fdot_cutoffs } from '@prisma/client'
+import type { FdotCutoff, PrismaClient } from '@prisma/client'
 import { tryPrisma } from '@/lib/dbSafe'
 
 export type FdotCutoffRecord = {
@@ -52,15 +52,15 @@ function ensureSameYear(expected: number, ymd: string) {
   }
 }
 
-function toPayload(row: fdot_cutoffs): FdotCutoffRecord {
+function toPayload(row: FdotCutoff): FdotCutoffRecord {
   return {
     id: String(row.id ?? ''),
     year: Number(row.year ?? 0),
-    cutoffDate: new Date(row.cutoff_date ?? Date.now()).toISOString().slice(0, 10),
+    cutoffDate: new Date(row.cutoffDate ?? Date.now()).toISOString().slice(0, 10),
     label: row.label ? String(row.label) : null,
-    createdBy: row.created_by ? String(row.created_by) : null,
-    createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
-    updatedAt: new Date(row.updated_at ?? Date.now()).toISOString(),
+    createdBy: row.createdBy ? String(row.createdBy) : null,
+    createdAt: new Date(row.createdAt ?? Date.now()).toISOString(),
+    updatedAt: new Date(row.updatedAt ?? Date.now()).toISOString(),
   }
 }
 
@@ -77,7 +77,7 @@ function ymd(date: Date): string {
 export async function fetchCutoffYears(): Promise<number[]> {
   const rows = await tryPrisma(
     p =>
-      p.fdot_cutoffs.findMany({
+      p.fdotCutoff.findMany({
         select: { year: true },
         distinct: ['year'],
         orderBy: { year: 'asc' },
@@ -91,19 +91,19 @@ export async function fetchCutoffsForYear(year: number): Promise<FdotCutoffRecor
   if (!Number.isFinite(year)) return []
   const rows = await tryPrisma(
     p =>
-      p.fdot_cutoffs.findMany({
+      p.fdotCutoff.findMany({
         where: { year },
-        orderBy: { cutoff_date: 'asc' },
+        orderBy: { cutoffDate: 'asc' },
       }),
-    [] as fdot_cutoffs[],
+    [] as FdotCutoff[],
   )
   return rows.map(toPayload)
 }
 
 export async function fetchAllCutoffs(): Promise<Record<string, FdotCutoffRecord[]>> {
   const rows = await tryPrisma(
-    p => p.fdot_cutoffs.findMany({ orderBy: [{ year: 'asc' }, { cutoff_date: 'asc' }] }),
-    [] as fdot_cutoffs[],
+    p => p.fdotCutoff.findMany({ orderBy: [{ year: 'asc' }, { cutoffDate: 'asc' }] }),
+    [] as FdotCutoff[],
   )
   const grouped = new Map<number, FdotCutoffRecord[]>()
   rows.forEach(row => {
@@ -162,7 +162,7 @@ export async function saveCutoffs(
   }
 
   const prisma = await getPrisma()
-  const existing = await prisma.fdot_cutoffs.findMany({ where: { year } })
+  const existing = await prisma.fdotCutoff.findMany({ where: { year } })
   type ExistingRow = (typeof existing)[number]
   const existingById = new Map<string, ExistingRow>(
     existing.map((row: ExistingRow): [string, ExistingRow] => [String(row.id), row]),
@@ -179,26 +179,26 @@ export async function saveCutoffs(
   let created = 0
   let updated = 0
 
-  const results = await prisma.$transaction(async (tx) => {
+  const results = await prisma.$transaction(async (tx: PrismaClient) => {
     if (toDelete.length > 0) {
-      await tx.fdot_cutoffs.deleteMany({ where: { id: { in: toDelete } } })
+      await tx.fdotCutoff.deleteMany({ where: { id: { in: toDelete } } })
     }
 
-    const persisted: fdot_cutoffs[] = []
+    const persisted: FdotCutoff[] = []
     for (const row of sorted) {
       const data = {
         year,
-        cutoff_date: toUtcDate(row.cutoffDate),
+        cutoffDate: toUtcDate(row.cutoffDate),
         label: row.label,
       }
       if (row.id && existingById.has(row.id)) {
         const existingRow = existingById.get(row.id)!
         const hasChanges =
           existingRow.year !== year ||
-          new Date(existingRow.cutoff_date).toISOString().slice(0, 10) !== row.cutoffDate ||
+          new Date(existingRow.cutoffDate).toISOString().slice(0, 10) !== row.cutoffDate ||
           (existingRow.label || null) !== (row.label || null)
         if (hasChanges) {
-          const updatedRow = await tx.fdot_cutoffs.update({
+          const updatedRow = await tx.fdotCutoff.update({
             where: { id: row.id },
             data,
           })
@@ -208,11 +208,10 @@ export async function saveCutoffs(
           persisted.push(existingRow)
         }
       } else {
-        const createdRow = await tx.fdot_cutoffs.create({
+        const createdRow = await tx.fdotCutoff.create({
           data: {
-            id: `cutoff-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             ...data,
-            created_by: userId,
+            createdBy: userId,
           },
         })
         created += 1
@@ -335,8 +334,8 @@ async function runAggregation(
 
   try {
     const rows = await tryPrisma(
-      async (p) =>
-        (await p.$queryRaw(query)) as Array<{
+      (p: PrismaClient) =>
+        p.$queryRaw<Array<{
           job_id: string
           job_name: string | null
           pay_item: string | null
@@ -345,7 +344,7 @@ async function runAggregation(
           total_quantity: Prisma.Decimal | number | null
           first_work_date: Date | string | null
           last_work_date: Date | string | null
-        }>,
+        }>>(query),
       [] as Array<{
         job_id: string
         job_name: string | null

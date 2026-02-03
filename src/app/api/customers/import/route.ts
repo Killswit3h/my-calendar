@@ -3,7 +3,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/db'
 import { normalizeCustomerName, parseCsv } from '@/lib/customers'
@@ -82,7 +81,7 @@ export async function POST(req: Request) {
           skipped++
           continue
         }
-        await p.customer.create({ data: { id: randomUUID(), name: display, updatedAt: new Date() } })
+        await p.customer.create({ data: { name: display } })
         inserted++
       } catch (e: any) {
         errors++

@@ -17,8 +17,6 @@ export type DailyReport = {
   rows: JobRow[]
   yardEmployees?: string[]
   noWorkEmployees?: string[]
-  yardNote?: string
-  noWorkNote?: string
 }
 
 const YES_RE = /^\s*(yes|y|true|1)\s*$/i

@@ -1,9 +1,21 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function PATCH() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
+
+export async function DELETE() {
+  return NextResponse.json({ error: "Removed" }, { status: 404 });
+}
 import { NextRequest, NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/db'
 import { EstimateUpdateInput } from '@/lib/dto'
 import { lineTotalCents, recomputeFromLines } from '@/lib/calc'
-import { emitChange } from '@/lib/notifications'
 
 const normalizeId = (value?: string | null) => {
   if (typeof value !== 'string') return undefined
@@ -164,25 +176,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     })
   })
 
-  if (dto.status && dto.status !== existing.status) {
-    await emitChange({
-      type: 'estimate.statusChanged',
-      id: updated.id,
-      projectId: updated.projectId,
-      customerId: updated.customerId,
-      number: updated.number,
-      status: dto.status,
-    })
-  } else {
-    await emitChange({
-      type: 'estimate.updated',
-      id: updated.id,
-      projectId: updated.projectId,
-      customerId: updated.customerId,
-      number: updated.number,
-    })
-  }
-
   return NextResponse.json(updated)
 }
 
@@ -198,14 +191,6 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     prisma.estimateLineItem.deleteMany({ where: { estimateId: id } }),
     prisma.estimate.delete({ where: { id } }),
   ])
-
-  await emitChange({
-    type: 'estimate.deleted',
-    id: existing.id,
-    projectId: existing.projectId,
-    customerId: existing.customerId,
-    number: existing.number,
-  })
 
   return NextResponse.json({ ok: true })
 }

@@ -23,15 +23,9 @@ export function renderDailyHTML(data: DailyReport): string {
 
   const yardList = Array.isArray(data.yardEmployees) ? data.yardEmployees.filter(Boolean) : []
   const noWorkList = Array.isArray(data.noWorkEmployees) ? data.noWorkEmployees.filter(Boolean) : []
-  const yardNote = typeof data.yardNote === 'string' ? data.yardNote.trim() : ''
-  const noWorkNote = typeof data.noWorkNote === 'string' ? data.noWorkNote.trim() : ''
 
   const bodyRows = (rows || []).map(r => {
     const vendorCls = vendorClass(r.vendor)
-    const rawTime = String(r.time ?? '').trim()
-    const isNight = rawTime.toUpperCase() === 'NIGHT'
-    const timeLabel = escapeHtml(rawTime || '—')
-    const timeClass = isNight ? ' time-night' : ''
     return `
       <tr>
         <td class="col-project">${escapeHtml(r.projectCompany || '—')}</td>
@@ -41,7 +35,7 @@ export function renderDailyHTML(data: DailyReport): string {
         <td class="col-payroll">${r.payroll ? 'Yes' : 'No'}</td>
         <td class="col-payment">${escapeHtml(r.payment || '—')}</td>
         <td class="col-vendor ${vendorCls}">${escapeHtml(r.vendor || '—')}</td>
-        <td class="col-time${timeClass}">${timeLabel}</td>
+        <td class="col-time">${escapeHtml(r.time || '—')}</td>
       </tr>`
   }).join('')
 
@@ -50,7 +44,8 @@ export function renderDailyHTML(data: DailyReport): string {
     return `<ul class="extra-list">${items.map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`
   }
 
-  const extras = `
+  const extras = (yardList.length || noWorkList.length)
+    ? `
   <div class="extras">
     <div class="extra-card">
       <div class="extra-title">Yard/Shop</div>
@@ -60,13 +55,6 @@ export function renderDailyHTML(data: DailyReport): string {
       <div class="extra-title">No Work</div>
       ${renderList(noWorkList)}
     </div>
-  </div>`
-
-  const notes = (yardNote || noWorkNote)
-    ? `
-  <div class="notes-card">
-    <div class="notes-title">Notes</div>
-    <div class="notes-body">${escapeHtml(yardNote || noWorkNote || '')}</div>
   </div>`
     : ''
 
@@ -97,7 +85,6 @@ export function renderDailyHTML(data: DailyReport): string {
   .col-payment { width:8%; text-align:center; }
   .col-vendor { width:5%; text-align:center; }
   .col-time { width:5%; text-align:center; }
-  .col-time.time-night { background: #FFF3B0; font-weight: 700; color: #7C2D12; }
 
   /* Slightly smaller font for tight header cells to ensure fit */
   th.col-payroll, th.col-vendor { font-size: 8.5pt; padding-left: 4pt; padding-right: 4pt; }
@@ -113,9 +100,6 @@ export function renderDailyHTML(data: DailyReport): string {
   .extra-title { font-size: 10pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; }
   .extra-list { list-style: disc; padding-left: 14pt; margin: 0; font-size: 10pt; display: grid; gap: 2pt; }
   .extra-empty { font-size: 9pt; color: #666; }
-  .notes-card { margin-top: 16pt; border: 1pt solid #444; border-radius: 6pt; padding: 10pt; background: #f2f2f2; }
-  .notes-title { font-size: 10pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; }
-  .notes-body { font-size: 10pt; white-space: pre-wrap; color: #333; }
 </style>
 </head>
 <body>
@@ -139,7 +123,6 @@ export function renderDailyHTML(data: DailyReport): string {
     </tbody>
   </table>
   ${extras}
-  ${notes}
 </body>
 </html>`
 }
