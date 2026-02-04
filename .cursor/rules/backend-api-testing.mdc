@@ -1,0 +1,21 @@
+---
+description: How to add/extend server API tests (abstract test factories + MockPrisma extensions)
+alwaysApply: true
+---
+
+## API module testing (server)
+
+- **Where tests live**:
+  - controllers: `tests/server/controllers/<Entity>Controller.test.ts`
+  - services: `tests/server/services/<Entity>Service.test.ts`
+  - repositories: `tests/server/repositories/<Entity>Repository.test.ts`
+- **Reuse the test factories**:
+  - `createAbstractControllerTests` in `tests/server/controllers/AbstractController.test.ts`
+  - `createAbstractServiceTests` in `tests/server/services/AbstractService.test.ts`
+  - `createAbstractRepositoryTests` in `tests/server/repositories/AbstractRepository.test.ts`
+- **Mock Prisma pattern**:
+  - extend `MockPrisma` with a model-specific helper like `extendMockPrismaWith<Entity>` in `tests/utils/mockPrisma<Entity>.ts`
+  - in each test suite `beforeEach`, call `setMockPrisma(mockPrisma)` after extending
+- **When adding a new CRUD API**:
+  - add the 3 test files (controller/service/repository) wired to the abstract factories
+  - add a `tests/utils/mockPrisma<Entity>.ts` extension implementing `findMany/findUnique/findFirst/create/update/delete/count` for that Prisma delegate

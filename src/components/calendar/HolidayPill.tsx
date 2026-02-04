@@ -1,10 +1,13 @@
-export default function HolidayPill({ title }: { title: string }) {
+'use client'
+
+export interface HolidayPillProps {
+  title: string
+}
+
+export default function HolidayPill({ title }: HolidayPillProps) {
   return (
-    <span
-      className="inline-block max-w-full truncate text-xs px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900"
-      title={title}
-    >
+    <div className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">
       {title}
-    </span>
+    </div>
   )
 }

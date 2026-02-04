@@ -16,39 +16,19 @@ type Roster = {
 export async function getDayRoster(dayKey: string): Promise<Roster> {
   const dateISO = dayKey;
 
-  const prisma = await getPrisma();
-  const overrides = await prisma.placement.findMany({
-    where: { dayKey },
-    select: { employeeId: true, placement: true },
-  });
-
-  const free: string[] = [];
-  const yardShop: string[] = [];
-  const noWork: string[] = [];
-  const explicitKeys: string[] = [];
-
-  for (const o of overrides) {
-    explicitKeys.push(o.employeeId);
-    if (o.placement === 'FREE') free.push(o.employeeId);
-    else if (o.placement === 'YARD_SHOP') yardShop.push(o.employeeId);
-    else if (o.placement === 'NO_WORK') noWork.push(o.employeeId);
-  }
-
+  // Placement model not available
   const counts = {
-    free: free.length,
-    yardShop: yardShop.length,
-    noWork: noWork.length,
+    free: 0,
+    yardShop: 0,
+    noWork: 0,
   };
 
   const sample = {
-    free: free.slice(0, 5),
-    yardShop: yardShop.slice(0, 5),
-    noWork: noWork.slice(0, 5),
-    explicitKeys,
+    free: [],
+    yardShop: [],
+    noWork: [],
+    explicitKeys: [],
   };
-
-  const dbg = { dateISO, counts, sample };
-  console.log('getDayRoster dbg', dbg);
 
   return { dateISO, counts, sample };
 }

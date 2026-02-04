@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useComments } from '@/src/hooks/usePlannerApi';
+import { useComments } from '@/hooks/usePlannerApi';
 
 export default function TaskComments({ taskId, currentUserId }: { taskId: string; currentUserId: string }) {
   const { q, add } = useComments(taskId);

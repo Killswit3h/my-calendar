@@ -1,15 +1,18 @@
 ---
+description: DomainError-based error handling for API + Prisma layers
 alwaysApply: true
 ---
 
-## Error Handling Best Practices
+## Error handling (server/API)
 
-Follow these standards for all error handling:
-
-- **User-Friendly Messages**: Provide clear, actionable error messages to users without exposing technical details or security information
-- **Fail Fast and Explicitly**: Validate input and check preconditions early; fail with clear error messages rather than allowing invalid state
-- **Specific Exception Types**: Use specific exception/error types rather than generic ones to enable targeted handling
-- **Centralized Error Handling**: Handle errors at appropriate boundaries (controllers, API layers) rather than scattering try-catch blocks everywhere
-- **Graceful Degradation**: Design systems to degrade gracefully when non-critical services fail rather than breaking entirely
-- **Retry Strategies**: Implement exponential backoff for transient failures in external service calls
-- **Clean Up Resources**: Always clean up resources (file handles, connections) in finally blocks or equivalent mechanisms
+- **Use domain errors**: server code should throw `DomainError` subclasses from `src/server/base/types.ts`:
+  - `ValidationError` → 400
+  - `NotFoundError` → 404
+  - `ConflictError` → 409
+  - `BusinessLogicError` → 422
+  - `DatabaseError` → 500
+- **Centralize responses in controllers**: API controllers should `catch (error)` and return `this.errorResponse(error)` (from `AbstractController`), not ad-hoc `NextResponse.json(...)`.
+- **Consistent error JSON shape**: `errorResponse()` returns:
+  - `{ error: <DomainErrorCode>, message: string, meta?: object }` for domain errors
+  - `{ error: "INTERNAL_ERROR", message: string }` for unknown errors
+- **Repository boundary**: Prisma exceptions should be translated in `AbstractRepository.handlePrismaError()` (e.g. P2002 → `ConflictError`, P2025 → `NotFoundError`). Don’t leak raw Prisma errors to callers.

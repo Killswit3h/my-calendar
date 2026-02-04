@@ -1,0 +1,77 @@
+---
+description: Spec-driven implementation quality (how to translate .cursor/specs into clean, consistent code)
+alwaysApply: true
+---
+
+## Spec-driven implementation quality
+
+This repo uses specs in `.cursor/specs/*.md` as the **source of truth** for what we build. The goal of this rule is to keep implementations:
+
+- easy to read and review,
+- consistent with existing patterns,
+- and explicitly traceable to the spec’s requirements.
+
+### What “done” means (Definition of Done)
+
+- **Spec compliance**: every bullet in **Specific Requirements** is either:
+  - implemented, or
+  - explicitly marked out-of-scope, or
+  - corrected in the spec (if the spec was wrong / drifted).
+- **Readable design**:
+  - handlers have clear guard clauses and predictable control flow
+  - validation is centralized (no “random validation” sprinkled across layers)
+  - errors are typed and consistent
+- **No contract surprises**:
+  - do not change Prisma schema or existing API shapes unless the spec explicitly says so
+  - preserve timezone/all-day-date semantics (this codebase is sensitive to it)
+- **Testing**:
+  - update/add tests where the spec says they matter (usually controller/service/repository)
+  - prefer the existing abstract test factories and MockPrisma extensions for consistency
+
+### How to translate a spec into code (mapping rules)
+
+Use the spec sections as a checklist for what code artifacts must exist:
+
+- **Repository requirements** → `src/server/repositories/<Entity>Repository.ts`
+  - keep it focused on data access helpers (no HTTP, no NextResponse, no request parsing)
+  - add small “query helpers” that support validation and filtering (e.g., `findByName`, `findByIds`)
+- **Service requirements** → `src/server/services/<Entity>Service.ts`
+  - validation + normalization + business rules
+  - lifecycle hooks (`validate`, `beforeCreate`, `beforeUpdate`, `beforeDelete`) are the preferred structure
+- **Controller requirements** → `src/server/controllers/<Entity>Controller.ts`
+  - request parsing, query param allowlist, building filters, calling the service, returning responses
+  - keep it skimmable: guard clauses first, “happy path” afterward
+- **Route handler requirements** → `src/app/api/<resource>/route.ts` and `src/app/api/<resource>/[id]/route.ts`
+  - should be minimal wiring that delegates to a controller
+
+### How we write “high quality” endpoints (canonical example: `projectEndpoint.md`)
+
+When a spec looks like `.cursor/specs/projectEndpoint.md`, the implementation should read like this (quality-wise):
+
+- **Validation is explicit and user-facing**
+  - required string fields: `trim()`, reject empty/whitespace-only, enforce max length
+  - numeric/decimal fields: accept common API-friendly shapes (`number | string | Prisma.Decimal`), normalize, enforce non-negative/finite
+  - foreign keys: validate they reference real records when provided (and provide a clear error message)
+- **Uniqueness is enforced intentionally**
+  - use a repository helper (e.g., `findByName`) and throw `ConflictError` with an action-oriented message
+  - for updates, only check uniqueness when the unique field actually changes
+- **Filtering is predictable**
+  - query params are allowlisted (e.g. `?name=`, `?location=`, `?vendor=`, `?customer_id=`)
+  - string filters use Prisma `{ contains: value, mode: "insensitive" }`
+  - numeric query params are parsed carefully (`parseInt` + `isNaN` check)
+- **Error behavior is consistent**
+  - validation failures → 400
+  - not found → 404
+  - uniqueness conflict → 409
+  - unexpected runtime issues → 500
+  - error payloads are stable and structured (via `AbstractController.errorResponse`)
+
+### Spec quality tips (so the agent can automate cleanly)
+
+When authoring or refining specs, include:
+
+- **Exact file paths** to add/change (like `projectEndpoint.md` does)
+- **Field-level validation rules** (type, requiredness, trimming, length bounds, defaults)
+- **Error semantics** (status codes + what triggers them)
+- **Testing expectations** (what layers, and any custom methods to test)
+- **Out of scope** bullets (to prevent “helpful” overbuilding)

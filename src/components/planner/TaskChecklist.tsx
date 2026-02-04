@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Trash2 } from 'lucide-react';
-import { useChecklist } from '@/src/hooks/usePlannerApi';
+import { useChecklist } from '@/hooks/usePlannerApi';
 
 export default function TaskChecklist({ planId, taskId }: { planId: string; taskId: string }) {
   const { q, add, patch, remove } = useChecklist(taskId, planId);

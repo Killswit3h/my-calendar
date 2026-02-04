@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
+import { EllipsisVertical } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -292,7 +293,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   useEffect(() => {
     if (!optsOpen) return;
-    const handleOutside = (event: MouseEvent | TouchEvent) => {
+    const handleOutside = (event: Event) => {
       const target = event.target as Node | null;
       if (!target) return;
       const inPrimary = optsRef.current?.contains(target);

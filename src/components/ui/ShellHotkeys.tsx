@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
-import { CALENDAR_HOME_PATH } from '@/lib/calendar/constants'
 import { HOTKEYS, SHELL_EVENTS } from '@/lib/routes'
 
 export function ShellHotkeys() {
@@ -28,9 +27,6 @@ export function ShellHotkeys() {
           if (HOTKEYS.goDashboard.includes(pair)) {
             nextEvent.preventDefault()
             router.push('/dashboard')
-          } else if (HOTKEYS.goCalendar.includes(pair)) {
-            nextEvent.preventDefault()
-            router.push(CALENDAR_HOME_PATH)
           }
         }
         window.addEventListener('keydown', listener, { once: true })

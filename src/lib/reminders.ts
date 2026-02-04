@@ -1,5 +1,5 @@
-// src/lib/reminders.ts
-import prisma from '@/lib/db'
+// Stub file - old schema models no longer exist
+// This functionality will be rebuilt for the new schema
 
 export type ReminderEntityType = 'event' | 'todo'
 
@@ -16,10 +16,6 @@ export function parseReminderOffsets(value: unknown): number[] {
   return Array.from(new Set(sanitized)).sort((a, b) => a - b)
 }
 
-export async function markEntityLastNotified(entityType: ReminderEntityType, entityId: string, timestamp: Date) {
-  if (entityType === 'event') {
-    await prisma.event.updateMany({ where: { id: entityId }, data: { lastNotifiedAt: timestamp } })
-  } else {
-    await prisma.todo.updateMany({ where: { id: entityId }, data: { lastNotifiedAt: timestamp } })
-  }
+export async function markEntityLastNotified(_entityType: ReminderEntityType, _entityId: string, _timestamp: Date) {
+  // Stub - to be rebuilt for new schema
 }

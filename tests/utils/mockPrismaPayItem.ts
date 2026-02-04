@@ -15,7 +15,7 @@ export function extendMockPrismaWithPayItem(mockPrisma: MockPrisma) {
 
   const randomId = () => Math.floor(Math.random() * 1000000) + 1
 
-  mockPrisma.pay_item = {
+  mockPrisma.payItem = {
     findMany: async ({ where, select, orderBy, take, skip }: any = {}) => {
       let rows = Array.from(payItems.values())
 

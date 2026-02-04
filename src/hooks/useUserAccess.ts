@@ -1,7 +1,20 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AccessArea, Role } from '@prisma/client'
+
+// Define types locally since they don't exist in the Prisma schema
+export type AccessArea = 
+  | 'ADMIN' 
+  | 'CALENDAR' 
+  | 'REPORTS' 
+  | 'FINANCE' 
+  | 'PAYROLL' 
+  | 'SETTINGS'
+  | 'REPORTS_DAILY'
+  | 'REPORTS_WEEKLY'
+  | 'REPORTS_FINANCE'
+  | 'REPORTS_EXPORTS'
+export type Role = 'ADMIN' | 'MANAGER' | 'MEMBER' | 'VIEWER'
 
 type TeamShape = { id: string; name: string } | null
 export type UserAccessRecord = {

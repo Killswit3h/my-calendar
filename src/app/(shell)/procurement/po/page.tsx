@@ -1,10 +1,7 @@
-import type { PurchaseOrder as PurchaseOrderRecord } from '@prisma/client'
-
 import { DataTable, type TableColumn } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { OpenCalendarLink } from '@/components/ui/OpenCalendarLink'
 import { PROCUREMENT_FIXTURES, type ProcurementFixture } from '@/lib/fixtures/modules'
-import { getPrisma } from '@/lib/db'
 
 type PoRow = ProcurementFixture & { expectedOn: string }
 
@@ -16,28 +13,8 @@ const columns: TableColumn<PoRow>[] = [
   { key: 'expectedOn', header: 'Expected', width: 140 },
 ]
 
-export default async function ProcurementPoPage() {
-  const useFixtures = process.env.PLAYWRIGHT_TEST === '1'
-  let ordersDb: PurchaseOrderRecord[] = []
-  if (!useFixtures) {
-    const prisma = await getPrisma()
-    try {
-      ordersDb = await prisma.purchaseOrder.findMany({ orderBy: { expectedOn: 'asc' }, take: 50 })
-    } catch {
-      ordersDb = []
-    }
-  }
-
-  const rows: PoRow[] = ordersDb.length
-    ? ordersDb.map((po: PurchaseOrderRecord): PoRow => ({
-        id: po.id,
-        type: 'PO',
-        vendor: po.vendor,
-        project: po.project,
-        status: po.status,
-        expectedOn: po.expectedOn ? new Date(po.expectedOn).toISOString().slice(0, 10) : '—',
-      }))
-    : PROCUREMENT_FIXTURES.filter(item => item.type === 'PO').map(item => ({ ...item, expectedOn: item.expectedOn ?? '—' }))
+export default function ProcurementPoPage() {
+  const rows: PoRow[] = PROCUREMENT_FIXTURES.filter(item => item.type === 'PO').map(item => ({ ...item, expectedOn: item.expectedOn ?? '—' }))
 
   return (
     <DataTable

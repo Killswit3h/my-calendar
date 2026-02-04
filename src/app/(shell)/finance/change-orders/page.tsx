@@ -1,11 +1,8 @@
-import type { FinanceChangeOrder } from '@prisma/client'
-
 import { DataTable, type TableColumn } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { OpenCalendarLink } from '@/components/ui/OpenCalendarLink'
 import { FINANCE_FIXTURES, type FinanceFixture } from '@/lib/fixtures/modules'
-import { getPrisma } from '@/lib/db'
 
 type FinanceRow = FinanceFixture & { amountDisplay: string }
 
@@ -17,37 +14,11 @@ const columns: TableColumn<FinanceRow>[] = [
   { key: 'dueDate', header: 'Submitted', width: 140 },
 ]
 
-export default async function FinanceChangeOrdersPage() {
-  const useFixtures = process.env.PLAYWRIGHT_TEST === '1'
-  let changeOrdersDb: FinanceChangeOrder[] = []
-  if (!useFixtures) {
-    const prisma = await getPrisma()
-    try {
-      changeOrdersDb = await prisma.financeChangeOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
-    } catch {
-      changeOrdersDb = []
-    }
-  }
-
-  const rows: FinanceRow[] = changeOrdersDb.length
-    ? changeOrdersDb.map((order: FinanceChangeOrder): FinanceRow => {
-        const status = ['Draft', 'Pending', 'Approved'].includes(order.status)
-          ? (order.status as FinanceFixture['status'])
-          : ('Pending' as FinanceFixture['status'])
-        return {
-          id: order.id,
-          type: 'Change Order',
-          project: order.project,
-          amount: order.amount ? Number(order.amount) : 0,
-          status,
-          dueDate: order.submittedAt ? order.submittedAt.toISOString().slice(0, 10) : '—',
-          amountDisplay: order.amount ? `$${Number(order.amount).toLocaleString()}` : '—',
-        }
-      })
-    : FINANCE_FIXTURES.filter(item => item.type === 'Change Order').map(item => ({
-        ...item,
-        amountDisplay: `$${item.amount.toLocaleString()}`,
-      }))
+export default function FinanceChangeOrdersPage() {
+  const rows: FinanceRow[] = FINANCE_FIXTURES.filter(item => item.type === 'Change Order').map(item => ({
+    ...item,
+    amountDisplay: `$${item.amount.toLocaleString()}`,
+  }))
 
   return (
     <div className="space-y-4">

@@ -17,7 +17,6 @@ export type NavItem = {
 
 export const SHELL_NAV_ITEMS: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { key: 'calendar', label: 'Calendar', href: '/calendar', icon: CalendarDays },
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
   { key: 'employees', label: 'Employees', href: '/employees', icon: Users },
   { key: 'admin', label: 'Admin', href: '/admin', icon: Settings2 },
@@ -50,7 +49,6 @@ export const QUICK_LINKS = [
 export const HOTKEYS = {
   focusSearch: ['meta+k', 'ctrl+k', '/'],
   goDashboard: ['g d', 'g h'],
-  goCalendar: ['g c'],
 }
 
 export const SHELL_EVENTS = {

@@ -130,6 +130,8 @@ export class PayItemService extends AbstractService<
     id: number,
     data: Prisma.pay_itemUpdateInput
   ): Promise<Prisma.pay_itemUpdateInput> {
+    const processed: Prisma.pay_itemUpdateInput = { ...data }
+    
     if (data.number !== undefined && data.number !== null) {
       const trimmed = typeof data.number === "string"
         ? data.number.trim()
@@ -140,13 +142,10 @@ export class PayItemService extends AbstractService<
         throw new ConflictError("A pay item with this number already exists")
       }
 
-      // Ensure trimmed number is used
-      return { ...data, number: trimmed as string }
+      processed.number = trimmed as string
     }
     
-    // Also trim description and unit if provided
-    const processed: Prisma.pay_itemUpdateInput = { ...data }
-    
+    // Trim description and unit if provided
     if (data.description !== undefined && data.description !== null) {
       const trimmed = typeof data.description === "string"
         ? data.description.trim()

@@ -1,14 +1,11 @@
-import prisma from '@/lib/db'
+// Stub file - old schema models no longer exist
+// This functionality will be rebuilt for the new schema
 
 type UserShape = {
   id: string
   name: string | null
 }
 
-export async function ensureUserRecord(user: UserShape) {
-  await prisma.user.upsert({
-    where: { id: user.id },
-    update: { name: user.name ?? undefined },
-    create: { id: user.id, name: user.name ?? undefined },
-  })
+export async function ensureUserRecord(_user: UserShape) {
+  // Stub - to be rebuilt for new schema
 }

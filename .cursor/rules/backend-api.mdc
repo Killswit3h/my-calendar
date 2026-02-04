@@ -1,16 +1,33 @@
 ---
+description: API code shape standards (readable route handlers, consistent layering, predictable errors)
 alwaysApply: true
 ---
 
-## API Endpoint Standards
+## API code shape (my-calendar)
 
-Follow these standards for all API endpoints:
+This rule is about **how the API code should look and be structured** so it’s easy to review and consistent.
+What the API _does_ (fields, defaults, status codes, filters) should be driven by the relevant spec in `.cursor/specs/`.
 
-- **RESTful Design**: Follow REST principles with clear resource-based URLs and appropriate HTTP methods (GET, POST, PUT, PATCH, DELETE)
-- **Consistent Naming**: Use consistent, lowercase, hyphenated or underscored naming conventions for endpoints across the API
-- **Versioning**: Implement API versioning strategy (URL path or headers) to manage breaking changes without disrupting existing clients
-- **Plural Nouns**: Use plural nouns for resource endpoints (e.g., `/users`, `/products`) for consistency
-- **Nested Resources**: Limit nesting depth to 2-3 levels maximum to keep URLs readable and maintainable
-- **Query Parameters**: Use query parameters for filtering, sorting, pagination, and search rather than creating separate endpoints
-- **HTTP Status Codes**: Return appropriate, consistent HTTP status codes that accurately reflect the response (200, 201, 400, 404, 500, etc.)
-- **Rate Limiting Headers**: Include rate limit information in response headers to help clients manage their usage
+- **Routing shape**: API endpoints live in `src/app/api/<resource>/route.ts` and `src/app/api/<resource>/[id]/route.ts`.
+- **Thin routes**: `route.ts` files should only:
+  - import `NextRequest` and the relevant `*Controller`
+  - export `runtime = 'nodejs'`, `dynamic = "force-dynamic"`, `revalidate = 0`
+  - instantiate the controller once at module scope
+  - export `GET/POST` (collection) and `GET/PATCH/DELETE` (by id) that delegate to controller handlers
+- **Next.js params typing**: For `[id]/route.ts`, accept `context: { params: Promise<{ id: string }> }` (or compatible `Record<string,string>`) and pass it through.
+
+## Controller/service/repository layering
+
+- **Controllers** (`src/server/controllers/*Controller.ts`):
+  - extend `AbstractController` and implement `handleGet/handlePost/handlePatch/handleDelete`
+  - use `parseId(req, context)` for numeric IDs from the path (don’t parse IDs from querystring)
+  - use `parseQueryParams(req)` for filters; for string search use Prisma `{ contains, mode: "insensitive" }`
+  - wrap handler bodies in `try/catch` and return `this.errorResponse(error)` on failure
+- **Services** (`src/server/services/*Service.ts`):
+  - extend `AbstractService` and put **validation + business rules** in `validate`, `beforeCreate`, `beforeUpdate`, `beforeDelete`
+  - throw domain errors (`ValidationError`, `NotFoundError`, `ConflictError`, `BusinessLogicError`) instead of returning `NextResponse`
+  - when the API accepts friendly foreign keys like `customer_id`, normalize to Prisma relations (`customer: { connect: { id } }`) and **remove the raw `*_id`** before calling Prisma “checked” create/update inputs
+- **Repositories** (`src/server/repositories/*Repository.ts`):
+  - extend `AbstractRepository`
+  - implement `getModelName()` returning the Prisma delegate name (e.g. `"project"`)
+  - rely on `AbstractRepository` for Prisma error translation to domain errors (avoid leaking raw Prisma exceptions upward)
