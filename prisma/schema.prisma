@@ -8,324 +8,162 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Customer {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model employee {
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar
+  wage_rate    Decimal   @db.Decimal(10, 2)
+  start_date   DateTime
+  last_updated DateTime? @map("last_updated")
+  phone_number String?   @db.VarChar @map("phone_number")
+  email        String?   @unique @db.VarChar
+  active       Boolean   @default(true)
+
+  event_assignments event_assignment[]
+
+  @@map("employee")
 }
 
-model Calendar {
-  id          String       @id @default(cuid())
-  name        String
-  isPrivate   Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  events      Event[]
-  shareTokens ShareToken[]
-  todos       Todo[]
+model payment_type {
+  id          Int      @id @default(autoincrement())
+  description String   @unique @db.VarChar
+
+  events event[]
+
+  @@map("payment_type")
 }
 
-model Event {
-  id             String          @id @default(cuid())
-  calendarId     String
-  title          String
-  description    String?
-  allDay         Boolean         @default(false)
-  location       String?
-  employees      Json?
-  invoiceNumber  String?
-  type           String?
-  shift          WorkShift?
-  checklist      Json?
-  startsAt       DateTime
-  endsAt         DateTime
-  attachmentData Bytes?
-  attachmentName String?
-  attachmentType String?
-  calendar       Calendar        @relation(fields: [calendarId], references: [id])
-  quantities     EventQuantity[]
+model scope_of_work {
+  id          Int      @id @default(autoincrement())
+  description String   @unique @db.VarChar
 
-  @@index([calendarId, startsAt])
-  @@index([endsAt])
-  @@map("Event")
+  events event[]
+
+  @@map("scope_of_work")
 }
 
-model PayItem {
-  id          String          @id @default(cuid())
-  number      String          @unique
-  description String
-  unit        String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  quantities  EventQuantity[]
+model pay_item {
+  id          Int      @id @default(autoincrement())
+  number      String   @unique @db.VarChar
+  description String   @db.Text
+  unit        String   @db.VarChar
+
+  project_pay_items project_pay_item[]
+
+  @@map("pay_item")
 }
 
-model EventQuantity {
-  id          String   @id @default(cuid())
-  eventId     String
-  payItemId   String
-  quantity    Decimal  @db.Decimal(18, 6)
-  stationFrom String?
-  stationTo   String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  payItem     PayItem  @relation(fields: [payItemId], references: [id])
+model customer {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique @db.VarChar
+  address      String    @db.VarChar
+  phone_number String    @db.VarChar @map("phone_number")
+  email        String    @unique @db.VarChar
+  notes        String?   @db.Text
+  created_at   DateTime  @default(now()) @map("created_at")
 
-  @@index([eventId])
-  @@index([payItemId])
+  projects project[]
+
+  @@map("customer")
 }
 
-model Todo {
-  id         String    @id @default(cuid())
-  calendarId String
-  title      String
-  notes      String?
-  done       Boolean   @default(false)
-  type       EventType
-  createdAt  DateTime  @default(now())
-  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+model project {
+  id          Int       @id @default(autoincrement())
+  customer_id Int?      @map("customer_id")
+  name        String    @unique @db.VarChar
+  location    String    @db.VarChar
+  retainage   Decimal   @db.Decimal(10, 2)
+  is_payroll  Boolean   @default(false) @map("is_payroll")
+  is_EEO      Boolean   @default(false) @map("is_EEO")
+  vendor      String    @db.VarChar
+  status      String    @default("ACTIVE") @db.VarChar
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  @@index([calendarId, createdAt])
+  customer          customer?            @relation(fields: [customer_id], references: [id])
+  project_pay_items project_pay_item[]
+  events            event[]
+
+  @@map("project")
 }
 
-model ShareToken {
-  id         String    @id @default(cuid())
-  calendarId String
-  role       ShareRole
-  expiresAt  DateTime?
-  createdAt  DateTime  @default(now())
-  calendar   Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+model project_pay_item {
+  id                  Int       @id @default(autoincrement())
+  project_id          Int       @map("project_id")
+  pay_item_id         Int       @map("pay_item_id")
+  contracted_quantity Decimal   @db.Decimal(10, 2) @map("contracted_quantity")
+  unit_rate           Decimal   @db.Decimal(10, 2) @map("unit_rate")
+  is_original         Boolean   @default(true) @map("is_original")
+  stockpile_billed    Decimal   @default(0) @db.Decimal(10, 2) @map("stockpile_billed")
+  notes               String?   @db.Text
+  begin_station       String?   @db.VarChar @map("begin_station")
+  end_station         String?   @db.VarChar @map("end_station")
+  status              String?   @db.VarChar
+  locate_ticket       String?   @db.VarChar @map("locate_ticket")
+  LF_RT               String?   @db.VarChar @map("LF_RT")
+  onsite_review       String?   @db.VarChar @map("onsite_review")
+
+  project        project         @relation(fields: [project_id], references: [id])
+  pay_item       pay_item        @relation(fields: [pay_item_id], references: [id])
+  event_quantities event_quantity[]
+
+  @@map("project_pay_item")
 }
 
-model Holiday {
-  id          String   @id @default(cuid())
-  date        DateTime
-  localName   String
-  name        String
-  countryCode String
-  regions     String?
-  types       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model event {
+  id               Int       @id @default(autoincrement())
+  project_id       Int       @map("project_id")
+  scope_of_work_id Int       @map("scope_of_work_id")
+  payment_type_id  Int       @map("payment_type_id")
+  invoice_id       Int?      @map("invoice_id")
+  start_time       DateTime  @map("start_time")
+  end_time         DateTime  @map("end_time")
+  is_day_shift     Boolean   @default(true) @map("is_day_shift")
+  location         String?   @db.VarChar
+  notes            String?   @db.Text
+  created_at       DateTime  @default(now()) @map("created_at")
+  updated_at       DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  @@unique([date, countryCode])
+  project        project            @relation(fields: [project_id], references: [id])
+  scope_of_work  scope_of_work      @relation(fields: [scope_of_work_id], references: [id])
+  payment_type   payment_type       @relation(fields: [payment_type_id], references: [id])
+  invoice        invoice?           @relation(fields: [invoice_id], references: [id])
+  assignments    event_assignment[]
+  quantities     event_quantity[]
+
+  @@map("event")
 }
 
-model UserSetting {
-  id           String  @id @default(cuid())
-  userId       String  @unique
-  showHolidays Boolean @default(true)
-  countryCode  String  @default("US")
-  useIcs       Boolean @default(false)
-  icsUrl       String?
+model event_assignment {
+  id         Int @id @default(autoincrement())
+  event_id   Int @map("event_id")
+  employee_id Int @map("employee_id")
+
+  event    event    @relation(fields: [event_id], references: [id])
+  employee employee @relation(fields: [employee_id], references: [id])
+
+  @@unique([event_id, employee_id])
+  @@map("event_assignment")
 }
 
-model ReportFile {
-  id         String     @id @default(cuid())
-  kind       ReportKind
-  reportDate DateTime?
-  weekStart  DateTime?
-  weekEnd    DateTime?
-  vendor     String?
-  blobUrl    String
-  bytes      Int
-  createdAt  DateTime   @default(now())
+model event_quantity {
+  id                  Int       @id @default(autoincrement())
+  event_id            Int       @map("event_id")
+  project_pay_item_id Int       @map("project_pay_item_id")
+  quantity            Decimal   @db.Decimal(10, 2)
+  notes               String?   @db.Text
 
-  @@index([reportDate, vendor])
-  @@index([weekStart, weekEnd, vendor], map: "ReportFile_week_vendor_idx")
+  event           event            @relation(fields: [event_id], references: [id])
+  project_pay_item project_pay_item @relation(fields: [project_pay_item_id], references: [id])
+
+  @@map("event_quantity")
 }
 
-model DailyReportSnapshot {
-  id          String   @id @default(cuid())
-  reportDate  DateTime
-  vendor      String?
-  payloadJson String
-  createdAt   DateTime @default(now())
+model invoice {
+  id                 Int      @id @default(autoincrement())
+  number             String   @unique @db.VarChar
+  is_contract_invoice Boolean  @default(false) @map("is_contract_invoice")
 
-  @@index([reportDate, vendor])
-}
+  events event[]
 
-model WeeklyReportRequest {
-  id         String       @id @default(cuid())
-  weekStart  DateTime
-  weekEnd    DateTime
-  vendor     String?
-  status     WeeklyStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
-  finishedAt DateTime?
-  errorText  String?
-
-  @@index([weekStart, weekEnd, vendor], map: "WeeklyReportRequest_week_vendor_idx")
-}
-
-model FdotCutoff {
-  id         String   @id @default(cuid())
-  year       Int
-  cutoffDate DateTime @map("cutoff_date")
-  label      String?
-  createdBy  String?  @map("created_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
-
-  @@unique([year, cutoffDate])
-  @@map("fdot_cutoffs")
-}
-
-model HourlyRate {
-  id            String   @id @default(cuid())
-  employeeId    String
-  effectiveDate DateTime @db.Date
-  rate          Decimal  @db.Decimal(10, 2)
-  createdAt     DateTime @default(now())
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@unique([employeeId, effectiveDate], map: "HourlyRate_employee_effective_date_key")
-  @@index([effectiveDate], map: "HourlyRate_effective_idx")
-}
-
-model LaborDaily {
-  id              String   @id @default(cuid())
-  jobId           String
-  jobName         String
-  day             DateTime @db.Date
-  eventId         String
-  eventTitle      String?
-  employeeId      String
-  employeeName    String
-  assignmentId    String?
-  hoursDecimal    Decimal  @db.Decimal(6, 2)
-  regularHours    Decimal  @db.Decimal(6, 2)
-  overtimeHours   Decimal  @db.Decimal(6, 2)
-  rateUsd         Decimal  @db.Decimal(10, 2)
-  regularCostUsd  Decimal  @db.Decimal(12, 2)
-  overtimeCostUsd Decimal  @db.Decimal(12, 2)
-  totalCostUsd    Decimal  @db.Decimal(12, 2)
-  note            String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction)
-  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([day, eventId, employeeId], map: "LaborDaily_unique_row")
-  @@index([employeeId, day], map: "LaborDaily_employee_day_idx")
-  @@index([jobId, day], map: "LaborDaily_job_day_idx")
-}
-
-model fdot_cutoffs {
-  id          String   @id
-  year        Int
-  cutoff_date DateTime
-  label       String?
-  created_by  String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @default(now())
-
-  @@unique([year, cutoff_date])
-}
-
-model User {
-  id                String                     @id @default(cuid())
-  email             String?                    @unique
-  name              String?
-  image             String?
-  memberships       Membership[]
-  accessAreas       UserAccessArea[]
-  updatedProjects   Project[]                  @relation("ProjectUpdatedBy")
-  updatedTodos      Todo[]                     @relation("TodoUpdatedBy")
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-}
-
-model Team {
-  id          String       @id @default(cuid())
-  name        String
-  memberships Membership[]
-  projects    Project[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model Membership {
-  id     String @id @default(cuid())
-  role   Role
-  userId String
-  teamId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, teamId])
-}
-
-enum PlacementType {
-  FREE
-  YARD_SHOP
-  NO_WORK
-}
-
-enum DocStatus {
-  DRAFT
-  SENT
-  VIEWED
-  ACCEPTED
-  REJECTED
-  INVOICED
-}
-
-enum EventType {
-  GUARDRAIL
-  FENCE
-  TEMP_FENCE
-  HANDRAIL
-  ATTENUATOR
-}
-
-enum WorkShift {
-  DAY
-  NIGHT
-}
-
-enum ReportKind {
-  DAILY_PDF
-  DAILY_XLSX
-  WEEKLY_PDF
-}
-
-enum ShareRole {
-  VIEWER
-  EDITOR
-}
-
-enum Role {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-}
-
-enum AccessArea {
-  REPORTS_DAILY
-  REPORTS_WEEKLY
-  REPORTS_FINANCE
-  REPORTS_EXPORTS
-}
-
-model UserAccessArea {
-  id        String     @id @default(cuid())
-  userId    String
-  area      AccessArea
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, area])
-  @@index([userId], map: "UserAccessArea_user_idx")
-  @@index([area], map: "UserAccessArea_area_idx")
-}
-
-enum WeeklyStatus {
-  PENDING
-  SUCCESS
-  ERROR
+  @@map("invoice")
 }

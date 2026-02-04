@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getPrisma } from '@/lib/db'
 import { getEventsForDay } from '@/server/reports/queries'
 import { mapSnapshotToDailyReport } from '@/server/reports/mapToDailyReport'
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     force?: boolean
     yardEmployees?: unknown
     noWorkEmployees?: unknown
+    note?: string | null
   } | null
   const date = normalizeYmd(body?.date || '') || ''
   const vendor = (body?.vendor ?? null) as string | null
@@ -44,14 +46,38 @@ export async function POST(req: NextRequest) {
   const noWorkEmployees = Array.isArray(body?.noWorkEmployees)
     ? body!.noWorkEmployees.map(v => String(v ?? '').trim()).filter(Boolean)
     : []
+  const note = typeof body?.note === 'string' ? body.note.trim() : ''
 
   const p = await getPrisma()
 
   try {
+    // Debounce duplicates: reuse within 24h
+    const reportDate = new Date(date)
+    const devNoBlob = !process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'production'
+    if (!force && !devNoBlob) {
+      const existing = await p.reportFile.findFirst({
+        where: { kind: 'DAILY_PDF', reportDate, vendor: vendor ?? null },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, blobUrl: true },
+      })
+      if (existing && Date.now() - new Date(existing.createdAt).getTime() < 60 * 60 * 1000) {
+        const x = await p.reportFile.findFirst({
+          where: { kind: 'DAILY_XLSX', reportDate, vendor: vendor ?? null },
+          orderBy: { createdAt: 'desc' },
+          select: { blobUrl: true },
+        })
+        return NextResponse.json({ pdfUrl: existing.blobUrl, xlsxUrl: x?.blobUrl ?? null })
+      }
+    }
+
     const snapshot = await getEventsForDay(date, vendor ?? null)
     const reportData = mapSnapshotToDailyReport(snapshot)
     if (yardEmployees.length) reportData.yardEmployees = yardEmployees
     if (noWorkEmployees.length) reportData.noWorkEmployees = noWorkEmployees
+    if (note) {
+      reportData.yardNote = note
+      reportData.noWorkNote = note
+    }
     const pdfBytes = await dailyTableToPdf(reportData)
     const pdfBuf = Buffer.from(pdfBytes)
     const xlsxBuf = Buffer.from(await daySnapshotToXlsxEdge(snapshot))
@@ -67,6 +93,35 @@ export async function POST(req: NextRequest) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       xlsxBuf,
     )
+
+    await p.dailyReportSnapshot.create({
+      data: {
+        id: randomUUID(),
+        reportDate,
+        vendor: vendor ?? null,
+        payloadJson: JSON.stringify(snapshot),
+      },
+    })
+    await p.reportFile.create({
+      data: {
+        id: randomUUID(),
+        kind: 'DAILY_PDF',
+        reportDate,
+        vendor: vendor ?? null,
+        blobUrl: storedPdf.url,
+        bytes: storedPdf.bytes,
+      },
+    })
+    await p.reportFile.create({
+      data: {
+        id: randomUUID(),
+        kind: 'DAILY_XLSX',
+        reportDate,
+        vendor: vendor ?? null,
+        blobUrl: storedXlsx.url,
+        bytes: storedXlsx.bytes,
+      },
+    })
 
     return NextResponse.json({ pdfUrl: storedPdf.url, xlsxUrl: storedXlsx.url })
   } catch (e: any) {

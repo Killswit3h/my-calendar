@@ -1,5 +1,5 @@
 'use client';
-import { useActivity } from '@/src/hooks/usePlannerApi';
+import { useActivity } from '@/hooks/usePlannerApi';
 
 export default function ActivityLog({ planId }: { planId: string }) {
   const { data, isLoading, error } = useActivity(planId);

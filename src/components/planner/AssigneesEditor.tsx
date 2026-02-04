@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { usePlan } from '@/src/hooks/usePlannerApi';
+import { usePlan } from '@/hooks/usePlannerApi';
 
 export default function AssigneesEditor({ planId, taskId, assignees }: { planId: string; taskId: string; assignees: string[] }) {
   const { toggleAssign } = usePlan(planId);

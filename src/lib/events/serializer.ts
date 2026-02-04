@@ -1,5 +1,8 @@
-﻿import type { EventType, WorkShift } from '@prisma/client'
 import { APP_TIMEZONE } from '@/lib/timezone'
+
+// Local type definitions since these don't exist in the Prisma schema
+export type EventType = 'FENCE' | 'TEMP_FENCE' | 'GUARDRAIL' | 'HANDRAIL' | 'ATTENUATOR' | 'SHOP' | 'NO_WORK' | 'OTHER'
+export type WorkShift = 'DAY' | 'NIGHT'
 
 const DAY_IN_MS = 86_400_000
 

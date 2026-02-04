@@ -212,8 +212,8 @@ export class ProjectService extends AbstractService<
     data: Prisma.projectCreateInput | Prisma.projectUpdateInput,
     allowDisconnect: boolean = false
   ):
-    | Prisma.customerCreateNestedOneWithoutProjectInput
-    | Prisma.customerUpdateOneWithoutProjectNestedInput
+    | Prisma.customerCreateNestedOneWithoutProjectsInput
+    | Prisma.customerUpdateOneWithoutProjectsNestedInput
     | undefined {
     const dataAny = data as any
 
@@ -265,7 +265,7 @@ export class ProjectService extends AbstractService<
     const normalizedCustomer = this.normalizeCustomerRelation(data, false)
     if (normalizedCustomer) {
       processed.customer =
-        normalizedCustomer as Prisma.customerCreateNestedOneWithoutProjectInput
+        normalizedCustomer as Prisma.customerCreateNestedOneWithoutProjectsInput
     }
     // Prisma "checked" inputs don't allow setting foreign keys directly.
     // If the API provided customer_id, we convert it to a relation connect above
@@ -347,7 +347,7 @@ export class ProjectService extends AbstractService<
     const normalizedCustomer = this.normalizeCustomerRelation(data, true)
     if (normalizedCustomer) {
       processed.customer =
-        normalizedCustomer as Prisma.customerUpdateOneWithoutProjectNestedInput
+        normalizedCustomer as Prisma.customerUpdateOneWithoutProjectsNestedInput
     }
     // Same as create: if API provided customer_id, we translated it to a relation
     // update above; remove raw customer_id so Prisma doesn't reject the input.

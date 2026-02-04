@@ -46,6 +46,9 @@ function project<T extends Record<string, any>>(row: T, select?: Record<string, 
 }
 
 export class MockPrisma {
+  // Allow dynamic properties for test utility extensions
+  [key: string]: any
+
   payItems = new Map<string, PayItemRow>()
   events = new Map<string, EventRow>()
   eventQuantities = new Map<string, EventQuantityRow>()

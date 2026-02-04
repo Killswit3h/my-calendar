@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAttachments } from '@/src/hooks/usePlannerApi';
+import { useAttachments } from '@/hooks/usePlannerApi';
 
 export default function TaskAttachments({ taskId }: { taskId: string }) {
   const { q, add } = useAttachments(taskId);

@@ -3,6 +3,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import customers from '@/data/customers.json'
 import { getPrisma } from '@/lib/db'
@@ -23,7 +24,7 @@ export async function POST() {
       select: { id: true },
     })
     if (existing) { skipped++; continue }
-    await p.customer.create({ data: { name: display, address: '', phone_number: '', email: `${display.toLowerCase().replace(/\s+/g, '')}@placeholder.local` } })
+    await p.customer.create({ data: { id: randomUUID(), name: display, updatedAt: new Date() } })
     inserted++
   }
 

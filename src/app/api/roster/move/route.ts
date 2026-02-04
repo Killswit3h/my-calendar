@@ -13,8 +13,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'employeeId, dayKey, placement required' }, { status: 400 });
     }
 
-    // Placement model not available
-    return NextResponse.json({ ok: true, roster: { free: [], yardShop: [], noWork: [] } });
+    const prisma = await getPrisma();
+
+    // Optional employee registry
+    await prisma.employee.upsert({
+      where: { id: employeeId },
+      update: {},
+      create: { id: employeeId },
+    });
+
+    await prisma.placement.upsert({
+      where: { employeeId_dayKey: { employeeId, dayKey } },
+      update: { placement },
+      create: { employeeId, dayKey, placement },
+    });
+
+    const roster = await getDayRoster(dayKey);
+    return NextResponse.json({ ok: true, roster });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json({ error: err?.message ?? 'unknown error' }, { status: 500 });

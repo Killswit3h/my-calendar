@@ -1,5 +1,5 @@
 'use client';
-import { usePlan, usePlanLabels } from '@/src/hooks/usePlannerApi';
+import { usePlan, usePlanLabels } from '@/hooks/usePlannerApi';
 
 export default function LabelsEditor({ planId, taskId, current }: { planId: string; taskId: string; current: { id: string }[] }) {
   const { toggleLabel } = usePlan(planId);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from 'react';
-import { Button } from './Button';
+import { Button } from './button';
 
 export interface ModalProps {
   open: boolean;

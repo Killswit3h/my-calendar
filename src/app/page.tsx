@@ -86,7 +86,7 @@ const COMPLETED_HIGHLIGHTS = [
   { id: 'done-3', title: 'Segment 4 lane closure notice', owner: 'Traffic Control', completedAt: '07:15' },
 ]
 
-export default async function DashboardPage() {
+export default async function Home() {
   let metrics: Awaited<ReturnType<typeof getDashboardMetrics>>
   let queueGroups: Awaited<ReturnType<typeof getActionQueueGroups>>
   
@@ -114,10 +114,8 @@ export default async function DashboardPage() {
       })),
     )
     .slice(0, 4)
-
-export default function Home() {
   return (
-    <div className="space-y-8">
+    <main className="space-y-8">
       <Card tone="glass" className="relative overflow-hidden p-0" data-testid="dashboard-hero">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,222,128,0.18),transparent_55%),linear-gradient(135deg,rgba(23,34,22,0.6),rgba(8,14,10,0.2))]" />
         <div className="relative grid gap-6 px-6 py-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
