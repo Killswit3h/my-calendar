@@ -1,0 +1,35 @@
+---
+description: Proactive implementation standards aligned with PR review (correctness, DRY, docs, tests)
+alwaysApply: true
+---
+
+# Implementation quality (PR-review aligned)
+
+When implementing features, proactively meet the same bar that PR review will check. This reduces rework and keeps merges smooth.
+
+## Functional correctness
+
+- Implement behavior per acceptance criteria or spec; handle edge cases (empty input, invalid IDs, missing optional fields) explicitly.
+- Validate at boundaries (service layer); return appropriate domain errors (ValidationError, NotFoundError, etc.) and let the controller map them to status codes.
+
+## Logic and design quality
+
+- Prefer clear, linear control flow; use guard clauses and early returns. If logic becomes hard to follow, extract named helpers or small functions.
+- Fit the design to the task: use existing patterns (controller → service → repository), shared helpers, and base classes rather than ad-hoc solutions.
+
+## Code cleanliness
+
+- Name classes, functions, and constants so their purpose is obvious. Follow project structure and naming from `.cursor/rules/` (e.g. backend-api, coding-style).
+- Keep files and functions focused; avoid dead or commented-out code.
+
+## DRY
+
+- Extract shared logic into reusable helpers or base behavior (e.g. `controllerHelpers`, abstract test factories). If you repeat the same pattern in two places, consider a small shared utility or parameterized helper.
+
+## Documentation and changelog
+
+- Document public handlers and non-obvious logic (JSDoc or short comments). Update `CHANGELOG.md` under **Unreleased** for user- or API-visible changes.
+
+## Test coverage
+
+- Aim for meaningful coverage of changed code: happy path, important edge cases, and error conditions. Use existing abstract test suites and MockPrisma extensions; tests should validate behavior and ACs, not implementation details.

@@ -1,0 +1,71 @@
+---
+description: TypeScript best practices (strictness, typing, no any, null safety)
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# TypeScript
+
+## Strictness and compiler options
+
+- Prefer **strict** mode: enable `noImplicitAny` and `strictNullChecks` (or the umbrella `strict` flag). More typed code means better validation and tooling and fewer bugs.
+- Do not rely on TypeScript’s fallback to `any` when it can’t infer; add explicit types or fix inference so the compiler can check.
+
+## Primitive and object types
+
+- Use **lowercase** primitive types: `number`, `string`, `boolean`, `symbol`. Do not use the boxed types `Number`, `String`, `Boolean`, `Symbol` (they refer to rarely-used object wrappers).
+- For “any non-primitive,” use **`object`** (lowercase), not `Object`.
+
+## Null and undefined
+
+- With **strictNullChecks**, `null` and `undefined` are their own types. Use union types for “maybe missing” values (e.g. `number | null`, `string | undefined`).
+- When you know a value is defined, use the **non-null assertion** `!` sparingly and only where justified (e.g. after a guard). Prefer explicit checks so the compiler can narrow.
+
+## Generics
+
+- Use **generics** when the same logic applies to multiple types so call sites stay concretely typed. Do not define generic type parameters that are never used.
+
+## No `any` / proper typing
+
+Do not use `any` or `as any` to simplify code. Use explicit types so the compiler and IDE can catch errors; at boundaries (request bodies, query params), narrow safely instead of asserting. PR review treats unnecessary `any` as critical.
+
+### Unknown or dynamic data
+
+- Use **`unknown`** for unvalidated values, then **narrow** with `typeof`, `in`, or type guards before use. When you don’t know the type or are passing data through, prefer `unknown` over `any` (TypeScript handbook: “please turn off type checking” vs “safe unknown”).
+- For **mutating** request-like objects (e.g. trim-before-validate), use **`Record<string, unknown>`** and assign only to known keys after checks. Avoid `(data as any).field = value`.
+
+```ts
+// ❌ BAD
+function handle(body: any) { return body.name.trim() }
+;(data as any).email = (data as any).email?.trim()
+
+// ✅ GOOD
+function handle(body: unknown) {
+  if (typeof body !== "object" || body === null || !("name" in body)) throw new ValidationError("...")
+  const name = (body as { name: unknown }).name
+  if (typeof name !== "string") throw new ValidationError("...")
+  return name.trim()
+}
+const d = data as Record<string, unknown>
+if (typeof data.email === "string") d.email = data.email.trim()
+```
+
+### Query params and API boundaries
+
+- Type query params as `Record<string, string | string[] | undefined>` (or your parser’s return type). Use **typed helpers** (e.g. `parseOptionalIntParam(value)` → `number | undefined`) so call sites stay typed.
+
+### Prisma and database layer
+
+- Use **Prisma-generated types** everywhere: `Prisma.<model>CreateInput`, `UpdateInput`, `WhereInput`, `Include`, etc. Do not use `any` for “flexible” create/update; use `Record<string, unknown>` only for the mutable view when normalizing, then pass Prisma types to the client.
+
+### Tests and mocks
+
+- Mock Prisma with **typed delegates** (e.g. `create(args: Prisma.event_quantityCreateArgs)`). Return **`Partial<Model>` or proper stub types**, not `any`. Use typed mock extensions (e.g. `extendMockPrismaWithEventQuantity`) instead of `as any`.
+
+### Asserting type after validation
+
+- Prefer a **type predicate** (`x is T`) or a single **assertion helper**. If the compiler still doesn’t narrow after validation, use **`as ConcreteType`** in one place with a short comment, not `as any`.
+
+---
+
+**Summary**: Rely on strictness and explicit types; use `unknown` and narrowing at boundaries; avoid `any` and `as any`; use Prisma and typed mocks; prefer type predicates over blind casts.
