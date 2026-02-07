@@ -7,10 +7,23 @@ type EventAssignmentRow = {
   employee_id: number
 }
 
+/** Typed extension for mock Prisma with event_assignment helpers */
+export type MockPrismaEventAssignment = MockPrisma & {
+  addEvent?: (data: { id?: number }) => { id: number }
+  addEmployee?: (data: { id?: number }) => { id: number }
+  addEventAssignment?: (data: {
+    id?: number
+    event_id: number
+    employee_id: number
+  }) => EventAssignmentRow
+  clearEventAssignments?: () => void
+}
+
 /**
  * Extends MockPrisma with event_assignment model support
  */
 export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
+  const ext = mockPrisma as MockPrismaEventAssignment
   const eventAssignments = new Map<number, EventAssignmentRow>()
   const eventEmployeeKey = (eid: number, pid: number) => `${eid}:${pid}`
   const uniqueKeys = new Set<string>()
@@ -19,20 +32,23 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
 
   const randomId = () => Math.floor(Math.random() * 1000000) + 1
 
-  ;(mockPrisma as any).addEvent = (data: { id?: number }) => {
+  ext.addEvent = (data: { id?: number }) => {
     const id = data.id ?? randomId()
     events.set(id, { id })
     return { id }
   }
 
-  ;(mockPrisma as any).addEmployee = (data: { id?: number }) => {
+  ext.addEmployee = (data: { id?: number }) => {
     const id = data.id ?? randomId()
     employees.set(id, { id })
     return { id }
   }
 
   mockPrisma.event_assignment = {
-    findMany: async ({ where, select, orderBy, take, skip }: any = {}) => {
+    findMany: async (
+      args: Partial<Prisma.event_assignmentFindManyArgs> = {}
+    ) => {
+      const { where, select, orderBy, take, skip } = args
       let rows = Array.from(eventAssignments.values())
 
       if (where?.id) {
@@ -56,11 +72,11 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
 
       if (orderBy) {
         rows = rows.slice()
-        const orderKey = Object.keys(orderBy)[0]
+        const orderKey = Object.keys(orderBy)[0] as keyof EventAssignmentRow
         const direction = orderBy[orderKey] === "desc" ? -1 : 1
         rows.sort((a, b) => {
-          const aVal = (a as any)[orderKey]
-          const bVal = (b as any)[orderKey]
+          const aVal = a[orderKey]
+          const bVal = b[orderKey]
           if (aVal < bVal) return -1 * direction
           if (aVal > bVal) return 1 * direction
           return 0
@@ -73,14 +89,20 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
       return rows.map((row) => projectRow(row, select))
     },
 
-    findUnique: async ({ where, select }: any) => {
+    findUnique: async (
+      args: Prisma.event_assignmentFindUniqueArgs
+    ) => {
+      const { where, select } = args
       const id = where.id
       const row = eventAssignments.get(id)
       if (!row) return null
       return projectRow(row, select)
     },
 
-    findFirst: async ({ where, select }: any) => {
+    findFirst: async (
+      args: Partial<Prisma.event_assignmentFindFirstArgs> = {}
+    ) => {
+      const { where, select } = args
       let rows = Array.from(eventAssignments.values())
       if (where?.event_id !== undefined) {
         rows = rows.filter((row) => row.event_id === where.event_id)
@@ -92,7 +114,8 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
       return row ? projectRow(row, select) : null
     },
 
-    create: async ({ data }: any) => {
+    create: async (args: Prisma.event_assignmentCreateArgs) => {
+      const { data } = args
       let event_id: number
       if (data.event_id !== undefined) {
         event_id = data.event_id
@@ -126,7 +149,8 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
       return { ...row }
     },
 
-    update: async ({ where, data }: any) => {
+    update: async (args: Prisma.event_assignmentUpdateArgs) => {
+      const { where, data } = args
       const id = where.id
       const row = eventAssignments.get(id)
       if (!row) {
@@ -170,7 +194,8 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
       return { ...updated }
     },
 
-    delete: async ({ where }: any) => {
+    delete: async (args: Prisma.event_assignmentDeleteArgs) => {
+      const { where } = args
       const id = where.id
       const row = eventAssignments.get(id)
       if (!row) {
@@ -184,7 +209,10 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
       return { ...row }
     },
 
-    count: async ({ where }: any = {}) => {
+    count: async (
+      args: Partial<Prisma.event_assignmentCountArgs> = {}
+    ) => {
+      const { where } = args
       if (!where) return eventAssignments.size
       let rows = Array.from(eventAssignments.values())
       if (where.event_id !== undefined) {
@@ -198,24 +226,30 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
   }
 
   mockPrisma.event = {
-    findUnique: async ({ where, select }: any) => {
+    findUnique: async (
+      args: Prisma.eventFindUniqueArgs
+    ) => {
+      const { where, select } = args
       const id = where.id
       const event = events.get(id)
       if (!event) return null
       return projectRow(event, select)
     },
-  } as any
+  } as MockPrisma["event"]
 
   mockPrisma.employee = {
-    findUnique: async ({ where, select }: any) => {
+    findUnique: async (
+      args: Prisma.employeeFindUniqueArgs
+    ) => {
+      const { where, select } = args
       const id = where.id
       const employee = employees.get(id)
       if (!employee) return null
       return projectRow(employee, select)
     },
-  } as any
+  } as MockPrisma["employee"]
 
-  ;(mockPrisma as any).addEventAssignment = (data: {
+  ext.addEventAssignment = (data: {
     id?: number
     event_id: number
     employee_id: number
@@ -238,7 +272,7 @@ export function extendMockPrismaWithEventAssignment(mockPrisma: MockPrisma) {
     return row
   }
 
-  ;(mockPrisma as any).clearEventAssignments = () => {
+  ext.clearEventAssignments = () => {
     eventAssignments.clear()
     uniqueKeys.clear()
   }

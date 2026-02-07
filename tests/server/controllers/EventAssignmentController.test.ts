@@ -33,7 +33,8 @@ const abstractTests = createAbstractControllerTests<
   modelName: "event_assignment",
   apiPath: "/api/event-assignments",
   createValidInput: () => ({ event_id: 1, employee_id: 1 }),
-  createInvalidInput: () => ({ event_id: 1 }) as any, // missing employee_id
+  createInvalidInput: (): PrismaTypes.event_assignmentCreateInput =>
+    ({ event_id: 1 } as PrismaTypes.event_assignmentCreateInput), // missing employee_id for validation test
   createUpdateInput: () => ({ employee_id: 2 }),
   addMockRecord: (
     mockPrisma: MockPrisma,

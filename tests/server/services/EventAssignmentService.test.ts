@@ -18,6 +18,13 @@ type MockWithHelpers = MockPrisma & {
   _eventAssignmentAddCount?: number
 }
 
+/** API-friendly create/update shape or partial payload for addMockRecord */
+type EventAssignmentMockData = {
+  id?: number
+  event_id?: number
+  employee_id?: number
+}
+
 const abstractTests = createAbstractServiceTests<
   EventAssignmentService,
   PrismaTypes.event_assignmentGetPayload<{}>,
@@ -26,10 +33,15 @@ const abstractTests = createAbstractServiceTests<
 >({
   serviceClass: EventAssignmentService,
   modelName: "event_assignment",
-  createValidInput: () => ({ event_id: 1, employee_id: 1 } as any),
-  createInvalidInput: () => ({ event_id: 1 } as any), // missing employee_id
+  createValidInput: (): PrismaTypes.event_assignmentCreateInput =>
+    ({ event_id: 1, employee_id: 1 } as PrismaTypes.event_assignmentCreateInput),
+  createInvalidInput: (): PrismaTypes.event_assignmentCreateInput =>
+    ({ event_id: 1 } as PrismaTypes.event_assignmentCreateInput), // missing employee_id for validation test
   createUpdateInput: () => ({ employee_id: 2 }),
-  addMockRecord: (mockPrisma: MockPrisma, data: any) => {
+  addMockRecord: (
+    mockPrisma: MockPrisma,
+    data: EventAssignmentMockData
+  ): PrismaTypes.event_assignmentGetPayload<{}> => {
     const ext = mockPrisma as MockWithHelpers
     ext._eventAssignmentAddCount = (ext._eventAssignmentAddCount ?? 0) + 1
     const n = ext._eventAssignmentAddCount
@@ -43,7 +55,8 @@ const abstractTests = createAbstractServiceTests<
       employee_id: employeeId,
     })
   },
-  getIdFromModel: (model: any) => model.id,
+  getIdFromModel: (model: PrismaTypes.event_assignmentGetPayload<{}>) =>
+    model.id,
   extendMockPrisma: (mockPrisma: MockPrisma) => {
     extendMockPrismaWithEventAssignment(mockPrisma)
     const ext = mockPrisma as MockWithHelpers
@@ -74,7 +87,7 @@ describe("EventAssignmentService", () => {
         await expect(
           service.create({
             employee_id: 1,
-          } as any)
+          } as PrismaTypes.event_assignmentCreateInput)
         ).rejects.toThrow(ValidationError)
       })
 
@@ -83,7 +96,7 @@ describe("EventAssignmentService", () => {
         await expect(
           service.create({
             event_id: 1,
-          } as any)
+          } as PrismaTypes.event_assignmentCreateInput)
         ).rejects.toThrow(ValidationError)
       })
 
@@ -93,7 +106,7 @@ describe("EventAssignmentService", () => {
           service.create({
             event_id: 999,
             employee_id: 1,
-          } as any)
+          } as PrismaTypes.event_assignmentCreateInput)
         ).rejects.toThrow(ValidationError)
       })
 
@@ -103,7 +116,7 @@ describe("EventAssignmentService", () => {
           service.create({
             event_id: 1,
             employee_id: 999,
-          } as any)
+          } as PrismaTypes.event_assignmentCreateInput)
         ).rejects.toThrow(ValidationError)
       })
     })
@@ -113,9 +126,15 @@ describe("EventAssignmentService", () => {
         const ext = mockPrisma as MockWithHelpers
         ext.addEvent?.({ id: 1 })
         ext.addEmployee?.({ id: 1 })
-        await service.create({ event_id: 1, employee_id: 1 } as any)
+        await service.create({
+          event_id: 1,
+          employee_id: 1,
+        } as PrismaTypes.event_assignmentCreateInput)
         await expect(
-          service.create({ event_id: 1, employee_id: 1 } as any)
+          service.create({
+            event_id: 1,
+            employee_id: 1,
+          } as PrismaTypes.event_assignmentCreateInput)
         ).rejects.toThrow(ConflictError)
       })
 
@@ -124,10 +143,19 @@ describe("EventAssignmentService", () => {
         ext.addEvent?.({ id: 1 })
         ext.addEvent?.({ id: 2 })
         ext.addEmployee?.({ id: 1 })
-        const first = await service.create({ event_id: 1, employee_id: 1 } as any)
-        await service.create({ event_id: 2, employee_id: 1 } as any)
+        const first = await service.create({
+          event_id: 1,
+          employee_id: 1,
+        } as PrismaTypes.event_assignmentCreateInput)
+        await service.create({
+          event_id: 2,
+          employee_id: 1,
+        } as PrismaTypes.event_assignmentCreateInput)
         await expect(
-          service.update(first.id, { event_id: 2, employee_id: 1 } as any)
+          service.update(first.id, {
+            event_id: 2,
+            employee_id: 1,
+          } as PrismaTypes.event_assignmentUpdateInput)
         ).rejects.toThrow(ConflictError)
       })
     })
