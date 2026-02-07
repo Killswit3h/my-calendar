@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "Event Quantities API",
+    "description": "CRUD endpoints for event quantities. Links events to project pay items with quantity and optional notes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "List Event Quantities",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-quantities?event_id=&project_pay_item_id=&expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-quantities"],
+          "query": [
+            {
+              "key": "event_id",
+              "value": "",
+              "description": "Filter by event ID"
+            },
+            {
+              "key": "project_pay_item_id",
+              "value": "",
+              "description": "Filter by project pay item ID"
+            },
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and project_pay_item relations"
+            }
+          ]
+        }
+      },
+      "description": "GET /api/event-quantities\n\nReturns all event quantities. Optional query params:\n- event_id: filter by event ID\n- project_pay_item_id: filter by project pay item ID\n- expanded=true: include event and project_pay_item in response"
+    },
+    {
+      "name": "Get Event Quantity by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-quantities/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-quantities", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and project_pay_item relations"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "GET /api/event-quantities/:id\n\nReturns a single event quantity by ID."
+    },
+    {
+      "name": "Create Event Quantity",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_id\": 1,\n  \"project_pay_item_id\": 1,\n  \"quantity\": 10.5,\n  \"notes\": \"Optional notes\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/event-quantities?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-quantities"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and project_pay_item in response"
+            }
+          ]
+        }
+      },
+      "description": "POST /api/event-quantities\n\nCreates a new event quantity.\n\nRequired: event_id, project_pay_item_id, quantity (non-negative number)\nOptional: notes"
+    },
+    {
+      "name": "Update Event Quantity",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quantity\": 12.0,\n  \"notes\": \"Updated notes\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/event-quantities/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-quantities", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and project_pay_item in response"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "PATCH /api/event-quantities/:id\n\nUpdates an existing event quantity. All fields are optional (partial update)."
+    },
+    {
+      "name": "Delete Event Quantity",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-quantities/:id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-quantities", ":id"],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "DELETE /api/event-quantities/:id\n\nDeletes an event quantity by ID. Returns 204 No Content."
+    }
+  ]
+}
