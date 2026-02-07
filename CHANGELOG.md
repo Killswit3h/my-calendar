@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add generate-spec skill and project-pay-items API spec in `docs/specs/`.
+- Add `pr-reviews/` to `.gitignore` (local-only review docs).
 - Replace all `any` and `as any` with proper Prisma types in ProjectPayItem controller and service.
 - Add project-pay-items CRUD API with quantity and unit rate support.
 - Add missing npm dependencies (Radix UI, TanStack React Query, dnd-kit, sonner, next-themes, nodemailer, Playwright, etc.).

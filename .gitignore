@@ -39,3 +39,5 @@ agent-os/specs/**/.DS_Store
 
 # claude
 .claude/
+
+pr-reviews/
