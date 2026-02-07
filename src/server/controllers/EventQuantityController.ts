@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { AbstractController } from "../base/AbstractController"
 import { EventQuantityService } from "../services/EventQuantityService"
+import { parseExpandToInclude, parseOptionalIntParam } from "../base/controllerHelpers"
 import { Prisma } from "@prisma/client"
 
 /**
@@ -20,29 +21,13 @@ export class EventQuantityController extends AbstractController<
     this.service = new EventQuantityService()
   }
 
-  /**
-   * Parse expanded query parameter and build include object
-   * If expanded=true, includes all relations
-   */
   private parseExpand(
     expanded?: string | string[]
   ): { include?: Prisma.event_quantityInclude } {
-    if (!expanded) {
-      return {}
-    }
-
-    const expandedValue = Array.isArray(expanded) ? expanded[0] : expanded
-    
-    if (expandedValue === "true") {
-      return {
-        include: {
-          event: true,
-          project_pay_item: true,
-        },
-      }
-    }
-
-    return {}
+    return parseExpandToInclude(expanded, {
+      event: true,
+      project_pay_item: true,
+    })
   }
 
   /**
@@ -70,22 +55,11 @@ export class EventQuantityController extends AbstractController<
       }
 
       // List all event quantities with optional filters
-      const eventIdFilter = queryParams.event_id
-      const projectPayItemIdFilter = queryParams.project_pay_item_id
-
       const filters: Prisma.event_quantityWhereInput = {}
-      if (eventIdFilter && typeof eventIdFilter === "string") {
-        const eventId = parseInt(eventIdFilter, 10)
-        if (!isNaN(eventId)) {
-          filters.event_id = eventId
-        }
-      }
-      if (projectPayItemIdFilter && typeof projectPayItemIdFilter === "string") {
-        const projectPayItemId = parseInt(projectPayItemIdFilter, 10)
-        if (!isNaN(projectPayItemId)) {
-          filters.project_pay_item_id = projectPayItemId
-        }
-      }
+      const eventId = parseOptionalIntParam(queryParams.event_id)
+      if (eventId !== undefined) filters.event_id = eventId
+      const projectPayItemId = parseOptionalIntParam(queryParams.project_pay_item_id)
+      if (projectPayItemId !== undefined) filters.project_pay_item_id = projectPayItemId
 
       // Use service method that handles expand options
       const eventQuantities = await this.service.listWithExpand(filters, expandOptions)
@@ -161,7 +135,7 @@ export class EventQuantityController extends AbstractController<
       }
 
       await this.service.delete(id)
-      return this.successResponse({ message: "Event quantity deleted successfully" }, 200)
+      return new NextResponse(null, { status: 204 })
     } catch (error) {
       return this.errorResponse(error)
     }

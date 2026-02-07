@@ -192,9 +192,11 @@ export function createAbstractControllerTests<
           const context = { params: Promise.resolve({ id: String(id) }) }
 
           const response = await controller.handleDelete(req, context)
-          expect(response.status).toBe(200)
-          const data = await response.json()
-          expect(data.message || data).toBeTruthy()
+          expect([200, 204]).toContain(response.status)
+          if (response.status === 200) {
+            const data = await response.json()
+            expect(data.message || data).toBeTruthy()
+          }
         })
 
         it("should return 404 when record not found", async () => {

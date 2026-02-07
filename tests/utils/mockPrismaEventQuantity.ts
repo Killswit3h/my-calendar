@@ -281,17 +281,17 @@ export function extendMockPrismaWithEventQuantity(mockPrisma: MockPrisma) {
   }
 }
 
-function eventQuantity<T extends Record<string, any>>(
+function eventQuantity<T extends EventQuantityRow>(
   row: T,
-  select?: Record<string, any>
-): any {
+  select?: Record<string, boolean>
+): Partial<T> {
   if (!select) return { ...row }
-  const out: Record<string, any> = {}
+  const out: Record<string, unknown> = {}
   for (const key of Object.keys(select)) {
     const config = select[key]
-    if (config === true) {
-      out[key] = row[key]
+    if (config === true && key in row) {
+      out[key] = (row as Record<string, unknown>)[key]
     }
   }
-  return out
+  return out as Partial<T>
 }

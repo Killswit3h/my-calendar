@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Refactor API layer: shared controller helpers (`parseOptionalIntParam`, `parseExpandToInclude`), DELETE returns 204 No Content for event-quantities and project-pay-items, CustomerService trims string fields before validation, typed tests/mocks (no `any`), fix PayItem mock delegate key to `pay_item`.
 - Add event-quantities CRUD API: list/create/update/delete event quantities with optional filters (`?event_id=`, `?project_pay_item_id=`) and `?expanded=true` for relations.
 - Add generate-spec skill and project-pay-items API spec in `docs/specs/`.
 - Add `pr-reviews/` to `.gitignore` (local-only review docs).

@@ -28,9 +28,27 @@ export class CustomerService extends AbstractService<
     data: Prisma.customerCreateInput | Prisma.customerUpdateInput,
     isUpdate: boolean = false
   ): Promise<void> {
+    // Trim string fields first so validation and persistence see normalized values
+    const d = data as Record<string, unknown>
+    if (data.name && typeof data.name === "string") {
+      d.name = data.name.trim()
+    }
+    if (data.address && typeof data.address === "string") {
+      d.address = data.address.trim()
+    }
+    if (data.phone_number && typeof data.phone_number === "string") {
+      d.phone_number = data.phone_number.trim()
+    }
+    if (data.email && typeof data.email === "string") {
+      d.email = data.email.trim()
+    }
+    if (data.notes && typeof data.notes === "string") {
+      d.notes = data.notes.trim() || null
+    }
+
     // Required fields validation (only for create)
     if (!isUpdate) {
-      if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
+      if (!data.name || typeof data.name !== "string" || !(data.name as string).trim()) {
         throw new ValidationError(
           "name is required and must be a non-empty string"
         )
@@ -39,7 +57,7 @@ export class CustomerService extends AbstractService<
       if (
         !data.address ||
         typeof data.address !== "string" ||
-        !data.address.trim()
+        !(data.address as string).trim()
       ) {
         throw new ValidationError(
           "address is required and must be a non-empty string"
@@ -49,7 +67,7 @@ export class CustomerService extends AbstractService<
       if (
         !data.phone_number ||
         typeof data.phone_number !== "string" ||
-        !data.phone_number.trim()
+        !(data.phone_number as string).trim()
       ) {
         throw new ValidationError(
           "phone_number is required and must be a non-empty string"
@@ -57,7 +75,7 @@ export class CustomerService extends AbstractService<
       }
     }
 
-    // Email format validation (if provided)
+    // Email format validation (if provided) — runs on trimmed value
     if (data.email !== undefined && data.email !== null) {
       if (typeof data.email !== "string") {
         throw new ValidationError("email must be a string")
@@ -66,23 +84,6 @@ export class CustomerService extends AbstractService<
       if (!emailRegex.test(data.email)) {
         throw new ValidationError("email must be a valid email format")
       }
-    }
-
-    // Normalize string fields (trim whitespace)
-    if (data.name && typeof data.name === "string") {
-      ;(data as any).name = data.name.trim()
-    }
-    if (data.address && typeof data.address === "string") {
-      ;(data as any).address = data.address.trim()
-    }
-    if (data.phone_number && typeof data.phone_number === "string") {
-      ;(data as any).phone_number = data.phone_number.trim()
-    }
-    if (data.email && typeof data.email === "string") {
-      ;(data as any).email = data.email.trim()
-    }
-    if (data.notes && typeof data.notes === "string") {
-      ;(data as any).notes = data.notes.trim() || null
     }
   }
 

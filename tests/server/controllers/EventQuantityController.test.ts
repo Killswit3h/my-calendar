@@ -8,6 +8,24 @@ import { NextRequest } from "next/server"
 import type { Prisma as PrismaTypes } from "@prisma/client"
 import { Prisma } from "@prisma/client"
 
+type EventQuantityCreateLike = PrismaTypes.event_quantityCreateInput & {
+  event_id?: number
+  project_pay_item_id?: number
+  id?: number
+  quantity?: number | Prisma.Decimal
+}
+
+type MockPrismaEventQuantity = MockPrisma & {
+  addEvent?: (d: { id?: number }) => void
+  addProjectPayItem?: (d: { id?: number }) => void
+  addEventQuantity?: (d: {
+    id?: number
+    event_id?: number
+    project_pay_item_id?: number
+    quantity?: number | Prisma.Decimal
+  }) => PrismaTypes.event_quantityGetPayload<{}>
+}
+
 // Run the abstract controller tests with EventQuantity configuration
 const abstractTests = createAbstractControllerTests<
   EventQuantityController,
@@ -18,37 +36,54 @@ const abstractTests = createAbstractControllerTests<
   controllerClass: EventQuantityController,
   modelName: "event_quantity",
   apiPath: "/api/event-quantities",
-  createValidInput: () => ({
-    event_id: 1,
-    project_pay_item_id: 1,
+  createValidInput: (): PrismaTypes.event_quantityCreateInput => ({
+    event: { connect: { id: 1 } },
+    project_pay_item: { connect: { id: 1 } },
     quantity: new Prisma.Decimal(100.0),
-  } as any),
-  createInvalidInput: () => ({
-    event_id: 1,
-    project_pay_item_id: 1,
+  }),
+  createInvalidInput: (): PrismaTypes.event_quantityCreateInput => ({
+    event: { connect: { id: 1 } },
+    project_pay_item: { connect: { id: 1 } },
     quantity: -10, // Invalid: negative
-  } as any),
+  }),
   createUpdateInput: () => ({
     notes: "Updated notes",
   }),
-  addMockRecord: (mockPrisma: MockPrisma, data: any) => {
-    // Ensure event and project_pay_item exist
-    ;(mockPrisma as any).addEvent({ id: data.event_id ?? 1 })
-    ;(mockPrisma as any).addProjectPayItem({ id: data.project_pay_item_id ?? 1 })
-    
-    return (mockPrisma as any).addEventQuantity({
-      id: data.id ?? Math.floor(Math.random() * 1000000) + 1,
-      event_id: data.event_id ?? 1,
-      project_pay_item_id: data.project_pay_item_id ?? 1,
-      quantity: data.quantity ?? 100.0,
+  addMockRecord: (
+    mockPrisma: MockPrisma,
+    data: EventQuantityCreateLike
+  ): PrismaTypes.event_quantityGetPayload<{}> => {
+    const ext = mockPrisma as MockPrismaEventQuantity
+    const eventId =
+      "event_id" in data && data.event_id !== undefined
+        ? data.event_id
+        : data.event && typeof data.event === "object" && "connect" in data.event
+          ? (data.event.connect as { id: number }).id
+          : 1
+    const projectPayItemId =
+      "project_pay_item_id" in data && data.project_pay_item_id !== undefined
+        ? data.project_pay_item_id
+        : data.project_pay_item && typeof data.project_pay_item === "object" && "connect" in data.project_pay_item
+          ? (data.project_pay_item.connect as { id: number }).id
+          : 1
+    ext.addEvent?.({ id: eventId })
+    ext.addProjectPayItem?.({ id: projectPayItemId })
+    const q = data.quantity
+    const quantity: number | Prisma.Decimal =
+      q === undefined ? 100.0 : typeof q === "number" || q instanceof Prisma.Decimal ? q : 100.0
+    return ext.addEventQuantity!({
+      id: "id" in data ? data.id : undefined,
+      event_id: eventId,
+      project_pay_item_id: projectPayItemId,
+      quantity,
     })
   },
-  getIdFromModel: (model: any) => model.id,
+  getIdFromModel: (model: PrismaTypes.event_quantityGetPayload<{}>) => model.id,
   extendMockPrisma: (mockPrisma: MockPrisma) => {
     extendMockPrismaWithEventQuantity(mockPrisma)
-    // Ensure default FKs exist for create tests (event_id:1, project_pay_item_id:1)
-    ;(mockPrisma as { addEvent?: (d: { id?: number }) => void }).addEvent?.({ id: 1 })
-    ;(mockPrisma as { addProjectPayItem?: (d: { id?: number }) => void }).addProjectPayItem?.({ id: 1 })
+    const ext = mockPrisma as MockPrismaEventQuantity
+    ext.addEvent?.({ id: 1 })
+    ext.addProjectPayItem?.({ id: 1 })
   },
 })
 
@@ -71,55 +106,39 @@ describe("EventQuantityController", () => {
 
     describe("handleGet - filtering", () => {
       it("should filter by event_id", async () => {
-        ;(mockPrisma as any).addEvent({ id: 1 })
-        ;(mockPrisma as any).addEvent({ id: 2 })
-        ;(mockPrisma as any).addProjectPayItem({ id: 1 })
-
-        ;(mockPrisma as any).addEventQuantity({
-          event_id: 1,
-          project_pay_item_id: 1,
-          quantity: 100.0,
-        })
-        ;(mockPrisma as any).addEventQuantity({
-          event_id: 2,
-          project_pay_item_id: 1,
-          quantity: 200.0,
-        })
+        const ext = mockPrisma as MockPrismaEventQuantity
+        ext.addEvent?.({ id: 1 })
+        ext.addEvent?.({ id: 2 })
+        ext.addProjectPayItem?.({ id: 1 })
+        ext.addEventQuantity?.({ event_id: 1, project_pay_item_id: 1, quantity: 100.0 })
+        ext.addEventQuantity?.({ event_id: 2, project_pay_item_id: 1, quantity: 200.0 })
 
         const url = new URL("http://localhost:3000/api/event-quantities?event_id=1")
         const req = new NextRequest(url)
         const response = await controller.handleGet(req)
 
         expect(response.status).toBe(200)
-        const data = await response.json()
+        const data = (await response.json()) as PrismaTypes.event_quantityGetPayload<{}>[]
         expect(Array.isArray(data)).toBe(true)
-        expect(data.every((item: any) => item.event_id === 1)).toBe(true)
+        expect(data.every((item) => item.event_id === 1)).toBe(true)
       })
 
       it("should filter by project_pay_item_id", async () => {
-        ;(mockPrisma as any).addEvent({ id: 1 })
-        ;(mockPrisma as any).addProjectPayItem({ id: 1 })
-        ;(mockPrisma as any).addProjectPayItem({ id: 2 })
-
-        ;(mockPrisma as any).addEventQuantity({
-          event_id: 1,
-          project_pay_item_id: 1,
-          quantity: 100.0,
-        })
-        ;(mockPrisma as any).addEventQuantity({
-          event_id: 1,
-          project_pay_item_id: 2,
-          quantity: 200.0,
-        })
+        const ext = mockPrisma as MockPrismaEventQuantity
+        ext.addEvent?.({ id: 1 })
+        ext.addProjectPayItem?.({ id: 1 })
+        ext.addProjectPayItem?.({ id: 2 })
+        ext.addEventQuantity?.({ event_id: 1, project_pay_item_id: 1, quantity: 100.0 })
+        ext.addEventQuantity?.({ event_id: 1, project_pay_item_id: 2, quantity: 200.0 })
 
         const url = new URL("http://localhost:3000/api/event-quantities?project_pay_item_id=1")
         const req = new NextRequest(url)
         const response = await controller.handleGet(req)
 
         expect(response.status).toBe(200)
-        const data = await response.json()
+        const data = (await response.json()) as PrismaTypes.event_quantityGetPayload<{}>[]
         expect(Array.isArray(data)).toBe(true)
-        expect(data.every((item: any) => item.project_pay_item_id === 1)).toBe(true)
+        expect(data.every((item) => item.project_pay_item_id === 1)).toBe(true)
       })
     })
   })
