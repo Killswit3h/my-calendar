@@ -1,0 +1,151 @@
+{
+  "info": {
+    "name": "Pay Items API",
+    "description": "CRUD endpoints for pay items (FDOT catalog).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "List Pay Items",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pay-items?number=&description=",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pay-items"
+          ],
+          "query": [
+            {
+              "key": "number",
+              "value": "",
+              "description": "Filter by number (substring)"
+            },
+            {
+              "key": "description",
+              "value": "",
+              "description": "Filter by description (substring)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Pay Item by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pay-items/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pay-items",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Pay Item",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"number\": \"202-001\",\n  \"description\": \"Clearing and Grubbing\",\n  \"unit\": \"ACRE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pay-items",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pay-items"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Pay Item",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"number\": \"202-001\",\n  \"description\": \"Clearing and Grubbing (revised)\",\n  \"unit\": \"ACRE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pay-items/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pay-items",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Pay Item",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pay-items/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pay-items",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
