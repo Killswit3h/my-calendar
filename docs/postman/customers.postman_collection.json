@@ -5,8 +5,10 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "id", "value": "1" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
   ],
   "item": [
     {
@@ -16,9 +18,20 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/api/customers?search=",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "customers"],
-          "query": [{ "key": "search", "value": "", "description": "Search by name (substring)" }]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers"
+          ],
+          "query": [
+            {
+              "key": "search",
+              "value": "",
+              "description": "Search by name (substring)"
+            }
+          ]
         }
       }
     },
@@ -28,9 +41,21 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/customers/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "customers", "{{id}}"]
+          "raw": "{{baseUrl}}/api/customers/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     },
@@ -38,15 +63,25 @@
       "name": "Create Customer",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Acme Corp\",\n  \"address\": \"123 Main St\",\n  \"phone_number\": \"555-1234\",\n  \"email\": \"contact@acme.com\",\n  \"notes\": \"Optional notes\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/customers",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "customers"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers"
+          ]
         }
       }
     },
@@ -54,15 +89,32 @@
       "name": "Update Customer",
       "request": {
         "method": "PATCH",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"address\": \"456 Oak Ave\",\n  \"phone_number\": \"555-5678\",\n  \"email\": \"info@acme.com\",\n  \"notes\": \"Updated notes\"\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/customers/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "customers", "{{id}}"]
+          "raw": "{{baseUrl}}/api/customers/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     },
@@ -72,9 +124,21 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/customers/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "customers", "{{id}}"]
+          "raw": "{{baseUrl}}/api/customers/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     }

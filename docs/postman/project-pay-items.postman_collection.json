@@ -5,23 +5,47 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "projectPayItemId", "value": "1" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
   ],
   "item": [
     {
       "name": "List Project Pay Items",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/project-pay-items?project_id=&pay_item_id=&expanded=",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "project-pay-items"],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "project-pay-items"
+          ],
           "query": [
-            { "key": "project_id", "value": "", "description": "Filter by project ID" },
-            { "key": "pay_item_id", "value": "", "description": "Filter by pay item ID" },
-            { "key": "expanded", "value": "true", "description": "Include project and pay_item relations" }
+            {
+              "key": "project_id",
+              "value": "",
+              "description": "Filter by project ID"
+            },
+            {
+              "key": "pay_item_id",
+              "value": "",
+              "description": "Filter by pay item ID"
+            },
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project and pay_item relations"
+            }
           ]
         },
         "description": "GET /api/project-pay-items\n\nReturns all project pay items. Optional query params:\n- project_id: filter by project ID\n- pay_item_id: filter by pay item ID\n- expanded=true: include project and pay_item in response"
@@ -31,13 +55,34 @@
       "name": "Get Project Pay Item by ID",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": {
-          "raw": "{{baseUrl}}/api/project-pay-items/{{projectPayItemId}}?expanded=true",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "project-pay-items", "{{projectPayItemId}}"],
+          "raw": "{{baseUrl}}/api/project-pay-items/:id?expanded=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "project-pay-items",
+            ":id"
+          ],
           "query": [
-            { "key": "expanded", "value": "true", "description": "Include project and pay_item relations" }
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project and pay_item relations"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
           ]
         },
         "description": "GET /api/project-pay-items/:id\n\nReturns a single project pay item by ID."
@@ -47,17 +92,31 @@
       "name": "Create Project Pay Item",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"project_id\": 1,\n  \"pay_item_id\": 1,\n  \"contracted_quantity\": 100,\n  \"unit_rate\": 25.50,\n  \"is_original\": true,\n  \"stockpile_billed\": 0,\n  \"notes\": \"Optional notes\",\n  \"begin_station\": \"0+00\",\n  \"end_station\": \"1+00\",\n  \"status\": \"ACTIVE\",\n  \"locate_ticket\": null,\n  \"LF_RT\": null,\n  \"onsite_review\": null\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/project-pay-items?expanded=true",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "project-pay-items"],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "project-pay-items"
+          ],
           "query": [
-            { "key": "expanded", "value": "true", "description": "Include project and pay_item in response" }
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project and pay_item in response"
+            }
           ]
         },
         "description": "POST /api/project-pay-items\n\nCreates a new project pay item.\n\nRequired: project_id, pay_item_id, contracted_quantity, unit_rate\nOptional: is_original (default true), stockpile_billed (default 0), notes, begin_station, end_station, status, locate_ticket, LF_RT, onsite_review"
@@ -67,17 +126,38 @@
       "name": "Update Project Pay Item",
       "request": {
         "method": "PATCH",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"contracted_quantity\": 150,\n  \"unit_rate\": 26.00,\n  \"notes\": \"Updated notes\",\n  \"status\": \"COMPLETED\"\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/project-pay-items/{{projectPayItemId}}?expanded=true",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "project-pay-items", "{{projectPayItemId}}"],
+          "raw": "{{baseUrl}}/api/project-pay-items/:id?expanded=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "project-pay-items",
+            ":id"
+          ],
           "query": [
-            { "key": "expanded", "value": "true", "description": "Include project and pay_item in response" }
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project and pay_item in response"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
           ]
         },
         "description": "PATCH /api/project-pay-items/:id\n\nUpdates an existing project pay item. All fields are optional (partial update)."
@@ -89,9 +169,21 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/project-pay-items/{{projectPayItemId}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "project-pay-items", "{{projectPayItemId}}"]
+          "raw": "{{baseUrl}}/api/project-pay-items/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "project-pay-items",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         },
         "description": "DELETE /api/project-pay-items/:id\n\nDeletes a project pay item by ID."
       }

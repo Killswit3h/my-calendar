@@ -5,8 +5,10 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "id", "value": "1" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
   ],
   "item": [
     {
@@ -16,9 +18,20 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/api/employees?active=",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "employees"],
-          "query": [{ "key": "active", "value": "true", "description": "Filter by active status (true/false)" }]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ],
+          "query": [
+            {
+              "key": "active",
+              "value": "true",
+              "description": "Filter by active status (true/false)"
+            }
+          ]
         }
       }
     },
@@ -28,9 +41,21 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/employees/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "employees", "{{id}}"]
+          "raw": "{{baseUrl}}/api/employees/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     },
@@ -38,15 +63,25 @@
       "name": "Create Employee",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Jane Doe\",\n  \"wage_rate\": 25.50,\n  \"start_date\": \"2024-01-15\",\n  \"email\": \"jane@example.com\",\n  \"phone_number\": \"555-9999\",\n  \"active\": true\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/employees",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "employees"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ]
         }
       }
     },
@@ -54,15 +89,32 @@
       "name": "Update Employee",
       "request": {
         "method": "PATCH",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"Jane Smith\",\n  \"wage_rate\": 26.00,\n  \"email\": \"jane.smith@example.com\",\n  \"active\": true\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/employees/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "employees", "{{id}}"]
+          "raw": "{{baseUrl}}/api/employees/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     },
@@ -72,9 +124,21 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/employees/{{id}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "employees", "{{id}}"]
+          "raw": "{{baseUrl}}/api/employees/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
         }
       }
     }
