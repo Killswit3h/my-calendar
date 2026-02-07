@@ -1,10 +1,10 @@
-import { Prisma } from "@prisma/client"
+import { Prisma, PrismaClient } from "@prisma/client"
 import { AbstractService } from "../base/AbstractService"
 import { ProjectPayItemRepository } from "../repositories/ProjectPayItemRepository"
 import { ProjectRepository } from "../repositories/ProjectRepository"
 import { PayItemRepository } from "../repositories/PayItemRepository"
 import { ValidationError } from "../base/types"
-import { getPrisma } from "@/lib/db"
+import type { PaginationOptions } from "../base/types"
 
 /**
  * Project Pay Item Service
@@ -29,30 +29,31 @@ export class ProjectPayItemService extends AbstractService<
   }
 
   /**
+   * List project pay items with optional expand options
+   * Supports ?expanded=true to include relations
+   */
+  async listWithExpand(
+    filters?: Prisma.project_pay_itemWhereInput,
+    expandOptions?: { include?: Prisma.project_pay_itemInclude },
+    pagination?: PaginationOptions,
+    client?: PrismaClient | Prisma.TransactionClient
+  ): Promise<Prisma.project_pay_itemGetPayload<{}>[]> {
+    if (expandOptions?.include) {
+      return this.repository.findMany(filters, expandOptions, client)
+    }
+    return this.list(filters, pagination, client)
+  }
+
+  /**
    * Validate project pay item data
    */
   protected async validate(
     data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput,
     isUpdate: boolean = false
   ): Promise<void> {
-    const dataAny = data as any
+    const projectId = this.getProjectIdFromData(data)
 
     // Project ID validation (required, must reference valid project if provided)
-    let projectId: number | undefined | null = undefined
-
-    if (dataAny.project_id !== undefined && dataAny.project_id !== null) {
-      projectId = dataAny.project_id as number
-    } else if (
-      data.project &&
-      typeof data.project === "object" &&
-      "connect" in data.project &&
-      data.project.connect &&
-      typeof data.project.connect === "object" &&
-      "id" in data.project.connect
-    ) {
-      projectId = (data.project.connect as { id: number }).id
-    }
-
     if (projectId !== undefined && projectId !== null) {
       if (
         typeof projectId !== "number" ||
@@ -66,20 +67,7 @@ export class ProjectPayItemService extends AbstractService<
     }
 
     // Pay Item ID validation (required, must reference valid pay_item if provided)
-    let payItemId: number | undefined | null = undefined
-
-    if (dataAny.pay_item_id !== undefined && dataAny.pay_item_id !== null) {
-      payItemId = dataAny.pay_item_id as number
-    } else if (
-      data.pay_item &&
-      typeof data.pay_item === "object" &&
-      "connect" in data.pay_item &&
-      data.pay_item.connect &&
-      typeof data.pay_item.connect === "object" &&
-      "id" in data.pay_item.connect
-    ) {
-      payItemId = (data.pay_item.connect as { id: number }).id
-    }
+    const payItemId = this.getPayItemIdFromData(data)
 
     if (payItemId !== undefined && payItemId !== null) {
       if (
@@ -226,58 +214,14 @@ export class ProjectPayItemService extends AbstractService<
   }
 
   /**
-   * Normalize project_id and pay_item_id to Prisma relation format
+   * Safely read project_id from data (handles raw project_id and Prisma relation format)
    */
-  private normalizeProjectRelation(
+  private getProjectIdFromData(
     data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
-  ):
-    | Prisma.projectCreateNestedOneWithoutProject_pay_itemsInput
-    | Prisma.projectUpdateOneRequiredWithoutProject_pay_itemsNestedInput
-    | undefined {
-    const dataAny = data as any
-
-    if (dataAny.project_id !== undefined && dataAny.project_id !== null) {
-      return {
-        connect: { id: dataAny.project_id },
-      }
-    }
-
-    return undefined
-  }
-
-  private normalizePayItemRelation(
-    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
-  ):
-    | Prisma.pay_itemCreateNestedOneWithoutProject_pay_itemsInput
-    | Prisma.pay_itemUpdateOneRequiredWithoutProject_pay_itemsNestedInput
-    | undefined {
-    const dataAny = data as any
-
-    if (dataAny.pay_item_id !== undefined && dataAny.pay_item_id !== null) {
-      return {
-        connect: { id: dataAny.pay_item_id },
-      }
-    }
-
-    return undefined
-  }
-
-  /**
-   * Hook called before create - validate FKs and set defaults
-   */
-  protected async beforeCreate(
-    data: Prisma.project_pay_itemCreateInput
-  ): Promise<Prisma.project_pay_itemCreateInput> {
-    const processed: Prisma.project_pay_itemCreateInput = { ...data }
-    const dataAny = data as any
-
-    // Extract project_id and pay_item_id for validation
-    let projectId: number | undefined
-    let payItemId: number | undefined
-
-    if (dataAny.project_id !== undefined && dataAny.project_id !== null) {
-      projectId = dataAny.project_id
-    } else if (
+  ): number | undefined {
+    const withIds = data as Record<string, unknown>
+    if (typeof withIds.project_id === "number") return withIds.project_id
+    if (
       data.project &&
       typeof data.project === "object" &&
       "connect" in data.project &&
@@ -285,12 +229,20 @@ export class ProjectPayItemService extends AbstractService<
       typeof data.project.connect === "object" &&
       "id" in data.project.connect
     ) {
-      projectId = (data.project.connect as { id: number }).id
+      return (data.project.connect as { id: number }).id
     }
+    return undefined
+  }
 
-    if (dataAny.pay_item_id !== undefined && dataAny.pay_item_id !== null) {
-      payItemId = dataAny.pay_item_id
-    } else if (
+  /**
+   * Safely read pay_item_id from data (handles raw pay_item_id and Prisma relation format)
+   */
+  private getPayItemIdFromData(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ): number | undefined {
+    const withIds = data as Record<string, unknown>
+    if (typeof withIds.pay_item_id === "number") return withIds.pay_item_id
+    if (
       data.pay_item &&
       typeof data.pay_item === "object" &&
       "connect" in data.pay_item &&
@@ -298,10 +250,50 @@ export class ProjectPayItemService extends AbstractService<
       typeof data.pay_item.connect === "object" &&
       "id" in data.pay_item.connect
     ) {
-      payItemId = (data.pay_item.connect as { id: number }).id
+      return (data.pay_item.connect as { id: number }).id
     }
+    return undefined
+  }
 
-    // Validate project exists
+  /**
+   * Check if data has raw project_id (used for validation and stripping)
+   */
+  private hasRawProjectId(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ): boolean {
+    const withIds = data as Record<string, unknown>
+    return withIds.project_id !== undefined
+  }
+
+  /**
+   * Check if data has raw pay_item_id (used for stripping)
+   */
+  private hasRawPayItemId(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ): boolean {
+    const withIds = data as Record<string, unknown>
+    return withIds.pay_item_id !== undefined
+  }
+
+  /**
+   * Extract project_id and pay_item_id from data (handles both raw *_id and Prisma relation format)
+   */
+  private extractForeignKeyIds(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ): { projectId?: number; payItemId?: number } {
+    return {
+      projectId: this.getProjectIdFromData(data),
+      payItemId: this.getPayItemIdFromData(data),
+    }
+  }
+
+  /**
+   * Validate that foreign keys reference existing records
+   */
+  private async validateForeignKeys(
+    projectId?: number,
+    payItemId?: number
+  ): Promise<void> {
     if (projectId !== undefined) {
       const project = await this.projectRepository.findUnique(
         { id: projectId },
@@ -312,7 +304,6 @@ export class ProjectPayItemService extends AbstractService<
       }
     }
 
-    // Validate pay_item exists
     if (payItemId !== undefined) {
       const payItem = await this.payItemRepository.findUnique(
         { id: payItemId },
@@ -322,29 +313,164 @@ export class ProjectPayItemService extends AbstractService<
         throw new ValidationError(`Pay item with id ${payItemId} not found`)
       }
     }
+  }
 
-    // Normalize relations
+  /**
+   * Normalize project_id and pay_item_id to Prisma relation format
+   */
+  private normalizeProjectRelation(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ):
+    | Prisma.projectCreateNestedOneWithoutProject_pay_itemsInput
+    | Prisma.projectUpdateOneRequiredWithoutProject_pay_itemsNestedInput
+    | undefined {
+    const projectId = this.getProjectIdFromData(data)
+    if (projectId !== undefined && projectId !== null) {
+      return { connect: { id: projectId } }
+    }
+    return undefined
+  }
+
+  private normalizePayItemRelation(
+    data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
+  ):
+    | Prisma.pay_itemCreateNestedOneWithoutProject_pay_itemsInput
+    | Prisma.pay_itemUpdateOneRequiredWithoutProject_pay_itemsNestedInput
+    | undefined {
+    const payItemId = this.getPayItemIdFromData(data)
+    if (payItemId !== undefined && payItemId !== null) {
+      return { connect: { id: payItemId } }
+    }
+    return undefined
+  }
+
+  /**
+   * Normalize relations and strip raw *_id fields from processed data
+   */
+  private normalizeRelationsAndStripIds<T extends Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput>(
+    data: T,
+    processed: T
+  ): void {
+    const proc = processed as Record<string, unknown>
     const normalizedProject = this.normalizeProjectRelation(data)
     if (normalizedProject) {
-      processed.project =
-        normalizedProject as Prisma.projectCreateNestedOneWithoutProject_pay_itemsInput
+      proc.project = normalizedProject
     }
-
     const normalizedPayItem = this.normalizePayItemRelation(data)
     if (normalizedPayItem) {
-      processed.pay_item =
-        normalizedPayItem as Prisma.pay_itemCreateNestedOneWithoutProject_pay_itemsInput
+      proc.pay_item = normalizedPayItem
     }
+    if (this.hasRawProjectId(data)) {
+      delete proc.project_id
+    }
+    if (this.hasRawPayItemId(data)) {
+      delete proc.pay_item_id
+    }
+  }
 
-    // Strip raw *_id fields
-    if (dataAny.project_id !== undefined) {
-      delete (processed as any).project_id
+  /**
+   * Trim string fields (notes and varchar fields)
+   */
+  private trimStringFields<T extends Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput>(
+    processed: T,
+    isUpdate: boolean = false
+  ): void {
+    const proc = processed as Record<string, unknown>
+    if (isUpdate) {
+      if (processed.notes !== undefined && processed.notes !== null && typeof processed.notes === "string") {
+        proc.notes = processed.notes.trim() || null
+      }
+    } else {
+      if (processed.notes && typeof processed.notes === "string") {
+        proc.notes = processed.notes.trim() || null
+      }
     }
-    if (dataAny.pay_item_id !== undefined) {
-      delete (processed as any).pay_item_id
+    const varcharFields = [
+      "begin_station",
+      "end_station",
+      "status",
+      "locate_ticket",
+      "LF_RT",
+      "onsite_review",
+    ] as const
+    for (const field of varcharFields) {
+      if (isUpdate) {
+        if (processed[field] !== undefined && processed[field] !== null && typeof processed[field] === "string") {
+          proc[field] = (processed[field] as string).trim() || null
+        }
+      } else {
+        if (processed[field] && typeof processed[field] === "string") {
+          proc[field] = (processed[field] as string).trim() || null
+        }
+      }
     }
+  }
 
-    // Set defaults for optional fields
+  /**
+   * Normalize Decimal fields (contracted_quantity, unit_rate, stockpile_billed)
+   * Note: stockpile_billed is handled separately in setCreateDefaults for create operations
+   */
+  private normalizeDecimalFields<T extends Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput>(
+    processed: T,
+    isUpdate: boolean = false
+  ): void {
+    const normalizeDecimal = (
+      value: number | string | Prisma.Decimal | null | undefined
+    ): Prisma.Decimal | undefined => {
+      if (value === undefined || value === null) return undefined
+      if (value instanceof Prisma.Decimal) return value
+      if (typeof value === "number") return new Prisma.Decimal(value)
+      if (typeof value === "string") return new Prisma.Decimal(value.trim())
+      return undefined
+    }
+    const proc = processed as Record<string, unknown>
+    const asDecimalInput = (
+      v: unknown
+    ): number | string | Prisma.Decimal | null | undefined =>
+      v === undefined || v === null
+        ? undefined
+        : typeof v === "number" || typeof v === "string" || v instanceof Prisma.Decimal
+          ? v
+          : undefined
+    if (isUpdate) {
+      if (processed.contracted_quantity !== undefined && processed.contracted_quantity !== null) {
+        const normalized = normalizeDecimal(asDecimalInput(processed.contracted_quantity))
+        if (normalized !== undefined) {
+          proc.contracted_quantity = normalized
+        }
+      }
+      if (processed.unit_rate !== undefined && processed.unit_rate !== null) {
+        const normalized = normalizeDecimal(asDecimalInput(processed.unit_rate))
+        if (normalized !== undefined) {
+          proc.unit_rate = normalized
+        }
+      }
+      if (processed.stockpile_billed !== undefined && processed.stockpile_billed !== null) {
+        const normalized = normalizeDecimal(asDecimalInput(processed.stockpile_billed))
+        if (normalized !== undefined) {
+          proc.stockpile_billed = normalized
+        }
+      }
+    } else {
+      if (processed.contracted_quantity) {
+        const normalized = normalizeDecimal(asDecimalInput(processed.contracted_quantity))
+        if (normalized !== undefined) {
+          proc.contracted_quantity = normalized
+        }
+      }
+      if (processed.unit_rate) {
+        const normalized = normalizeDecimal(asDecimalInput(processed.unit_rate))
+        if (normalized !== undefined) {
+          proc.unit_rate = normalized
+        }
+      }
+    }
+  }
+
+  /**
+   * Set defaults for create operations
+   */
+  private setCreateDefaults(processed: Prisma.project_pay_itemCreateInput): void {
     if (processed.is_original === undefined || processed.is_original === null) {
       processed.is_original = true
     }
@@ -356,39 +482,31 @@ export class ProjectPayItemService extends AbstractService<
     } else if (typeof processed.stockpile_billed === "string") {
       processed.stockpile_billed = new Prisma.Decimal(processed.stockpile_billed.trim())
     }
+  }
+
+  /**
+   * Hook called before create - validate FKs and set defaults
+   */
+  protected async beforeCreate(
+    data: Prisma.project_pay_itemCreateInput
+  ): Promise<Prisma.project_pay_itemCreateInput> {
+    const processed: Prisma.project_pay_itemCreateInput = { ...data }
+
+    // Extract and validate foreign keys
+    const { projectId, payItemId } = this.extractForeignKeyIds(data)
+    await this.validateForeignKeys(projectId, payItemId)
+
+    // Normalize relations and strip raw *_id fields
+    this.normalizeRelationsAndStripIds(data, processed)
+
+    // Set defaults for optional fields
+    this.setCreateDefaults(processed)
 
     // Trim string fields
-    if (processed.notes && typeof processed.notes === "string") {
-      processed.notes = processed.notes.trim() || null
-    }
-
-    const varcharFields = [
-      "begin_station",
-      "end_station",
-      "status",
-      "locate_ticket",
-      "LF_RT",
-      "onsite_review",
-    ] as const
-
-    for (const field of varcharFields) {
-      if (processed[field] && typeof processed[field] === "string") {
-        ;(processed as any)[field] = (processed[field] as string).trim() || null
-      }
-    }
+    this.trimStringFields(processed, false)
 
     // Normalize Decimal fields
-    if (processed.contracted_quantity && typeof processed.contracted_quantity === "number") {
-      processed.contracted_quantity = new Prisma.Decimal(processed.contracted_quantity)
-    } else if (processed.contracted_quantity && typeof processed.contracted_quantity === "string") {
-      processed.contracted_quantity = new Prisma.Decimal(processed.contracted_quantity.trim())
-    }
-
-    if (processed.unit_rate && typeof processed.unit_rate === "number") {
-      processed.unit_rate = new Prisma.Decimal(processed.unit_rate)
-    } else if (processed.unit_rate && typeof processed.unit_rate === "string") {
-      processed.unit_rate = new Prisma.Decimal(processed.unit_rate.trim())
-    }
+    this.normalizeDecimalFields(processed, false)
 
     return processed
   }
@@ -401,125 +519,19 @@ export class ProjectPayItemService extends AbstractService<
     data: Prisma.project_pay_itemUpdateInput
   ): Promise<Prisma.project_pay_itemUpdateInput> {
     const processed: Prisma.project_pay_itemUpdateInput = { ...data }
-    const dataAny = data as any
 
-    // Extract project_id and pay_item_id for validation if they're being changed
-    let projectId: number | undefined
-    let payItemId: number | undefined
+    // Extract and validate foreign keys if they're being changed
+    const { projectId, payItemId } = this.extractForeignKeyIds(data)
+    await this.validateForeignKeys(projectId, payItemId)
 
-    if (dataAny.project_id !== undefined && dataAny.project_id !== null) {
-      projectId = dataAny.project_id
-    } else if (
-      data.project &&
-      typeof data.project === "object" &&
-      "connect" in data.project &&
-      data.project.connect &&
-      typeof data.project.connect === "object" &&
-      "id" in data.project.connect
-    ) {
-      projectId = (data.project.connect as { id: number }).id
-    }
-
-    if (dataAny.pay_item_id !== undefined && dataAny.pay_item_id !== null) {
-      payItemId = dataAny.pay_item_id
-    } else if (
-      data.pay_item &&
-      typeof data.pay_item === "object" &&
-      "connect" in data.pay_item &&
-      data.pay_item.connect &&
-      typeof data.pay_item.connect === "object" &&
-      "id" in data.pay_item.connect
-    ) {
-      payItemId = (data.pay_item.connect as { id: number }).id
-    }
-
-    // Validate project exists if project_id is being changed
-    if (projectId !== undefined) {
-      const project = await this.projectRepository.findUnique(
-        { id: projectId },
-        { select: { id: true } }
-      )
-      if (!project) {
-        throw new ValidationError(`Project with id ${projectId} not found`)
-      }
-    }
-
-    // Validate pay_item exists if pay_item_id is being changed
-    if (payItemId !== undefined) {
-      const payItem = await this.payItemRepository.findUnique(
-        { id: payItemId },
-        { select: { id: true } }
-      )
-      if (!payItem) {
-        throw new ValidationError(`Pay item with id ${payItemId} not found`)
-      }
-    }
-
-    // Normalize relations
-    const normalizedProject = this.normalizeProjectRelation(data)
-    if (normalizedProject) {
-      processed.project =
-        normalizedProject as Prisma.projectUpdateOneRequiredWithoutProject_pay_itemsNestedInput
-    }
-
-    const normalizedPayItem = this.normalizePayItemRelation(data)
-    if (normalizedPayItem) {
-      processed.pay_item =
-        normalizedPayItem as Prisma.pay_itemUpdateOneRequiredWithoutProject_pay_itemsNestedInput
-    }
-
-    // Strip raw *_id fields
-    if (dataAny.project_id !== undefined) {
-      delete (processed as any).project_id
-    }
-    if (dataAny.pay_item_id !== undefined) {
-      delete (processed as any).pay_item_id
-    }
+    // Normalize relations and strip raw *_id fields
+    this.normalizeRelationsAndStripIds(data, processed)
 
     // Trim string fields if provided
-    if (processed.notes !== undefined && processed.notes !== null && typeof processed.notes === "string") {
-      processed.notes = processed.notes.trim() || null
-    }
-
-    const varcharFields = [
-      "begin_station",
-      "end_station",
-      "status",
-      "locate_ticket",
-      "LF_RT",
-      "onsite_review",
-    ] as const
-
-    for (const field of varcharFields) {
-      if (processed[field] !== undefined && processed[field] !== null && typeof processed[field] === "string") {
-        ;(processed as any)[field] = (processed[field] as string).trim() || null
-      }
-    }
+    this.trimStringFields(processed, true)
 
     // Normalize Decimal fields if provided
-    if (processed.contracted_quantity !== undefined && processed.contracted_quantity !== null) {
-      if (typeof processed.contracted_quantity === "number") {
-        processed.contracted_quantity = new Prisma.Decimal(processed.contracted_quantity)
-      } else if (typeof processed.contracted_quantity === "string") {
-        processed.contracted_quantity = new Prisma.Decimal(processed.contracted_quantity.trim())
-      }
-    }
-
-    if (processed.unit_rate !== undefined && processed.unit_rate !== null) {
-      if (typeof processed.unit_rate === "number") {
-        processed.unit_rate = new Prisma.Decimal(processed.unit_rate)
-      } else if (typeof processed.unit_rate === "string") {
-        processed.unit_rate = new Prisma.Decimal(processed.unit_rate.trim())
-      }
-    }
-
-    if (processed.stockpile_billed !== undefined && processed.stockpile_billed !== null) {
-      if (typeof processed.stockpile_billed === "number") {
-        processed.stockpile_billed = new Prisma.Decimal(processed.stockpile_billed)
-      } else if (typeof processed.stockpile_billed === "string") {
-        processed.stockpile_billed = new Prisma.Decimal(processed.stockpile_billed.trim())
-      }
-    }
+    this.normalizeDecimalFields(processed, true)
 
     return processed
   }

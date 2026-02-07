@@ -24,7 +24,9 @@ export class ProjectPayItemController extends AbstractController<
    * Parse expanded query parameter and build include object
    * If expanded=true, includes all relations
    */
-  private parseExpand(expanded?: string | string[]): { include?: any } {
+  private parseExpand(
+    expanded?: string | string[]
+  ): { include?: Prisma.project_pay_itemInclude } {
     if (!expanded) {
       return {}
     }
@@ -71,7 +73,7 @@ export class ProjectPayItemController extends AbstractController<
       const projectIdFilter = queryParams.project_id
       const payItemIdFilter = queryParams.pay_item_id
 
-      let filters: any = {}
+      const filters: Prisma.project_pay_itemWhereInput = {}
       if (projectIdFilter && typeof projectIdFilter === "string") {
         const projectId = parseInt(projectIdFilter, 10)
         if (!isNaN(projectId)) {
@@ -85,14 +87,8 @@ export class ProjectPayItemController extends AbstractController<
         }
       }
 
-      // Use repository directly if expand is needed, otherwise use service
-      let projectPayItems
-      if (expandOptions.include) {
-        const repository = (this.service as any).repository
-        projectPayItems = await repository.findMany(filters, expandOptions)
-      } else {
-        projectPayItems = await this.service.list(filters, undefined, undefined)
-      }
+      // Use service method that handles expand options
+      const projectPayItems = await this.service.listWithExpand(filters, expandOptions)
       return this.successResponse(projectPayItems, 200)
     } catch (error) {
       return this.errorResponse(error)

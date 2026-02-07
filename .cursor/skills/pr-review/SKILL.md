@@ -53,6 +53,7 @@ Apply these to each changed file. Focus on substantive issues; avoid minor styli
 | **Functional correctness** | Does it work per the ACs? Are edge cases handled appropriately? |
 | **Logic and design quality** | Clear, non-spaghetti code. Design fits the task. |
 | **Code cleanliness** | Readable, well-organized. Classes and constants are named clearly and descriptively. Follows established project patterns (see `.cursor/rules/`). |
+| **Proper typing** | There should not be any references to "any" to make life simpler. This is considered critical and should be addressed prior to pushing up. |
 | **DRY** | No duplicated code. Maintainable for future developers. |
 | **Documentation and changelog** | Methods documented clearly. Complex logic explained (comments or JSDoc-style). Changelog updated with changes. |
 | **Test coverage** | Coverage above 80% for changed code. Tests include happy path, edge cases, and error conditions. Tests validate ACs and are meaningful and specific. |

@@ -55,6 +55,9 @@ const abstractTests = createAbstractControllerTests<
     extendMockPrismaWithProject(mockPrisma)
     extendMockPrismaWithPayItem(mockPrisma)
     extendMockPrismaWithProjectPayItem(mockPrisma)
+    // Ensure default FKs exist for create tests (project_id:1, pay_item_id:1)
+    ;(mockPrisma as { addProject?: (d: { id?: number }) => void }).addProject?.({ id: 1 })
+    ;(mockPrisma as { addPayItem?: (d: { id?: number }) => void }).addPayItem?.({ id: 1 })
   },
 })
 
