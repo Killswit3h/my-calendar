@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { AbstractController } from "../base/AbstractController"
 import { ProjectPayItemService } from "../services/ProjectPayItemService"
+import { parseExpandToInclude, parseOptionalIntParam } from "../base/controllerHelpers"
 import { Prisma } from "@prisma/client"
 
 /**
@@ -20,29 +21,13 @@ export class ProjectPayItemController extends AbstractController<
     this.service = new ProjectPayItemService()
   }
 
-  /**
-   * Parse expanded query parameter and build include object
-   * If expanded=true, includes all relations
-   */
   private parseExpand(
     expanded?: string | string[]
   ): { include?: Prisma.project_pay_itemInclude } {
-    if (!expanded) {
-      return {}
-    }
-
-    const expandedValue = Array.isArray(expanded) ? expanded[0] : expanded
-    
-    if (expandedValue === "true") {
-      return {
-        include: {
-          project: true,
-          pay_item: true,
-        },
-      }
-    }
-
-    return {}
+    return parseExpandToInclude(expanded, {
+      project: true,
+      pay_item: true,
+    })
   }
 
   /**
@@ -70,22 +55,11 @@ export class ProjectPayItemController extends AbstractController<
       }
 
       // List all project pay items with optional filters
-      const projectIdFilter = queryParams.project_id
-      const payItemIdFilter = queryParams.pay_item_id
-
       const filters: Prisma.project_pay_itemWhereInput = {}
-      if (projectIdFilter && typeof projectIdFilter === "string") {
-        const projectId = parseInt(projectIdFilter, 10)
-        if (!isNaN(projectId)) {
-          filters.project_id = projectId
-        }
-      }
-      if (payItemIdFilter && typeof payItemIdFilter === "string") {
-        const payItemId = parseInt(payItemIdFilter, 10)
-        if (!isNaN(payItemId)) {
-          filters.pay_item_id = payItemId
-        }
-      }
+      const projectId = parseOptionalIntParam(queryParams.project_id)
+      if (projectId !== undefined) filters.project_id = projectId
+      const payItemId = parseOptionalIntParam(queryParams.pay_item_id)
+      if (payItemId !== undefined) filters.pay_item_id = payItemId
 
       // Use service method that handles expand options
       const projectPayItems = await this.service.listWithExpand(filters, expandOptions)
@@ -161,7 +135,7 @@ export class ProjectPayItemController extends AbstractController<
       }
 
       await this.service.delete(id)
-      return this.successResponse({ message: "Project pay item deleted successfully" }, 200)
+      return new NextResponse(null, { status: 204 })
     } catch (error) {
       return this.errorResponse(error)
     }

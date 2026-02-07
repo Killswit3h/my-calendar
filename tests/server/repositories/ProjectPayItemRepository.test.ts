@@ -30,23 +30,40 @@ const abstractTests = createAbstractRepositoryTests<
     status: "ACTIVE",
   }),
   createUniqueInput: (id: number) => ({ id }),
-  createWhereInput: (filters: Record<string, any>) => filters as any,
-  addMockRecord: (mockPrisma: MockPrisma, data: any) => {
-    // Ensure project and pay_item exist
-    ;(mockPrisma as any).addProject({ id: data.project?.connect?.id ?? 1 })
-    ;(mockPrisma as any).addPayItem({ id: data.pay_item?.connect?.id ?? 1 })
-    
-    return (mockPrisma as any).addProjectPayItem({
-      id: data.id ?? Math.floor(Math.random() * 1000000) + 1,
-      project_id: data.project?.connect?.id ?? 1,
-      pay_item_id: data.pay_item?.connect?.id ?? 1,
-      contracted_quantity: data.contracted_quantity ?? 100.0,
-      unit_rate: data.unit_rate ?? 50.0,
-      is_original: data.is_original ?? true,
-      stockpile_billed: data.stockpile_billed ?? 0,
+  createWhereInput: (filters: PrismaTypes.project_pay_itemWhereInput) => filters,
+  addMockRecord: (
+    mockPrisma: MockPrisma,
+    data: PrismaTypes.project_pay_itemCreateInput | Partial<PrismaTypes.project_pay_itemGetPayload<{}>>
+  ): PrismaTypes.project_pay_itemGetPayload<{}> => {
+    type Ext = MockPrisma & {
+      addProject?: (d: { id?: number }) => void
+      addPayItem?: (d: { id?: number }) => void
+      addProjectPayItem?: (d: {
+        id?: number
+        project_id?: number
+        pay_item_id?: number
+        contracted_quantity?: number | Prisma.Decimal
+        unit_rate?: number | Prisma.Decimal
+        is_original?: boolean
+        stockpile_billed?: number | Prisma.Decimal
+      }) => PrismaTypes.project_pay_itemGetPayload<{}>
+    }
+    const ext = mockPrisma as Ext
+    const projectId = "project" in data && data.project && typeof data.project === "object" && "connect" in data.project ? (data.project.connect as { id: number }).id : (data as { project_id?: number }).project_id ?? 1
+    const payItemId = "pay_item" in data && data.pay_item && typeof data.pay_item === "object" && "connect" in data.pay_item ? (data.pay_item.connect as { id: number }).id : (data as { pay_item_id?: number }).pay_item_id ?? 1
+    ext.addProject?.({ id: projectId })
+    ext.addPayItem?.({ id: payItemId })
+    return ext.addProjectPayItem!({
+      id: "id" in data ? data.id : undefined,
+      project_id: projectId,
+      pay_item_id: payItemId,
+      contracted_quantity: "contracted_quantity" in data ? data.contracted_quantity : 100.0,
+      unit_rate: "unit_rate" in data ? data.unit_rate : 50.0,
+      is_original: "is_original" in data ? data.is_original : true,
+      stockpile_billed: "stockpile_billed" in data ? data.stockpile_billed : 0,
     })
   },
-  getIdFromModel: (model: any) => model.id,
+  getIdFromModel: (model: PrismaTypes.project_pay_itemGetPayload<{}>) => model.id,
   idField: "id",
   extendMockPrisma: (mockPrisma: MockPrisma) => {
     extendMockPrismaWithProject(mockPrisma)
@@ -65,6 +82,17 @@ describe("ProjectPayItemRepository", () => {
     let mockPrisma: MockPrisma
     let repository: ProjectPayItemRepository
 
+    type Ext = MockPrisma & {
+      addProject?: (d: { id?: number }) => void
+      addPayItem?: (d: { id?: number }) => void
+      addProjectPayItem?: (d: {
+        project_id?: number
+        pay_item_id?: number
+        contracted_quantity?: number | Prisma.Decimal
+        unit_rate?: number | Prisma.Decimal
+      }) => PrismaTypes.project_pay_itemGetPayload<{}>
+    }
+
     beforeEach(() => {
       mockPrisma = new MockPrisma()
       extendMockPrismaWithProject(mockPrisma)
@@ -76,29 +104,14 @@ describe("ProjectPayItemRepository", () => {
 
     describe("findByProjectId", () => {
       it("should find project pay items by project ID", async () => {
-        ;(mockPrisma as any).addProject({ id: 1 })
-        ;(mockPrisma as any).addProject({ id: 2 })
-        ;(mockPrisma as any).addPayItem({ id: 1 })
-        ;(mockPrisma as any).addPayItem({ id: 2 })
-
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 1,
-          pay_item_id: 1,
-          contracted_quantity: 100.0,
-          unit_rate: 50.0,
-        })
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 1,
-          pay_item_id: 2,
-          contracted_quantity: 200.0,
-          unit_rate: 60.0,
-        })
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 2,
-          pay_item_id: 1,
-          contracted_quantity: 150.0,
-          unit_rate: 55.0,
-        })
+        const ext = mockPrisma as Ext
+        ext.addProject?.({ id: 1 })
+        ext.addProject?.({ id: 2 })
+        ext.addPayItem?.({ id: 1 })
+        ext.addPayItem?.({ id: 2 })
+        ext.addProjectPayItem?.({ project_id: 1, pay_item_id: 1, contracted_quantity: 100.0, unit_rate: 50.0 })
+        ext.addProjectPayItem?.({ project_id: 1, pay_item_id: 2, contracted_quantity: 200.0, unit_rate: 60.0 })
+        ext.addProjectPayItem?.({ project_id: 2, pay_item_id: 1, contracted_quantity: 150.0, unit_rate: 55.0 })
 
         const result = await repository.findByProjectId(1)
         expect(result).toBeTruthy()
@@ -114,29 +127,14 @@ describe("ProjectPayItemRepository", () => {
 
     describe("findByPayItemId", () => {
       it("should find project pay items by pay item ID", async () => {
-        ;(mockPrisma as any).addProject({ id: 1 })
-        ;(mockPrisma as any).addProject({ id: 2 })
-        ;(mockPrisma as any).addPayItem({ id: 1 })
-        ;(mockPrisma as any).addPayItem({ id: 2 })
-
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 1,
-          pay_item_id: 1,
-          contracted_quantity: 100.0,
-          unit_rate: 50.0,
-        })
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 2,
-          pay_item_id: 1,
-          contracted_quantity: 200.0,
-          unit_rate: 60.0,
-        })
-        ;(mockPrisma as any).addProjectPayItem({
-          project_id: 1,
-          pay_item_id: 2,
-          contracted_quantity: 150.0,
-          unit_rate: 55.0,
-        })
+        const ext = mockPrisma as Ext
+        ext.addProject?.({ id: 1 })
+        ext.addProject?.({ id: 2 })
+        ext.addPayItem?.({ id: 1 })
+        ext.addPayItem?.({ id: 2 })
+        ext.addProjectPayItem?.({ project_id: 1, pay_item_id: 1, contracted_quantity: 100.0, unit_rate: 50.0 })
+        ext.addProjectPayItem?.({ project_id: 2, pay_item_id: 1, contracted_quantity: 200.0, unit_rate: 60.0 })
+        ext.addProjectPayItem?.({ project_id: 1, pay_item_id: 2, contracted_quantity: 150.0, unit_rate: 55.0 })
 
         const result = await repository.findByPayItemId(1)
         expect(result).toBeTruthy()
