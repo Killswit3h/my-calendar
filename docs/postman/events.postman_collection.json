@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "Events API",
+    "description": "CRUD endpoints for calendar events. Links project, scope of work, payment type, optional invoice, with start/end times.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "List Events",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/events?project_id=&scope_of_work_id=&payment_type_id=&invoice_id=&expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "events"],
+          "query": [
+            {
+              "key": "project_id",
+              "value": "",
+              "description": "Filter by project ID"
+            },
+            {
+              "key": "scope_of_work_id",
+              "value": "",
+              "description": "Filter by scope of work ID"
+            },
+            {
+              "key": "payment_type_id",
+              "value": "",
+              "description": "Filter by payment type ID"
+            },
+            {
+              "key": "invoice_id",
+              "value": "",
+              "description": "Filter by invoice ID"
+            },
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project, scope_of_work, payment_type, invoice relations"
+            }
+          ]
+        }
+      },
+      "description": "GET /api/events\n\nReturns all events. Optional query params:\n- project_id, scope_of_work_id, payment_type_id, invoice_id: filter by ID\n- expanded=true: include project, scope_of_work, payment_type, invoice in response"
+    },
+    {
+      "name": "Get Event by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/events/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "events", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include project, scope_of_work, payment_type, invoice relations"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "GET /api/events/:id\n\nReturns a single event by ID."
+    },
+    {
+      "name": "Create Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": 1,\n  \"scope_of_work_id\": 1,\n  \"payment_type_id\": 1,\n  \"start_time\": \"2025-02-01T09:00:00Z\",\n  \"end_time\": \"2025-02-01T17:00:00Z\",\n  \"is_day_shift\": true,\n  \"location\": \"Site A\",\n  \"notes\": \"Optional notes\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/events?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "events"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include relations in response"
+            }
+          ]
+        }
+      },
+      "description": "POST /api/events\n\nCreates a new event.\n\nRequired: project_id, scope_of_work_id, payment_type_id, start_time, end_time (ISO date strings)\nOptional: invoice_id, is_day_shift (default true), location, notes"
+    },
+    {
+      "name": "Update Event",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"end_time\": \"2025-02-01T18:00:00Z\",\n  \"notes\": \"Updated notes\",\n  \"location\": \"Site B\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/events/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "events", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include relations in response"
+            }
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "PATCH /api/events/:id\n\nUpdates an existing event. All fields are optional (partial update)."
+    },
+    {
+      "name": "Delete Event",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/events/:id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "events", ":id"],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "description": "DELETE /api/events/:id\n\nDeletes an event by ID. Returns 204 No Content."
+    }
+  ]
+}

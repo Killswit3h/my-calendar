@@ -20,6 +20,7 @@ Each collection maps to one controller and includes all CRUD operations (List, G
 | `pay-items.postman_collection.json` | `/api/pay-items` | `number`, `description` |
 | `payment-types.postman_collection.json` | `/api/payment-types` | `description` |
 | `event-quantities.postman_collection.json` | `/api/event-quantities` | `event_id`, `project_pay_item_id`, `expanded=true` |
+| `events.postman_collection.json` | `/api/events` | `project_id`, `scope_of_work_id`, `payment_type_id`, `invoice_id`, `expanded=true` |
 | `project-pay-items.postman_collection.json` | `/api/project-pay-items` | `project_id`, `pay_item_id`, `expanded=true` |
 | `projects.postman_collection.json` | `/api/projects` | `name`, `location`, `vendor`, `customer_id` |
 | `scope-of-works.postman_collection.json` | `/api/scope-of-works` | `description` |
@@ -46,6 +47,10 @@ Each collection maps to one controller and includes all CRUD operations (List, G
 ### Event Quantities
 - **POST (required):** `event_id`, `project_pay_item_id`, `quantity` (non-negative number)
 - **POST (optional):** `notes`
+
+### Events
+- **POST (required):** `project_id`, `scope_of_work_id`, `payment_type_id`, `start_time`, `end_time` (ISO date strings)
+- **POST (optional):** `invoice_id`, `is_day_shift` (default true), `location`, `notes`
 
 ### Project Pay Items
 - **POST (required):** `project_id`, `pay_item_id`, `contracted_quantity`, `unit_rate`
