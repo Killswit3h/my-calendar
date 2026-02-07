@@ -1,0 +1,87 @@
+{
+  "info": {
+    "name": "Projects API",
+    "description": "CRUD endpoints for projects.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "List Projects",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/projects?name=&location=&vendor=&customer_id=",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects"],
+          "query": [
+            { "key": "name", "value": "", "description": "Filter by name (substring)" },
+            { "key": "location", "value": "", "description": "Filter by location (substring)" },
+            { "key": "vendor", "value": "", "description": "Filter by vendor (substring)" },
+            { "key": "customer_id", "value": "", "description": "Filter by customer ID" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Project by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/projects/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects", "{{id}}"]
+        }
+      }
+    },
+    {
+      "name": "Create Project",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"SR-50 Resurfacing\",\n  \"location\": \"Orlando, FL\",\n  \"retainage\": 5.00,\n  \"vendor\": \"ABC Construction\",\n  \"customer_id\": 1,\n  \"is_payroll\": false,\n  \"is_EEO\": true,\n  \"status\": \"ACTIVE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects"]
+        }
+      }
+    },
+    {
+      "name": "Update Project",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"SR-50 Resurfacing Phase 2\",\n  \"location\": \"Orlando, FL\",\n  \"status\": \"IN_PROGRESS\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/projects/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects", "{{id}}"]
+        }
+      }
+    },
+    {
+      "name": "Delete Project",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/projects/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects", "{{id}}"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "Payment Types API",
+    "description": "CRUD endpoints for payment types (lookup table).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "List Payment Types",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/payment-types?description=",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "payment-types"],
+          "query": [{ "key": "description", "value": "", "description": "Filter by description (substring)" }]
+        }
+      }
+    },
+    {
+      "name": "Get Payment Type by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/payment-types/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "payment-types", "{{id}}"]
+        }
+      }
+    },
+    {
+      "name": "Create Payment Type",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Lump Sum\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payment-types",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "payment-types"]
+        }
+      }
+    },
+    {
+      "name": "Update Payment Type",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Lump Sum Payment\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payment-types/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "payment-types", "{{id}}"]
+        }
+      }
+    },
+    {
+      "name": "Delete Payment Type",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/payment-types/{{id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "payment-types", "{{id}}"]
+        }
+      }
+    }
+  ]
+}
