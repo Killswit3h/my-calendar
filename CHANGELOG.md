@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add event-quantities CRUD API: list/create/update/delete event quantities with optional filters (`?event_id=`, `?project_pay_item_id=`) and `?expanded=true` for relations.
 - Add generate-spec skill and project-pay-items API spec in `docs/specs/`.
 - Add `pr-reviews/` to `.gitignore` (local-only review docs).
 - Replace all `any` and `as any` with proper Prisma types in ProjectPayItem controller and service.
