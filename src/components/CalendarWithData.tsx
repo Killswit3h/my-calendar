@@ -39,17 +39,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -140,7 +135,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'tickets' | 'quantities'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'quantities'>('info');
   const [modalHasQuantities, setModalHasQuantities] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [isMobile, setIsMobile] = useState(false);
@@ -1139,22 +1134,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setActiveTab('info');
   }, [createBlankDraft]);
 
-  const handleAllDayToggle = () => {
-    setDraft(prev => {
-      if (!prev) return prev;
-      if (prev.allDay) {
-        const startDate = new Date(prev.start);
-        const endDate = prev.end ? new Date(prev.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
-        return { ...prev, allDay: false, start: startDate.toISOString(), end: endDate.toISOString() };
-      }
-      const startUtc = parseAppDateOnly(String(prev.start), APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(prev.start), APP_TIMEZONE).date, APP_TIMEZONE);
-      const endUtc = addDaysUtc(startUtc, 1);
-      return { ...prev, allDay: true, start: startUtc.toISOString(), end: endUtc.toISOString() };
-    });
-    setUserChangedStart(false);
-    setUserChangedEnd(false);
-  };
-
   const handleStartFieldChange = (value: string) => {
     if (!draft) return;
     if (draft.allDay) {
@@ -1344,22 +1323,48 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
             Work Time
           </Typography>
-          <ToggleButtonGroup
-            value={draft.shift ?? 'DAY'}
-            exclusive
-            size="small"
-            onChange={(_, value) => {
-              if (value) setDraft({ ...draft, shift: value as WorkShift });
+          <button
+            type="button"
+            role="switch"
+            aria-checked={(draft.shift || "DAY") === "NIGHT"}
+            onClick={() => {
+              const newShift = (draft.shift ?? "DAY") === "DAY" ? "NIGHT" : "DAY";
+              let startIso = draft.start;
+              let endIso = draft.end ?? draft.start;
+              if (newShift === "NIGHT" && !userChangedStart && !userChangedEnd) {
+                const s = new Date(draft.start);
+                s.setHours(19, 0, 0, 0);
+                const e = new Date(s);
+                e.setDate(e.getDate() + 1);
+                e.setHours(5, 0, 0, 0);
+                startIso = s.toISOString();
+                endIso = e.toISOString();
+              }
+              setDraft({ ...draft, shift: newShift, start: startIso, end: endIso });
             }}
+            className="relative inline-flex h-10 w-[140px] items-center rounded-full border border-white/15 bg-black/40 px-1 transition"
           >
-            <ToggleButton value="DAY">Day</ToggleButton>
-            <ToggleButton value="NIGHT">Night</ToggleButton>
-          </ToggleButtonGroup>
+            <span
+              className={`absolute left-1 top-1 h-8 w-[64px] rounded-full bg-white/80 text-black shadow-sm transition-transform ${
+                (draft.shift || "DAY") === "NIGHT" ? "translate-x-[64px]" : ""
+              }`}
+            />
+            <span
+              className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                (draft.shift || "DAY") === "DAY" ? "text-black" : "text-white/70"
+              }`}
+            >
+              Day
+            </span>
+            <span
+              className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                (draft.shift || "DAY") === "NIGHT" ? "text-black" : "text-white/70"
+              }`}
+            >
+              Night
+            </span>
+          </button>
         </Box>
-        <FormControlLabel
-          control={<Switch checked={draft.allDay} onChange={handleAllDayToggle} />}
-          label={draft.allDay ? 'All-day event' : 'Timed event'}
-        />
         <TextField
           select
           label="Type"
@@ -1468,55 +1473,14 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     </Stack>
   ) : null;
 
-  const ticketsContent: ReactNode = draft ? (
-    <Stack spacing={3} sx={{ mt: 1 }}>
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
-          <TextField
-            label="Ticket #"
-            value={draft.checklist?.locate?.ticket ?? ''}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })}
-            fullWidth
-          />
-          <TextField
-            label="Requested"
-            type="date"
-            value={(draft.checklist?.locate?.requested ?? '').slice(0, 10)}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-          <TextField
-            label="Expires"
-            type="date"
-            value={(draft.checklist?.locate?.expires ?? '').slice(0, 10)}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-        </Box>
-      </Paper>
-      <Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-          Subtasks
-        </Typography>
-        <SubtasksEditor
-          value={draft.checklist?.subtasks ?? []}
-          onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
-        />
-      </Box>
-    </Stack>
-  ) : null;
-
   const quantitiesContent: ReactNode = draft ? (
     <Box sx={{ mt: 1 }}>
-      {editId ? (
-        <EventQuantitiesEditor eventId={editId} onHasQuantitiesChange={handleQuantitiesChange} />
-      ) : (
-        <Typography variant="body2" color="text.secondary">
+      <EventQuantitiesEditor eventId={editId ?? undefined} onHasQuantitiesChange={handleQuantitiesChange} />
+      {!editId ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
           Save the event to add quantities.
         </Typography>
-      )}
+      ) : null}
     </Box>
   ) : null;
 
@@ -1838,12 +1802,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             >
               <Tab value="info" label="Event Info" />
               <Tab value="work" label="Work & Payroll" />
-              <Tab value="tickets" label="Tickets & Subtasks" />
               <Tab value="quantities" label="Quantities" />
             </Tabs>
             <Box sx={{ display: activeTab === 'info' ? 'block' : 'none' }}>{eventInfoContent}</Box>
             <Box sx={{ display: activeTab === 'work' ? 'block' : 'none' }}>{workInfoContent}</Box>
-            <Box sx={{ display: activeTab === 'tickets' ? 'block' : 'none' }}>{ticketsContent}</Box>
             <Box sx={{ display: activeTab === 'quantities' ? 'block' : 'none' }}>{quantitiesContent}</Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
@@ -2252,26 +2214,3 @@ function parseTodoNotes(notes?: string | null): { description?: string; locate?:
   return { description: notes };
 }
 
-function SubtasksEditor({ value, onChange }: { value: { id: string; text: string; done: boolean }[]; onChange: (v: { id: string; text: string; done: boolean }[]) => void }) {
-  const [text, setText] = useState('');
-  const add = () => { const t = text.trim(); if (!t) return; onChange([...(value ?? []), { id: uid(), text: t, done: false }]); setText(''); };
-  const toggle = (id: string) => onChange((value ?? []).map(s => s.id === id ? { ...s, done: !s.done } : s));
-  const del = (id: string) => onChange((value ?? []).filter(s => s.id !== id));
-  return (
-    <div className="subtasks">
-      <div className="input-row">
-        <input className="subtask-input" placeholder="Add subtask" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} />
-        <button className="btn" onClick={add}>Add</button>
-      </div>
-      <div className="subtask-list">
-        {(value ?? []).map(s => (
-          <div key={s.id} className="subtask-item">
-            <input type="checkbox" checked={!!s.done} onChange={() => toggle(s.id)} />
-            <span className={s.done ? 'subtask-text muted' : 'subtask-text'}>{s.text}</span>
-            <button className="subtask-remove" onClick={() => del(s.id)}>Remove</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
