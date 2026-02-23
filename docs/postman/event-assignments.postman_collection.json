@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "Event Assignments API",
+    "description": "CRUD endpoints for event assignments. Links events to employees (who is assigned to which event).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }],
+  "item": [
+    {
+      "name": "List Event Assignments",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-assignments?event_id=&employee_id=&expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-assignments"],
+          "query": [
+            {
+              "key": "event_id",
+              "value": "",
+              "description": "Filter by event ID"
+            },
+            {
+              "key": "employee_id",
+              "value": "",
+              "description": "Filter by employee ID"
+            },
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and employee relations"
+            }
+          ]
+        }
+      },
+      "description": "GET /api/event-assignments\n\nReturns all event assignments. Optional query params:\n- event_id: filter by event ID\n- employee_id: filter by employee ID\n- expanded=true: include event and employee in response"
+    },
+    {
+      "name": "Get Event Assignment by ID",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-assignments/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-assignments", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and employee relations"
+            }
+          ],
+          "variable": [{ "key": "id", "value": "1" }]
+        }
+      },
+      "description": "GET /api/event-assignments/:id\n\nReturns a single event assignment by ID."
+    },
+    {
+      "name": "Create Event Assignment",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_id\": 1,\n  \"employee_id\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/event-assignments?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-assignments"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and employee in response"
+            }
+          ]
+        }
+      },
+      "description": "POST /api/event-assignments\n\nCreates a new event assignment (assigns an employee to an event).\n\nRequired: event_id, employee_id\nDuplicate (event_id, employee_id) returns 409 Conflict."
+    },
+    {
+      "name": "Update Event Assignment",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"employee_id\": 2\n}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/event-assignments/:id?expanded=true",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-assignments", ":id"],
+          "query": [
+            {
+              "key": "expanded",
+              "value": "true",
+              "description": "Include event and employee in response"
+            }
+          ],
+          "variable": [{ "key": "id", "value": "1" }]
+        }
+      },
+      "description": "PATCH /api/event-assignments/:id\n\nUpdates an existing event assignment. event_id and employee_id are optional (partial update). Duplicate (event_id, employee_id) returns 409."
+    },
+    {
+      "name": "Delete Event Assignment",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/event-assignments/:id",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "event-assignments", ":id"],
+          "variable": [{ "key": "id", "value": "1" }]
+        }
+      },
+      "description": "DELETE /api/event-assignments/:id\n\nDeletes an event assignment by ID. Returns 204 No Content."
+    }
+  ]
+}
