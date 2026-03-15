@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
-import { EllipsisVertical } from 'lucide-react';
+import { EllipsisVertical, X as XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +13,7 @@ import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
+import { payById } from '@/data/employeeRoster';
 import { eventOverlapsLocalDay } from '@/lib/dateUtils';
 import { getYardForDate } from '@/lib/yard';
 import { getAbsentForDate } from '@/lib/absent';
@@ -30,9 +31,12 @@ import {
   zonedStartOfDayUtc,
   addDaysUtc,
 } from '@/lib/timezone';
+import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -53,6 +57,7 @@ type Checklist = {
   locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
   subtasks?: { id: string; text: string; done: boolean }[];
   employees?: string[];
+  employeePay?: Record<string, string>;
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
@@ -1416,7 +1421,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const workInfoContent: ReactNode = draft ? (
     <Stack spacing={3} sx={{ mt: 1 }}>
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
         <TextField
           select
           label="Vendor"
@@ -1442,7 +1447,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           select
           label="Payment"
           value={draft.payment ?? 'DAILY'}
-          onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}
+          onChange={e => {
+            const newPayment = e.target.value as PaymentType
+            const ids = draft.checklist?.employees ?? []
+            const recalcPay: Record<string, string> = {}
+            ids.forEach(id => {
+              recalcPay[id] = newPayment === 'DAILY' ? String((payById[id] ?? 0) * 8) : ''
+            })
+            setDraft({ ...draft, payment: newPayment, checklist: { ...(draft.checklist ?? defaultChecklist()), employeePay: recalcPay } })
+          }}
           fullWidth
         >
           <MenuItem value="DAILY">Daily</MenuItem>
@@ -1453,13 +1466,71 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
           Employees
         </Typography>
-        <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', p: 1.5, maxHeight: 200, overflowY: 'auto' }}>
-          <EmployeeMultiSelect
-            employees={employees}
-            value={draft.checklist?.employees ?? []}
-            onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
-          />
-        </Box>
+        <EmployeeMultiSelect
+          employees={employees}
+          value={draft.checklist?.employees ?? []}
+          suppressTags
+          onChange={(sel) => {
+            const prevIds = draft.checklist?.employees ?? []
+            const prevPay = draft.checklist?.employeePay ?? {}
+            const newPay: Record<string, string> = {}
+            sel.forEach(id => {
+              if (prevIds.includes(id)) {
+                newPay[id] = prevPay[id] ?? ''
+              } else {
+                newPay[id] = (draft.payment ?? 'DAILY') === 'DAILY'
+                  ? String((payById[id] ?? 0) * 8)
+                  : ''
+              }
+            })
+            setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel, employeePay: newPay } })
+          }}
+        />
+        {(draft.checklist?.employees ?? []).length > 0 && (
+          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            {(draft.checklist?.employees ?? []).map(empId => {
+              const emp = employees.find(e => e.id === empId)
+              if (!emp) return null
+              const payVal = draft.checklist?.employeePay?.[empId] ?? ''
+              return (
+                <Box key={empId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 28, height: 28, fontSize: 11, flexShrink: 0 }}>
+                    {emp.firstName[0]}{emp.lastName[0]}
+                  </Avatar>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                    {emp.firstName} {emp.lastName}
+                  </Typography>
+                  <TextField
+                    size="small"
+                    label="Pay"
+                    value={payVal}
+                    placeholder={(draft.payment ?? 'DAILY') === 'ADJUSTED' ? 'Enter amount' : '0.00'}
+                    onChange={e => {
+                      const newPay = { ...(draft.checklist?.employeePay ?? {}), [empId]: e.target.value }
+                      setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employeePay: newPay } })
+                    }}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    }}
+                    sx={{ width: 130 }}
+                  />
+                  <IconButton
+                    size="small"
+                    aria-label={`Remove ${emp.firstName} ${emp.lastName}`}
+                    onClick={() => {
+                      const newIds = (draft.checklist?.employees ?? []).filter(id => id !== empId)
+                      const newPay = { ...(draft.checklist?.employeePay ?? {}) }
+                      delete newPay[empId]
+                      setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: newIds, employeePay: newPay } })
+                    }}
+                  >
+                    <XIcon size={14} />
+                  </IconButton>
+                </Box>
+              )
+            })}
+          </Box>
+        )}
       </Box>
       <TextField
         label="Notes"
@@ -1467,7 +1538,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         onChange={e => setDraft({ ...draft, description: e.target.value })}
         onKeyDown={handleDescKeyDown}
         multiline
-        minRows={4}
+        minRows={2}
         fullWidth
       />
     </Stack>
