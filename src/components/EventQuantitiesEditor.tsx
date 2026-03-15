@@ -370,10 +370,10 @@ export function EventQuantitiesEditor({ eventId, onHasQuantitiesChange }: Props)
 
   return (
     <section className="qty-editor">
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-        <header className="mb-4">
-          <h2 className="text-lg font-semibold text-white">Phase Quantities</h2>
-          <p className="text-sm text-white/60">
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+        <header className="mb-3">
+          <h2 className="text-base font-semibold text-white">Phase Quantities</h2>
+          <p className="text-xs text-white/60">
             Choose a project phase to log quantities completed for this event.
           </p>
         </header>
@@ -403,39 +403,33 @@ export function EventQuantitiesEditor({ eventId, onHasQuantitiesChange }: Props)
             </select>
           </div>
         </div>
-        <div className="mt-6 space-y-4">
-          <div className="hidden text-xs text-white/60 lg:grid lg:grid-cols-[1fr,2fr,160px,120px] lg:gap-3">
-            <span>Pay Item</span>
-            <span>Description</span>
-            <span className="text-right">Quantity</span>
-            <span className="text-right">Installed</span>
-          </div>
+        <div className="mt-4 space-y-2">
           {selectedPhase?.items?.length ? (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {selectedPhase.items.map(item => (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm shadow-inner lg:grid lg:grid-cols-[1fr,2fr,160px,120px] lg:items-center lg:gap-3"
+                  className="grid grid-cols-[1fr,2fr,140px,100px] items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm shadow-inner"
                 >
                   <div className="font-semibold text-white">{item.payItem}</div>
                   <div className="text-white/70">{item.description}</div>
-                  <div className="mt-3 lg:mt-0 lg:text-right">
+                  <div className="text-right">
                     <input
                       type="number"
                       min={0}
                       step={0.01}
                       value={phaseQuantities[phaseQtyKey(selectedPhase.id, item.id)] ?? ''}
                       onChange={(e) => updatePhaseQuantity(selectedPhase.id, item.id, e.target.value)}
-                      className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60 lg:max-w-[140px] lg:ml-auto"
+                      className="ml-auto w-full max-w-[130px] rounded-lg border border-white/20 bg-black/40 px-2 py-1.5 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
                       placeholder={item.quantity.toLocaleString()}
                     />
                   </div>
-                  <div className="text-white lg:text-right">{item.installedQty.toLocaleString()}</div>
+                  <div className="text-right text-white">{item.installedQty.toLocaleString()}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/70">
               No pay items found for this phase.
             </div>
           )}
