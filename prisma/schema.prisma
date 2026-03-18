@@ -17,6 +17,9 @@ model employee {
   phone_number String?   @db.VarChar @map("phone_number")
   email        String?   @unique @db.VarChar
   active       Boolean   @default(true)
+  notes        String?   @db.Text
+  role         String?   @db.VarChar
+  location     String?   @db.VarChar(64)
 
   event_assignments event_assignment[]
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reset Prisma migrations to gfchub baseline: remove 27 outdated migrations; keep init_gfchub_v2 and add_employee_optional_fields.
+- Add employee optional fields (notes, role, location) to schema, API, and UI.
+- Stay on grid view after creating employee (no profile sheet opens).
 - Event-assignments: remove `any` from tests and mock (Prisma types and MockPrismaEventAssignment); add Postman collection in docs/postman/event-assignments.postman_collection.json.
 - Add event-assignments CRUD API: GET/POST /api/event-assignments, GET/PATCH/DELETE /api/event-assignments/[id] with optional filters (event_id, employee_id), ?expanded=true (event, employee), validation, FK checks, and 409 for duplicate (event_id, employee_id); spec in docs/specs/20260206_event-assignments-api.md.
 - Add events CRUD API: GET/POST /api/events, GET/PATCH/DELETE /api/events/[id] with optional filters (project_id, scope_of_work_id, payment_type_id, invoice_id), ?expanded=true, validation and API-friendly FK/date normalization; Postman collection and spec.
