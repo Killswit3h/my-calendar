@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Printer, DollarSign, Users, ChevronRight, CalendarDays } from "lucide-react"
+import { ArrowLeft, Printer, DollarSign, Users, ChevronRight } from "lucide-react"
 import { getEmployees } from "@/employees"
 import { payById } from "@/data/employeeRoster"
 import { fetchWeekEvents, type CalendarEvent } from "../_lib/events"
@@ -102,11 +102,7 @@ export default function PayrollWeekPage() {
   }, [events, employees])
 
   const grandTotal = useMemo(() => rows.reduce((s, r) => s + r.totalPay, 0), [rows])
-  const avgDays    = useMemo(
-    () => rows.length === 0 ? null : (rows.reduce((s, r) => s + r.daysWorked, 0) / rows.length).toFixed(1),
-    [rows],
-  )
-  const weekLabel = `${formatDate(monday)} – ${formatDate(sunday)}, ${sunday.getFullYear()}`
+  const weekLabel  = `${formatDate(monday)} – ${formatDate(sunday)}, ${sunday.getFullYear()}`
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-8 md:px-8">
@@ -144,7 +140,7 @@ export default function PayrollWeekPage() {
             </div>
 
             {/* Summary stat cards */}
-            <div className="relative mt-6 grid grid-cols-3 gap-3">
+            <div className="relative mt-6 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="flex items-center gap-1.5 text-xs text-white/40">
                   <Users className="h-3.5 w-3.5" />
@@ -152,18 +148,6 @@ export default function PayrollWeekPage() {
                 </div>
                 <p className="mt-1.5 text-2xl font-bold text-white">
                   {loading ? <span className="text-white/20">—</span> : rows.length}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="flex items-center gap-1.5 text-xs text-white/40">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  Avg. Days
-                </div>
-                <p className="mt-1.5 text-2xl font-bold text-white">
-                  {loading || avgDays === null
-                    ? <span className="text-white/20">—</span>
-                    : avgDays
-                  }
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -204,7 +188,7 @@ export default function PayrollWeekPage() {
             ) : (
               <>
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr,72px,130px,20px] gap-3 border-b border-white/10 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/30">
+                <div className="grid grid-cols-[1fr_72px_130px_20px] gap-3 border-b border-white/10 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/30">
                   <span>Employee</span>
                   <span className="text-center">Days</span>
                   <span className="text-right">Total Pay</span>
@@ -216,39 +200,43 @@ export default function PayrollWeekPage() {
                     key={row.id}
                     href={`/payroll/${weekStart}/${row.id}`}
                     className={[
-                      "group grid grid-cols-[1fr,72px,130px,20px] items-center gap-3 px-5 py-3.5 transition hover:bg-white/5",
+                      "group grid grid-cols-[1fr_72px_130px_20px] items-center gap-3 px-5 py-2 transition hover:bg-white/5",
                       idx < rows.length - 1 ? "border-b border-white/10" : "",
                     ].join(" ")}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-300 ring-1 ring-emerald-500/20">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-500/20">
                         {row.name.split(" ").map(p => p[0]).slice(0, 2).join("")}
                       </div>
                       <span className="text-sm font-medium text-white">{row.name}</span>
                     </div>
 
-                    <div className="flex justify-center">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/8 text-xs font-semibold text-white/70">
+                    <div className="flex items-center justify-center">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/8 text-[11px] font-semibold text-white/70">
                         {row.daysWorked}
                       </span>
                     </div>
 
-                    <div className="text-right">
+                    <div className="flex items-center justify-end">
                       <span className="text-sm font-bold text-emerald-300">{formatCurrency(row.totalPay)}</span>
                       {row.isEstimated && (
                         <span className="ml-1 text-[10px] text-white/25" title="Estimated from hourly rate">est.</span>
                       )}
                     </div>
 
-                    <ChevronRight className="h-4 w-4 text-white/20 transition group-hover:text-white/50" />
+                    <div className="flex items-center justify-end">
+                      <ChevronRight className="h-4 w-4 text-white/20 transition group-hover:text-white/50" />
+                    </div>
                   </Link>
                 ))}
 
                 {/* Grand total */}
-                <div className="grid grid-cols-[1fr,72px,130px,20px] items-center gap-3 border-t border-white/10 bg-emerald-500/5 px-5 py-3.5">
+                <div className="grid grid-cols-[1fr_72px_130px_20px] items-center gap-3 border-t border-white/10 bg-emerald-500/5 px-5 py-2.5">
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">Grand Total</span>
                   <span />
-                  <span className="text-right text-base font-bold text-white">{formatCurrency(grandTotal)}</span>
+                  <div className="flex items-center justify-end">
+                    <span className="text-base font-bold text-white">{formatCurrency(grandTotal)}</span>
+                  </div>
                   <span />
                 </div>
               </>
