@@ -4,7 +4,10 @@ import { Prisma } from "@prisma/client"
 type ProjectPayItemRow = {
   id: number
   project_id: number
-  pay_item_id: number
+  pay_item_id: number | null
+  line_item_number: string | null
+  line_item_description: string | null
+  line_item_unit: string | null
   contracted_quantity: Prisma.Decimal
   unit_rate: Prisma.Decimal
   is_original: boolean | null
@@ -24,7 +27,7 @@ type ProjectPayItemRow = {
 export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
   const projectPayItems = new Map<number, ProjectPayItemRow>()
   const projects = new Map<number, { id: number }>() // For project validation
-  const payItems = new Map<number, { id: number }>() // For pay_item validation
+  const payItemIdStubs = new Map<number, { id: number }>() // Fallback when pay_item row has no catalog entry
 
   const randomId = () => Math.floor(Math.random() * 1000000) + 1
 
@@ -35,10 +38,20 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
     return { id }
   }
 
-  // Helper to add a pay_item for validation
-  ;(mockPrisma as any).addPayItem = (data: { id?: number }) => {
+  const previousAddPayItem = (mockPrisma as any).addPayItem as
+    | ((data: { id?: number; number: string; description: string; unit: string }) => unknown)
+    | undefined
+  ;(mockPrisma as any).addPayItem = (data: {
+    id?: number
+    number?: string
+    description?: string
+    unit?: string
+  }) => {
+    if (typeof data.number === "string" && previousAddPayItem) {
+      return previousAddPayItem(data as { id?: number; number: string; description: string; unit: string })
+    }
     const id = data.id ?? randomId()
-    payItems.set(id, { id })
+    payItemIdStubs.set(id, { id })
     return { id }
   }
 
@@ -155,19 +168,28 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
         throw new Error("project_id is required")
       }
 
-      let pay_item_id: number
-      if (data.pay_item_id !== undefined) {
-        pay_item_id = data.pay_item_id
-      } else if (data.pay_item?.connect?.id !== undefined) {
+      let pay_item_id: number | null
+      if (data.pay_item?.connect?.id !== undefined) {
         pay_item_id = data.pay_item.connect.id
+      } else if (typeof data.pay_item_id === "number") {
+        pay_item_id = data.pay_item_id
+      } else if (
+        data.line_item_number !== undefined &&
+        data.line_item_number !== null &&
+        String(data.line_item_number).trim() !== ""
+      ) {
+        pay_item_id = null
       } else {
-        throw new Error("pay_item_id is required")
+        throw new Error("pay_item_id or pay_item.connect is required")
       }
 
       const row: ProjectPayItemRow = {
         id,
         project_id,
         pay_item_id,
+        line_item_number: data.line_item_number ?? null,
+        line_item_description: data.line_item_description ?? null,
+        line_item_unit: data.line_item_unit ?? null,
         contracted_quantity,
         unit_rate,
         is_original: data.is_original ?? true,
@@ -238,10 +260,12 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
       }
 
       let pay_item_id = row.pay_item_id
-      if (data.pay_item_id !== undefined) {
-        pay_item_id = data.pay_item_id
-      } else if (data.pay_item?.connect?.id !== undefined) {
+      if (data.pay_item?.connect?.id !== undefined) {
         pay_item_id = data.pay_item.connect.id
+      } else if (data.pay_item?.disconnect === true) {
+        pay_item_id = null
+      } else if (data.pay_item_id !== undefined) {
+        pay_item_id = data.pay_item_id
       }
 
       const updated: ProjectPayItemRow = {
@@ -251,6 +275,9 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
         contracted_quantity,
         unit_rate,
         stockpile_billed,
+        ...(data.line_item_number !== undefined && { line_item_number: data.line_item_number }),
+        ...(data.line_item_description !== undefined && { line_item_description: data.line_item_description }),
+        ...(data.line_item_unit !== undefined && { line_item_unit: data.line_item_unit }),
         ...(data.is_original !== undefined && { is_original: data.is_original }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.begin_station !== undefined && { begin_station: data.begin_station }),
@@ -301,13 +328,19 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
     },
   } as any
 
-  // Mock pay_item.findUnique for validation (note: Prisma uses pay_item, not payItem)
+  // Preserve pay_item helpers (e.g. findFirst for catalog lookup) while wiring findUnique for FK checks
+  const previousPayItem = mockPrisma.pay_item ?? {}
   mockPrisma.pay_item = {
+    ...previousPayItem,
     findUnique: async ({ where, select }: any) => {
+      if (typeof previousPayItem.findUnique === "function") {
+        const found = await previousPayItem.findUnique({ where, select })
+        if (found) return found
+      }
       const id = where.id
-      const payItem = payItems.get(id)
+      const payItem = payItemIdStubs.get(id)
       if (!payItem) return null
-      return projectPayItem(payItem, select)
+      return projectPayItem(payItem as unknown as ProjectPayItemRow, select)
     },
   } as any
 
@@ -315,7 +348,10 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
   ;(mockPrisma as any).addProjectPayItem = (data: {
     id?: number
     project_id: number
-    pay_item_id: number
+    pay_item_id?: number | null
+    line_item_number?: string | null
+    line_item_description?: string | null
+    line_item_unit?: string | null
     contracted_quantity: number | string | Prisma.Decimal
     unit_rate: number | string | Prisma.Decimal
     is_original?: boolean | null
@@ -360,7 +396,10 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
     const row: ProjectPayItemRow = {
       id,
       project_id: data.project_id,
-      pay_item_id: data.pay_item_id,
+      pay_item_id: data.pay_item_id === undefined ? 1 : data.pay_item_id,
+      line_item_number: data.line_item_number ?? null,
+      line_item_description: data.line_item_description ?? null,
+      line_item_unit: data.line_item_unit ?? null,
       contracted_quantity,
       unit_rate,
       is_original: data.is_original ?? true,
@@ -385,6 +424,22 @@ export function extendMockPrismaWithProjectPayItem(mockPrisma: MockPrisma) {
   // Helper to get all project pay items
   ;(mockPrisma as any).getProjectPayItems = () => {
     return Array.from(projectPayItems.values())
+  }
+
+  const eventQuantityCountsByProjectPayItemId = new Map<number, number>()
+  ;(mockPrisma as any).setEventQuantityCountForProjectPayItem = (
+    projectPayItemId: number,
+    count: number,
+  ) => {
+    eventQuantityCountsByProjectPayItemId.set(projectPayItemId, count)
+  }
+
+  mockPrisma.event_quantity = {
+    count: async ({ where }: { where?: { project_pay_item_id?: number } } = {}) => {
+      const id = where?.project_pay_item_id
+      if (id === undefined) return 0
+      return eventQuantityCountsByProjectPayItemId.get(id) ?? 0
+    },
   }
 }
 

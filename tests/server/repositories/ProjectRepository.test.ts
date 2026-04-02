@@ -104,6 +104,43 @@ describe("ProjectRepository", () => {
       })
     })
 
+    describe("findFirstByNameCaseInsensitiveExcludingId", () => {
+      it("should return null when only the excluded project matches the name", async () => {
+        const p = (mockPrisma as any).addProject({
+          name: "Unique Save Test",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const result = await repository.findFirstByNameCaseInsensitiveExcludingId(
+          "unique save test",
+          p.id,
+        )
+        expect(result).toBeNull()
+      })
+
+      it("should return the other project when a different id matches the name", async () => {
+        const a = (mockPrisma as any).addProject({
+          name: "Project A",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        ;(mockPrisma as any).addProject({
+          name: "Project B",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const hit = await repository.findFirstByNameCaseInsensitiveExcludingId(
+          "project b",
+          a.id,
+        )
+        expect(hit).toBeTruthy()
+        expect(hit?.name).toBe("Project B")
+      })
+    })
+
     describe("findByIds", () => {
       it("should find multiple projects by IDs", async () => {
         const project1 = (mockPrisma as any).addProject({

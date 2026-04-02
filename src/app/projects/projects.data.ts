@@ -1,9 +1,10 @@
-import type { Project, ProjectType } from "@/lib/mock/projects";
+import type { Project, ProjectType } from "./projects.models";
 import type { BoardLaneDefinition } from "./projects.types";
 
 export const statusToneMap: Record<Project["status"], string> = {
-  ACTIVE: "border-emerald-500/30 bg-emerald-400/10 text-emerald-200",
-  COMPLETED: "border-white/20 bg-white/5 text-white/70",
+  "Not Started": "border-sky-500/30 bg-sky-400/10 text-sky-100",
+  "In Progress": "border-emerald-500/30 bg-emerald-400/10 text-emerald-200",
+  Completed: "border-white/20 bg-white/5 text-white/70",
 };
 
 export const projectTypeToneMap: Record<ProjectType, string> = {
@@ -13,9 +14,14 @@ export const projectTypeToneMap: Record<ProjectType, string> = {
   OTHER: "border-purple-400/20 bg-purple-500/10 text-purple-100",
 };
 
+/** Used for filters / future subtype views (not required for board lane membership). */
 export const mobilizingTypes: ProjectType[] = ["HANDRAIL", "FENCE"];
 export const installTypes: ProjectType[] = ["GUARDRAIL", "OTHER"];
 
+/**
+ * Board lanes partition projects by workflow status only so every project appears
+ * in exactly one lane (new defaults: Not Started + OTHER were previously invisible).
+ */
 export const boardLaneDefinitions: BoardLaneDefinition[] = [
   {
     id: "mobilizing",
@@ -23,7 +29,7 @@ export const boardLaneDefinitions: BoardLaneDefinition[] = [
     description: "Permits, pre-con, and supplier alignment",
     helper: "Kickoff tasks synced nightly",
     accent: "from-cyan-400/20 via-transparent to-transparent",
-    filter: project => project.status === "ACTIVE" && mobilizingTypes.includes(project.projectType),
+    filter: project => project.status === "Not Started",
   },
   {
     id: "field",
@@ -31,7 +37,7 @@ export const boardLaneDefinitions: BoardLaneDefinition[] = [
     description: "Crews onsite + inspections scheduled",
     helper: "Look ahead at crew load",
     accent: "from-emerald-400/20 via-transparent to-transparent",
-    filter: project => project.status === "ACTIVE" && installTypes.includes(project.projectType),
+    filter: project => project.status === "In Progress",
   },
   {
     id: "closeout",
@@ -39,7 +45,7 @@ export const boardLaneDefinitions: BoardLaneDefinition[] = [
     description: "Punchlists, docs, and finance routing",
     helper: "Docs ready for FDOT upload",
     accent: "from-purple-400/20 via-transparent to-transparent",
-    filter: project => project.status === "COMPLETED",
+    filter: project => project.status === "Completed",
   },
 ];
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Company } from "@/lib/mock/projects";
+import type { Company } from "./projects.models";
 
 type Props = {
   companies: Company[];

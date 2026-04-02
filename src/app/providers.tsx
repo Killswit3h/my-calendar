@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CssBaseline from "@mui/material/CssBaseline";
 import { CssVarsProvider } from "@mui/material/styles";
 import { createAppTheme, type Accent } from "../theme";
@@ -17,6 +18,7 @@ export function useAccentColor() {
 }
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
   const [accent, setAccent] = useState<Accent>("forest");
 
   useEffect(() => {
@@ -33,11 +35,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const theme = useMemo(() => createAppTheme(accent), [accent]);
 
   return (
-    <AccentColorContext.Provider value={{ accent, setAccent }}>
-      <CssVarsProvider defaultMode="dark" theme={theme} disableTransitionOnChange>
-        <CssBaseline enableColorScheme />
-        {children}
-      </CssVarsProvider>
-    </AccentColorContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <AccentColorContext.Provider value={{ accent, setAccent }}>
+        <CssVarsProvider defaultMode="dark" theme={theme} disableTransitionOnChange>
+          <CssBaseline enableColorScheme />
+          {children}
+        </CssVarsProvider>
+      </AccentColorContext.Provider>
+    </QueryClientProvider>
   );
 }

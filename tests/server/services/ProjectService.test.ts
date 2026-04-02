@@ -466,5 +466,51 @@ describe("ProjectService", () => {
         expect(result.status).toBe("In Progress")
       })
     })
+
+    describe("pay application workspace fields", () => {
+      it("should reject procedure_checklist with invalid key", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P1",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        await expect(
+          service.update(project.id, {
+            procedure_checklist: { not_a_key: "NOT_STARTED" },
+          } as any)
+        ).rejects.toThrow(ValidationError)
+      })
+
+      it("should reject procedure_checklist with invalid status value", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P2",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        await expect(
+          service.update(project.id, {
+            procedure_checklist: { contract: "DONE" },
+          } as any)
+        ).rejects.toThrow(ValidationError)
+      })
+
+      it("should persist cleaned procedure_checklist on update", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P3",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const result = await service.update(project.id, {
+          procedure_checklist: { contract: "COMPLETE", coi: "IN_PROGRESS" },
+        } as any)
+        expect(result.procedure_checklist).toEqual({
+          contract: "COMPLETE",
+          coi: "IN_PROGRESS",
+        })
+      })
+    })
   })
 })

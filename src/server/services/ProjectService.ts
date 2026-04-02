@@ -20,6 +20,35 @@ export const PROJECT_STATUS_VALUES = [
 ] as const
 
 export type ProjectStatus = (typeof PROJECT_STATUS_VALUES)[number]
+export const PROJECT_TYPE_VALUES = [
+  "HANDRAIL",
+  "GUARDRAIL",
+  "FENCE",
+  "OTHER",
+] as const
+export type ProjectType = (typeof PROJECT_TYPE_VALUES)[number]
+
+/** Keys aligned with UI `CHECKLIST_ITEMS` in payApplicationConstants */
+export const PROCEDURE_CHECKLIST_KEYS = [
+  "contract",
+  "coi",
+  "bond",
+  "material",
+  "eeo",
+  "payroll",
+] as const
+
+export const PROCEDURE_CHECKLIST_STATUSES = [
+  "NOT_STARTED",
+  "IN_PROGRESS",
+  "COMPLETE",
+] as const
+
+export type ProcedureChecklistKey = (typeof PROCEDURE_CHECKLIST_KEYS)[number]
+export type ProcedureChecklistStatus =
+  (typeof PROCEDURE_CHECKLIST_STATUSES)[number]
+
+const PAY_APPLICATION_NOTES_MAX_LEN = 32000
 
 /**
  * Project Service
@@ -63,6 +92,36 @@ export class ProjectService extends AbstractService<
     } else if (!isUpdate) {
       // Name is required for create
       throw new ValidationError("name is required")
+    }
+
+    // Optional metadata fields validation
+    const dataAny = data as Record<string, unknown>
+    const optionalVarcharFields = ["code", "owner", "district"] as const
+    for (const field of optionalVarcharFields) {
+      if (dataAny[field] !== undefined && dataAny[field] !== null) {
+        if (typeof dataAny[field] !== "string") {
+          throw new ValidationError(`${field} must be a string`)
+        }
+        const trimmed = (dataAny[field] as string).trim()
+        if (!trimmed) {
+          throw new ValidationError(`${field} cannot be blank`)
+        }
+        if (trimmed.length > 255) {
+          throw new ValidationError(`${field} must be 255 characters or less`)
+        }
+      }
+    }
+
+    if (dataAny.project_type !== undefined && dataAny.project_type !== null) {
+      if (typeof dataAny.project_type !== "string") {
+        throw new ValidationError("project_type must be a string")
+      }
+      const trimmed = dataAny.project_type.trim().toUpperCase()
+      if (!PROJECT_TYPE_VALUES.includes(trimmed as ProjectType)) {
+        throw new ValidationError(
+          `project_type must be one of: ${PROJECT_TYPE_VALUES.join(", ")}`
+        )
+      }
     }
 
     // Location validation
@@ -138,7 +197,6 @@ export class ProjectService extends AbstractService<
 
     // Customer ID validation (optional but must reference valid customer if provided)
     // Handle both direct customer_id (from API) and Prisma relation format
-    const dataAny = data as any
     let customerId: number | undefined | null = undefined
 
     if (dataAny.customer_id !== undefined && dataAny.customer_id !== null) {
@@ -198,6 +256,46 @@ export class ProjectService extends AbstractService<
       if (!PROJECT_STATUS_VALUES.includes(trimmed as ProjectStatus)) {
         throw new ValidationError(
           `status must be one of: ${PROJECT_STATUS_VALUES.join(", ")}`
+        )
+      }
+    }
+
+    if (dataAny.procedure_checklist !== undefined) {
+      if (dataAny.procedure_checklist === null) {
+        if (!isUpdate) {
+          throw new ValidationError("procedure_checklist cannot be null on create")
+        }
+      } else if (
+        typeof dataAny.procedure_checklist !== "object" ||
+        Array.isArray(dataAny.procedure_checklist)
+      ) {
+        throw new ValidationError("procedure_checklist must be a JSON object")
+      } else {
+        const obj = dataAny.procedure_checklist as Record<string, unknown>
+        for (const key of Object.keys(obj)) {
+          if (!PROCEDURE_CHECKLIST_KEYS.includes(key as ProcedureChecklistKey)) {
+            throw new ValidationError(`procedure_checklist has invalid key: ${key}`)
+          }
+          const v = obj[key]
+          if (
+            typeof v !== "string" ||
+            !PROCEDURE_CHECKLIST_STATUSES.includes(v as ProcedureChecklistStatus)
+          ) {
+            throw new ValidationError(
+              `procedure_checklist.${key} must be one of: ${PROCEDURE_CHECKLIST_STATUSES.join(", ")}`
+            )
+          }
+        }
+      }
+    }
+
+    if (dataAny.pay_application_notes !== undefined && dataAny.pay_application_notes !== null) {
+      if (typeof dataAny.pay_application_notes !== "string") {
+        throw new ValidationError("pay_application_notes must be a string")
+      }
+      if (dataAny.pay_application_notes.length > PAY_APPLICATION_NOTES_MAX_LEN) {
+        throw new ValidationError(
+          `pay_application_notes must be ${PAY_APPLICATION_NOTES_MAX_LEN} characters or less`
         )
       }
     }
@@ -261,6 +359,41 @@ export class ProjectService extends AbstractService<
       processed.vendor = data.vendor.trim()
     }
 
+    // Trim optional metadata fields
+    if ((data as any).code && typeof (data as any).code === "string") {
+      ;(processed as any).code = (data as any).code.trim()
+    }
+    if ((data as any).owner && typeof (data as any).owner === "string") {
+      ;(processed as any).owner = (data as any).owner.trim()
+    }
+    if ((data as any).district && typeof (data as any).district === "string") {
+      ;(processed as any).district = (data as any).district.trim()
+    }
+    if ((data as any).project_type && typeof (data as any).project_type === "string") {
+      ;(processed as any).project_type = (data as any).project_type.trim().toUpperCase()
+    }
+
+    if ((data as any).pay_application_notes !== undefined && (data as any).pay_application_notes !== null) {
+      if (typeof (data as any).pay_application_notes === "string") {
+        ;(processed as any).pay_application_notes =
+          (data as any).pay_application_notes.trim() || null
+      }
+    }
+
+    if ((data as any).procedure_checklist !== undefined && (data as any).procedure_checklist !== null) {
+      const raw = (data as any).procedure_checklist as Record<string, unknown>
+      const cleaned: Record<string, string> = {}
+      for (const k of PROCEDURE_CHECKLIST_KEYS) {
+        if (raw[k] !== undefined && raw[k] !== null) {
+          const s = String(raw[k])
+          if (PROCEDURE_CHECKLIST_STATUSES.includes(s as ProcedureChecklistStatus)) {
+            cleaned[k] = s
+          }
+        }
+      }
+      ;(processed as any).procedure_checklist = cleaned
+    }
+
     // Normalize customer_id to Prisma relation format
     const normalizedCustomer = this.normalizeCustomerRelation(data, false)
     if (normalizedCustomer) {
@@ -318,8 +451,12 @@ export class ProjectService extends AbstractService<
       const trimmed =
         typeof data.name === "string" ? data.name.trim() : data.name
 
-      const existing = await this.repository.findByName(trimmed as string)
-      if (existing && existing.id !== id) {
+      const conflicting =
+        await this.repository.findFirstByNameCaseInsensitiveExcludingId(
+          trimmed as string,
+          id,
+        )
+      if (conflicting) {
         throw new ConflictError("A project with this name already exists")
       }
 
@@ -341,6 +478,65 @@ export class ProjectService extends AbstractService<
       typeof data.vendor === "string"
     ) {
       processed.vendor = data.vendor.trim()
+    }
+
+    if (
+      (data as any).code !== undefined &&
+      (data as any).code !== null &&
+      typeof (data as any).code === "string"
+    ) {
+      ;(processed as any).code = (data as any).code.trim()
+    }
+    if (
+      (data as any).owner !== undefined &&
+      (data as any).owner !== null &&
+      typeof (data as any).owner === "string"
+    ) {
+      ;(processed as any).owner = (data as any).owner.trim()
+    }
+    if (
+      (data as any).district !== undefined &&
+      (data as any).district !== null &&
+      typeof (data as any).district === "string"
+    ) {
+      ;(processed as any).district = (data as any).district.trim()
+    }
+    if (
+      (data as any).project_type !== undefined &&
+      (data as any).project_type !== null &&
+      typeof (data as any).project_type === "string"
+    ) {
+      ;(processed as any).project_type = (data as any).project_type.trim().toUpperCase()
+    }
+
+    if ((data as any).pay_application_notes !== undefined) {
+      if ((data as any).pay_application_notes === null) {
+        ;(processed as any).pay_application_notes = null
+      } else if (typeof (data as any).pay_application_notes === "string") {
+        ;(processed as any).pay_application_notes =
+          (data as any).pay_application_notes.trim() || null
+      }
+    }
+
+    if ((data as any).procedure_checklist !== undefined) {
+      if ((data as any).procedure_checklist === null) {
+        ;(processed as any).procedure_checklist = Prisma.DbNull
+      } else if (
+        typeof (data as any).procedure_checklist === "object" &&
+        !Array.isArray((data as any).procedure_checklist)
+      ) {
+        const raw = (data as any).procedure_checklist as Record<string, unknown>
+        const cleaned: Record<string, string> = {}
+        for (const k of PROCEDURE_CHECKLIST_KEYS) {
+          if (raw[k] !== undefined && raw[k] !== null) {
+            const s = String(raw[k])
+            if (PROCEDURE_CHECKLIST_STATUSES.includes(s as ProcedureChecklistStatus)) {
+              cleaned[k] = s
+            }
+          }
+        }
+        ;(processed as any).procedure_checklist = cleaned
+      }
     }
 
     // Normalize customer_id to Prisma relation format

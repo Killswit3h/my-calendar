@@ -7,7 +7,7 @@ type PageHeaderTone = "glass" | "surface";
 
 type Props = {
   title: ReactNode;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
   auxiliary?: ReactNode;
   className?: string;

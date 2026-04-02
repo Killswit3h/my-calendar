@@ -6,7 +6,7 @@ import { extendMockPrismaWithProject } from "../../utils/mockPrismaProject"
 import { extendMockPrismaWithPayItem } from "../../utils/mockPrismaPayItem"
 import { setMockPrisma } from "../../utils/mockPrisma"
 import { createAbstractServiceTests } from "./AbstractService.test"
-import { ValidationError } from "@/server/base/types"
+import { BusinessLogicError, ValidationError } from "@/server/base/types"
 import type { Prisma as PrismaTypes } from "@prisma/client"
 import { Prisma } from "@prisma/client"
 
@@ -105,7 +105,7 @@ describe("ProjectPayItemService", () => {
       })
 
       describe("pay_item_id validation", () => {
-        it("should require pay_item_id on create", async () => {
+        it("should require pay_item_id or pay_item_number on create", async () => {
           ;(mockPrisma as any).addProject({ id: 1 })
           await expect(
             service.create({
@@ -114,6 +114,39 @@ describe("ProjectPayItemService", () => {
               unit_rate: 50.0,
             } as any)
           ).rejects.toThrow(ValidationError)
+        })
+
+        it("should create with pay_item_number when catalog match exists", async () => {
+          ;(mockPrisma as any).addProject({ id: 1 })
+          ;(mockPrisma as any).addPayItem({
+            id: 1,
+            number: "536-8-114",
+            description: "Test item",
+            unit: "LF",
+          })
+          const result = await service.create({
+            project_id: 1,
+            pay_item_number: "536-8-114",
+            contracted_quantity: 100.0,
+            unit_rate: 50.0,
+          } as any)
+          expect(result.pay_item_id).toBe(1)
+        })
+
+        it("should create free-text line when pay_item_number has no catalog match", async () => {
+          ;(mockPrisma as any).addProject({ id: 1 })
+          const result = await service.create({
+            project_id: 1,
+            pay_item_number: "unknown-item-xyz",
+            pay_item_description: "Custom scope text",
+            pay_item_unit: "LF",
+            contracted_quantity: 100.0,
+            unit_rate: 50.0,
+          } as any)
+          expect(result.pay_item_id).toBeNull()
+          expect(result.line_item_number).toBe("unknown-item-xyz")
+          expect(result.line_item_description).toBe("Custom scope text")
+          expect(result.line_item_unit).toBe("LF")
         })
 
         it("should validate pay_item exists", async () => {
@@ -223,6 +256,22 @@ describe("ProjectPayItemService", () => {
           unit_rate: 50.0,
         } as any)
         expect(result.stockpile_billed).toEqual(new Prisma.Decimal(0))
+      })
+    })
+
+    describe("delete guards", () => {
+      it("should block delete when event quantities reference the line", async () => {
+        ;(mockPrisma as any).addProject({ id: 1 })
+        ;(mockPrisma as any).addPayItem({ id: 1 })
+        const row = (mockPrisma as any).addProjectPayItem({
+          id: 77,
+          project_id: 1,
+          pay_item_id: 1,
+          contracted_quantity: 10,
+          unit_rate: 1,
+        })
+        ;(mockPrisma as any).setEventQuantityCountForProjectPayItem(row.id, 2)
+        await expect(service.delete(row.id)).rejects.toThrow(BusinessLogicError)
       })
     })
   })

@@ -3,7 +3,8 @@ import { AbstractService } from "../base/AbstractService"
 import { ProjectPayItemRepository } from "../repositories/ProjectPayItemRepository"
 import { ProjectRepository } from "../repositories/ProjectRepository"
 import { PayItemRepository } from "../repositories/PayItemRepository"
-import { ValidationError } from "../base/types"
+import { BusinessLogicError, ValidationError } from "../base/types"
+import { getPrisma } from "@/lib/db"
 import type { PaginationOptions } from "../base/types"
 
 /**
@@ -26,6 +27,26 @@ export class ProjectPayItemService extends AbstractService<
     this.repository = new ProjectPayItemRepository()
     this.projectRepository = new ProjectRepository()
     this.payItemRepository = new PayItemRepository()
+  }
+
+  private parseOptionalDate(value: unknown, fieldName: string): Date | undefined {
+    if (value === undefined || value === null) return undefined
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        throw new ValidationError(`${fieldName} must be a valid date`)
+      }
+      return value
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim()
+      if (!trimmed) return undefined
+      const parsed = new Date(trimmed)
+      if (Number.isNaN(parsed.getTime())) {
+        throw new ValidationError(`${fieldName} must be a valid date`)
+      }
+      return parsed
+    }
+    throw new ValidationError(`${fieldName} must be a date or ISO string`)
   }
 
   /**
@@ -66,8 +87,12 @@ export class ProjectPayItemService extends AbstractService<
       throw new ValidationError("project_id is required")
     }
 
-    // Pay Item ID validation (required, must reference valid pay_item if provided)
+    // Pay Item ID validation (required on create unless pay_item_number is provided)
     const payItemId = this.getPayItemIdFromData(data)
+    const raw = data as Record<string, unknown>
+    const payItemNumberRaw = raw.pay_item_number
+    const payItemNumber =
+      typeof payItemNumberRaw === "string" ? payItemNumberRaw.trim() : ""
 
     if (payItemId !== undefined && payItemId !== null) {
       if (
@@ -78,7 +103,16 @@ export class ProjectPayItemService extends AbstractService<
         throw new ValidationError("pay_item_id must be a positive integer")
       }
     } else if (!isUpdate) {
-      throw new ValidationError("pay_item_id is required")
+      if (!payItemNumber) {
+        throw new ValidationError("pay_item_id or pay_item_number is required")
+      }
+      if (payItemNumber.length > 255) {
+        throw new ValidationError("pay_item_number must be 255 characters or less")
+      }
+    } else if (payItemNumberRaw !== undefined && payItemNumberRaw !== null) {
+      if (typeof payItemNumberRaw !== "string" || !payItemNumberRaw.trim()) {
+        throw new ValidationError("pay_item_number must be a non-empty string when provided")
+      }
     }
 
     // Contracted quantity validation
@@ -182,6 +216,15 @@ export class ProjectPayItemService extends AbstractService<
       }
     }
 
+    if ((data as any).surveyed !== undefined && (data as any).surveyed !== null) {
+      if (typeof (data as any).surveyed !== "boolean") {
+        throw new ValidationError("surveyed must be a boolean")
+      }
+    }
+
+    this.parseOptionalDate((data as any).ready_to_work_date, "ready_to_work_date")
+    this.parseOptionalDate((data as any).status_date, "status_date")
+
     // Optional string fields validation (VarChar fields - max 255)
     const varcharFields = [
       "begin_station",
@@ -209,6 +252,32 @@ export class ProjectPayItemService extends AbstractService<
     if (data.notes !== undefined && data.notes !== null) {
       if (typeof data.notes !== "string") {
         throw new ValidationError("notes must be a string")
+      }
+    }
+
+    const rawLine = data as Record<string, unknown>
+    if (rawLine.line_item_number !== undefined && rawLine.line_item_number !== null) {
+      if (typeof rawLine.line_item_number !== "string") {
+        throw new ValidationError("line_item_number must be a string")
+      }
+      if (rawLine.line_item_number.trim().length > 255) {
+        throw new ValidationError("line_item_number must be 255 characters or less")
+      }
+    }
+    if (rawLine.line_item_unit !== undefined && rawLine.line_item_unit !== null) {
+      if (typeof rawLine.line_item_unit !== "string") {
+        throw new ValidationError("line_item_unit must be a string")
+      }
+      if (rawLine.line_item_unit.trim().length > 255) {
+        throw new ValidationError("line_item_unit must be 255 characters or less")
+      }
+    }
+    if (rawLine.line_item_description !== undefined && rawLine.line_item_description !== null) {
+      if (typeof rawLine.line_item_description !== "string") {
+        throw new ValidationError("line_item_description must be a string")
+      }
+      if (rawLine.line_item_description.length > 20000) {
+        throw new ValidationError("line_item_description must be 20000 characters or less")
       }
     }
   }
@@ -304,7 +373,7 @@ export class ProjectPayItemService extends AbstractService<
       }
     }
 
-    if (payItemId !== undefined) {
+    if (payItemId !== undefined && payItemId !== null) {
       const payItem = await this.payItemRepository.findUnique(
         { id: payItemId },
         { select: { id: true } }
@@ -392,6 +461,8 @@ export class ProjectPayItemService extends AbstractService<
       "locate_ticket",
       "LF_RT",
       "onsite_review",
+      "line_item_number",
+      "line_item_unit",
     ] as const
     for (const field of varcharFields) {
       if (isUpdate) {
@@ -403,6 +474,38 @@ export class ProjectPayItemService extends AbstractService<
           proc[field] = (processed[field] as string).trim() || null
         }
       }
+    }
+    if (isUpdate) {
+      if (
+        processed.line_item_description !== undefined &&
+        processed.line_item_description !== null &&
+        typeof processed.line_item_description === "string"
+      ) {
+        proc.line_item_description = processed.line_item_description.trim() || null
+      }
+    } else {
+      if (processed.line_item_description && typeof processed.line_item_description === "string") {
+        proc.line_item_description = processed.line_item_description.trim() || null
+      }
+    }
+  }
+
+  private normalizeDateFields<T extends Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput>(
+    processed: T
+  ): void {
+    const proc = processed as Record<string, unknown>
+    const ready = this.parseOptionalDate((processed as any).ready_to_work_date, "ready_to_work_date")
+    if (ready !== undefined) {
+      proc.ready_to_work_date = ready
+    } else if ((processed as any).ready_to_work_date === null) {
+      proc.ready_to_work_date = null
+    }
+
+    const statusDate = this.parseOptionalDate((processed as any).status_date, "status_date")
+    if (statusDate !== undefined) {
+      proc.status_date = statusDate
+    } else if ((processed as any).status_date === null) {
+      proc.status_date = null
     }
   }
 
@@ -485,25 +588,90 @@ export class ProjectPayItemService extends AbstractService<
   }
 
   /**
+   * Hook called before delete — block when event quantities reference this line
+   */
+  protected async beforeDelete(id: number): Promise<void> {
+    const prisma = await getPrisma()
+    const count = await prisma.event_quantity.count({
+      where: { project_pay_item_id: id },
+    })
+    if (count > 0) {
+      throw new BusinessLogicError(
+        "Cannot delete this pay line while calendar quantities reference it. Remove quantities on the calendar first.",
+      )
+    }
+  }
+
+  /**
    * Hook called before create - validate FKs and set defaults
    */
   protected async beforeCreate(
     data: Prisma.project_pay_itemCreateInput
   ): Promise<Prisma.project_pay_itemCreateInput> {
     const processed: Prisma.project_pay_itemCreateInput = { ...data }
+    const procAny = processed as Record<string, unknown>
+
+    if (
+      typeof procAny.pay_item_number === "string" &&
+      (procAny.pay_item_number as string).trim() &&
+      this.getPayItemIdFromData(processed) === undefined
+    ) {
+      const num = (procAny.pay_item_number as string).trim()
+      const found = await this.payItemRepository.findByNumber(num)
+      if (found) {
+        processed.pay_item = { connect: { id: found.id } }
+        procAny.line_item_number = null
+        const descCreate =
+          typeof procAny.pay_item_description === "string"
+            ? (procAny.pay_item_description as string).trim()
+            : ""
+        const unitCreate =
+          typeof procAny.pay_item_unit === "string"
+            ? (procAny.pay_item_unit as string).trim()
+            : ""
+        procAny.line_item_description = descCreate || null
+        procAny.line_item_unit = unitCreate || "ea"
+      } else {
+        const desc =
+          typeof procAny.pay_item_description === "string"
+            ? (procAny.pay_item_description as string).trim()
+            : ""
+        const unitRaw =
+          typeof procAny.pay_item_unit === "string"
+            ? (procAny.pay_item_unit as string).trim()
+            : ""
+        delete procAny.pay_item
+        delete procAny.pay_item_id
+        procAny.line_item_number = num
+        procAny.line_item_description = desc || null
+        procAny.line_item_unit = unitRaw || "ea"
+      }
+    }
+
+    delete procAny.pay_item_number
+    delete procAny.pay_item_description
+    delete procAny.pay_item_unit
 
     // Extract and validate foreign keys
-    const { projectId, payItemId } = this.extractForeignKeyIds(data)
+    const { projectId, payItemId } = this.extractForeignKeyIds(processed)
     await this.validateForeignKeys(projectId, payItemId)
 
     // Normalize relations and strip raw *_id fields
     this.normalizeRelationsAndStripIds(data, processed)
+
+    // Prisma create input does not accept scalar pay_item_id — only pay_item connect; omit both when unlinked
+    const procClean = processed as Record<string, unknown>
+    if (procClean.pay_item === undefined || procClean.pay_item === null) {
+      delete procClean.pay_item_id
+    }
 
     // Set defaults for optional fields
     this.setCreateDefaults(processed)
 
     // Trim string fields
     this.trimStringFields(processed, false)
+
+    this.normalizeDateFields(processed)
 
     // Normalize Decimal fields
     this.normalizeDecimalFields(processed, false)
@@ -519,16 +687,82 @@ export class ProjectPayItemService extends AbstractService<
     data: Prisma.project_pay_itemUpdateInput
   ): Promise<Prisma.project_pay_itemUpdateInput> {
     const processed: Prisma.project_pay_itemUpdateInput = { ...data }
+    const procAny = processed as Record<string, unknown>
+
+    let payItemRel: Prisma.project_pay_itemUpdateInput["pay_item"] | undefined
+
+    if (typeof procAny.pay_item_number === "string") {
+      const num = (procAny.pay_item_number as string).trim()
+      delete procAny.pay_item_number
+      if (num) {
+        const found = await this.payItemRepository.findByNumber(num)
+        if (found) {
+          payItemRel = { connect: { id: found.id } }
+          procAny.line_item_number = null
+          const descCat =
+            typeof procAny.pay_item_description === "string"
+              ? (procAny.pay_item_description as string).trim()
+              : ""
+          const unitCat =
+            typeof procAny.pay_item_unit === "string"
+              ? (procAny.pay_item_unit as string).trim()
+              : ""
+          procAny.line_item_description = descCat || null
+          procAny.line_item_unit = unitCat || "ea"
+          delete procAny.pay_item_description
+          delete procAny.pay_item_unit
+        } else {
+          payItemRel = { disconnect: true }
+          procAny.line_item_number = num
+          const desc =
+            typeof procAny.pay_item_description === "string"
+              ? (procAny.pay_item_description as string).trim()
+              : ""
+          const unitRaw =
+            typeof procAny.pay_item_unit === "string"
+              ? (procAny.pay_item_unit as string).trim()
+              : ""
+          procAny.line_item_description = desc || null
+          procAny.line_item_unit = unitRaw || "ea"
+          delete procAny.pay_item_description
+          delete procAny.pay_item_unit
+        }
+      }
+    }
+
+    if (typeof procAny.pay_item_description === "string" && payItemRel === undefined) {
+      procAny.line_item_description = (procAny.pay_item_description as string).trim() || null
+      delete procAny.pay_item_description
+    } else if (procAny.pay_item_description !== undefined && payItemRel === undefined) {
+      delete procAny.pay_item_description
+    }
+
+    if (typeof procAny.pay_item_unit === "string" && payItemRel === undefined) {
+      procAny.line_item_unit = (procAny.pay_item_unit as string).trim() || "ea"
+      delete procAny.pay_item_unit
+    } else if (procAny.pay_item_unit !== undefined && payItemRel === undefined) {
+      delete procAny.pay_item_unit
+    }
+
+    if (payItemRel !== undefined) {
+      procAny.pay_item = payItemRel
+    }
 
     // Extract and validate foreign keys if they're being changed
-    const { projectId, payItemId } = this.extractForeignKeyIds(data)
+    const { projectId, payItemId } = this.extractForeignKeyIds(processed)
     await this.validateForeignKeys(projectId, payItemId)
 
     // Normalize relations and strip raw *_id fields
     this.normalizeRelationsAndStripIds(data, processed)
 
+    if (payItemRel !== undefined) {
+      procAny.pay_item = payItemRel
+    }
+
     // Trim string fields if provided
     this.trimStringFields(processed, true)
+
+    this.normalizeDateFields(processed)
 
     // Normalize Decimal fields if provided
     this.normalizeDecimalFields(processed, true)

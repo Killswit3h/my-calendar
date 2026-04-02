@@ -72,15 +72,21 @@ model customer {
 model project {
   id          Int       @id @default(autoincrement())
   customer_id Int?      @map("customer_id")
+  code        String?   @db.VarChar
   name        String    @unique @db.VarChar
+  owner       String?   @db.VarChar
+  district    String?   @db.VarChar
+  project_type String?  @map("project_type") @db.VarChar
   location    String    @db.VarChar
   retainage   Decimal   @db.Decimal(10, 2)
   is_payroll  Boolean   @default(false) @map("is_payroll")
   is_EEO      Boolean   @default(false) @map("is_EEO")
   vendor      String    @db.VarChar
-  status      String    @default("ACTIVE") @db.VarChar
+  status      String    @default("Not Started") @db.VarChar
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
+  procedure_checklist   Json?    @map("procedure_checklist")
+  pay_application_notes String?  @map("pay_application_notes") @db.Text
 
   customer          customer?            @relation(fields: [customer_id], references: [id])
   project_pay_items project_pay_item[]
@@ -90,23 +96,29 @@ model project {
 }
 
 model project_pay_item {
-  id                  Int       @id @default(autoincrement())
-  project_id          Int       @map("project_id")
-  pay_item_id         Int       @map("pay_item_id")
-  contracted_quantity Decimal   @db.Decimal(10, 2) @map("contracted_quantity")
-  unit_rate           Decimal   @db.Decimal(10, 2) @map("unit_rate")
-  is_original         Boolean   @default(true) @map("is_original")
-  stockpile_billed    Decimal   @default(0) @db.Decimal(10, 2) @map("stockpile_billed")
-  notes               String?   @db.Text
-  begin_station       String?   @db.VarChar @map("begin_station")
-  end_station         String?   @db.VarChar @map("end_station")
-  status              String?   @db.VarChar
-  locate_ticket       String?   @db.VarChar @map("locate_ticket")
-  LF_RT               String?   @db.VarChar @map("LF_RT")
-  onsite_review       String?   @db.VarChar @map("onsite_review")
+  id                    Int       @id @default(autoincrement())
+  project_id            Int       @map("project_id")
+  pay_item_id           Int?      @map("pay_item_id")
+  line_item_number      String?   @map("line_item_number") @db.VarChar(255)
+  line_item_description String?   @map("line_item_description") @db.Text
+  line_item_unit        String?   @map("line_item_unit") @db.VarChar(255)
+  contracted_quantity   Decimal   @db.Decimal(10, 2) @map("contracted_quantity")
+  unit_rate             Decimal   @db.Decimal(10, 2) @map("unit_rate")
+  is_original           Boolean   @default(true) @map("is_original")
+  stockpile_billed      Decimal   @default(0) @db.Decimal(10, 2) @map("stockpile_billed")
+  notes                 String?   @db.Text
+  begin_station         String?   @db.VarChar @map("begin_station")
+  end_station           String?   @db.VarChar @map("end_station")
+  status                String?   @db.VarChar
+  locate_ticket         String?   @db.VarChar @map("locate_ticket")
+  LF_RT                 String?   @db.VarChar @map("LF_RT")
+  onsite_review         String?   @db.VarChar @map("onsite_review")
+  ready_to_work_date    DateTime? @map("ready_to_work_date")
+  status_date           DateTime? @map("status_date")
+  surveyed              Boolean?  @map("surveyed")
 
-  project        project         @relation(fields: [project_id], references: [id])
-  pay_item       pay_item        @relation(fields: [pay_item_id], references: [id])
+  project          project          @relation(fields: [project_id], references: [id])
+  pay_item         pay_item?        @relation(fields: [pay_item_id], references: [id])
   event_quantities event_quantity[]
 
   @@map("project_pay_item")
