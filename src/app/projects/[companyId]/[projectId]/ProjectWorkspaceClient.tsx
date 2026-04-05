@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ProjectHeader, type ProjectFormState } from "@/components/project/ProjectHeader";
+import { ProjectHeader } from "@/components/project/ProjectHeader";
+import type { ProjectFormState } from "@/app/projects/projects.models";
 import PayApplicationWorkspace, { type PayApplicationView } from "@/components/project/PayApplicationWorkspace";
 import { CHECKLIST_ITEMS } from "@/components/project/payApplicationConstants";
 import type { ChecklistStatus } from "@/components/project/payApplicationTypes";
@@ -11,6 +12,10 @@ import {
   patchProjectPayItemApi,
   postProjectPayItemApi,
 } from "../../projects.api";
+import {
+  buildProjectPatchBodyForSave,
+  buildProjectPostBodyForSave,
+} from "../../projectWorkspaceSavePayload";
 import type {
   Company,
   ProcedureChecklistKey,
@@ -142,27 +147,6 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
     [initialPayLines],
   );
 
-  const buildProjectPatchBody = useCallback(
-    (payload: ProjectFormState) => {
-      const body: Record<string, unknown> = {
-        name: payload.projectName.trim(),
-        status: payload.status.trim(),
-        procedure_checklist: Object.fromEntries(
-          CHECKLIST_ITEMS.map(({ key }) => [key, checklist[key] ?? "NOT_STARTED"]),
-        ),
-        pay_application_notes: notes.trim() ? notes.trim() : null,
-      };
-      const code = payload.code.trim();
-      if (code) body.code = code;
-      const owner = payload.owner.trim();
-      if (owner) body.owner = owner;
-      const district = payload.district.trim();
-      if (district) body.district = district;
-      return body;
-    },
-    [checklist, notes],
-  );
-
   const handleSaveProject = async (payload: ProjectFormState) => {
     setIsSaving(true);
     try {
@@ -171,25 +155,12 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
       const requestUrl = isCreateMode ? "/api/projects" : `/api/projects/${project.id}`;
       const requestMethod = isCreateMode ? "POST" : "PATCH";
       const customerId = Number(company.id);
-      const checklistPayload = Object.fromEntries(
-        CHECKLIST_ITEMS.map(({ key }) => [key, checklist[key] ?? "NOT_STARTED"]),
-      )
       const requestBody = isCreateMode
-        ? {
-            customer_id: Number.isInteger(customerId) ? customerId : undefined,
-            name: payload.projectName.trim(),
-            code: payload.code.trim() || undefined,
-            owner: payload.owner.trim() || undefined,
-            district: payload.district.trim() || undefined,
-            project_type: project.projectType,
-            status: payload.status,
-            location: "TBD",
-            vendor: payload.owner.trim() || "TBD",
-            retainage: 0,
-            procedure_checklist: checklistPayload,
-            pay_application_notes: notes.trim() ? notes.trim() : undefined,
-          }
-        : buildProjectPatchBody(payload);
+        ? buildProjectPostBodyForSave(payload, checklist, notes, {
+            customerId,
+            projectType: project.projectType,
+          })
+        : buildProjectPatchBodyForSave(payload, checklist, notes);
 
       const response = await fetch(requestUrl, {
         method: requestMethod,
@@ -292,6 +263,7 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
         owner={project.owner}
         district={project.district}
         status={PROJECT_STATUS_LABELS[project.status]}
+        payApplicationInvoiceNumber={project.payApplicationInvoiceNumber}
         viewMode={viewMode}
         onChangeView={setViewModePersist}
         onSaveProject={handleSaveProject}

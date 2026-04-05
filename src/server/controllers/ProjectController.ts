@@ -163,6 +163,7 @@ export class ProjectController extends AbstractController<
           project_type?: string
           procedure_checklist?: Record<string, string>
           pay_application_notes?: string
+          pay_application_invoice_number?: string | null
         }
       >(req)
 
@@ -201,6 +202,7 @@ export class ProjectController extends AbstractController<
           project_type?: string | null
           procedure_checklist?: Record<string, string> | null
           pay_application_notes?: string | null
+          pay_application_invoice_number?: string | null
         }
       >(req)
 

@@ -87,6 +87,7 @@ model project {
   updated_at  DateTime  @default(now()) @updatedAt @map("updated_at")
   procedure_checklist   Json?    @map("procedure_checklist")
   pay_application_notes String?  @map("pay_application_notes") @db.Text
+  pay_application_invoice_number String? @map("pay_application_invoice_number") @db.VarChar(255)
 
   customer          customer?            @relation(fields: [customer_id], references: [id])
   project_pay_items project_pay_item[]

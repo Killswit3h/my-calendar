@@ -32,6 +32,17 @@ export type Project = {
   projectType: ProjectType
   procedureChecklist: ProcedureChecklist
   payApplicationNotes: string
+  payApplicationInvoiceNumber: string
+}
+
+/** Workspace header + detail fields submitted with **Save Project** */
+export type ProjectFormState = {
+  projectName: string
+  code: string
+  owner: string
+  district: string
+  status: string
+  payApplicationInvoiceNumber: string
 }
 
 export type ProjectPayItemView = {

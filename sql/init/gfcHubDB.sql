@@ -52,7 +52,8 @@ CREATE TABLE "project" (
   "created_at" timestamp DEFAULT (now()),
   "updated_at" timestamp DEFAULT (now()),
   "procedure_checklist" jsonb,
-  "pay_application_notes" text
+  "pay_application_notes" text,
+  "pay_application_invoice_number" varchar(255)
 );
 
 CREATE TABLE "project_pay_item" (

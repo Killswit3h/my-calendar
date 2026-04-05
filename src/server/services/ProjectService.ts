@@ -49,6 +49,7 @@ export type ProcedureChecklistStatus =
   (typeof PROCEDURE_CHECKLIST_STATUSES)[number]
 
 const PAY_APPLICATION_NOTES_MAX_LEN = 32000
+const PAY_APPLICATION_INVOICE_NUMBER_MAX_LEN = 255
 
 /**
  * Project Service
@@ -299,6 +300,20 @@ export class ProjectService extends AbstractService<
         )
       }
     }
+
+    if (
+      dataAny.pay_application_invoice_number !== undefined &&
+      dataAny.pay_application_invoice_number !== null
+    ) {
+      if (typeof dataAny.pay_application_invoice_number !== "string") {
+        throw new ValidationError("pay_application_invoice_number must be a string")
+      }
+      if (dataAny.pay_application_invoice_number.length > PAY_APPLICATION_INVOICE_NUMBER_MAX_LEN) {
+        throw new ValidationError(
+          `pay_application_invoice_number must be ${PAY_APPLICATION_INVOICE_NUMBER_MAX_LEN} characters or less`,
+        )
+      }
+    }
   }
 
   /**
@@ -392,6 +407,18 @@ export class ProjectService extends AbstractService<
         }
       }
       ;(processed as any).procedure_checklist = cleaned
+    }
+
+    if ((data as any).pay_application_invoice_number !== undefined) {
+      if (
+        (data as any).pay_application_invoice_number === null ||
+        (data as any).pay_application_invoice_number === ""
+      ) {
+        ;(processed as any).pay_application_invoice_number = null
+      } else if (typeof (data as any).pay_application_invoice_number === "string") {
+        const t = (data as any).pay_application_invoice_number.trim()
+        ;(processed as any).pay_application_invoice_number = t || null
+      }
     }
 
     // Normalize customer_id to Prisma relation format
@@ -536,6 +563,15 @@ export class ProjectService extends AbstractService<
           }
         }
         ;(processed as any).procedure_checklist = cleaned
+      }
+    }
+
+    if ((data as any).pay_application_invoice_number !== undefined) {
+      if ((data as any).pay_application_invoice_number === null) {
+        ;(processed as any).pay_application_invoice_number = null
+      } else if (typeof (data as any).pay_application_invoice_number === "string") {
+        const t = (data as any).pay_application_invoice_number.trim()
+        ;(processed as any).pay_application_invoice_number = t || null
       }
     }
 

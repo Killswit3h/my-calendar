@@ -19,6 +19,9 @@ dist/
 .vercel/
 .DS_Store
 
+# TypeScript incremental build cache (avoid PR noise)
+tsconfig.tsbuildinfo
+
 # Tooling
 coverage/
 .storybook-out/

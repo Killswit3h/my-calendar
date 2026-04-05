@@ -421,6 +421,94 @@ describe("ProjectController", () => {
       })
     })
 
+    describe("pay_application_invoice_number", () => {
+      const minimalCreate = () => ({
+        name: `Inv Post ${Math.random().toString(36).slice(2, 9)}`,
+        location: "Test Location",
+        retainage: 5.0,
+        vendor: "Test Vendor",
+      })
+
+      it("should create project with pay_application_invoice_number", async () => {
+        const url = new URL("http://localhost:3000/api/projects")
+        const body = {
+          ...minimalCreate(),
+          pay_application_invoice_number: "INV-POST-1",
+        }
+        const req = new NextRequest(url, {
+          method: "POST",
+          body: JSON.stringify(body),
+        })
+        const response = await controller.handlePost(req)
+        expect(response.status).toBe(201)
+        const data = await response.json()
+        expect(data.pay_application_invoice_number).toBe("INV-POST-1")
+      })
+
+      it("should return pay_application_invoice_number on GET by id", async () => {
+        const row = (mockPrisma as any).addProject({
+          name: `Inv Get ${Math.random().toString(36).slice(2, 9)}`,
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+          pay_application_invoice_number: "INV-GET-42",
+        })
+        const url = new URL(`http://localhost:3000/api/projects/${row.id}`)
+        const req = new NextRequest(url)
+        const context = { params: Promise.resolve({ id: String(row.id) }) }
+        const response = await controller.handleGet(req, context)
+        expect(response.status).toBe(200)
+        const data = await response.json()
+        expect(data.pay_application_invoice_number).toBe("INV-GET-42")
+      })
+
+      it("should patch pay_application_invoice_number and clear with null", async () => {
+        const row = (mockPrisma as any).addProject({
+          name: `Inv Patch ${Math.random().toString(36).slice(2, 9)}`,
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+          pay_application_invoice_number: "BEFORE",
+        })
+        const patchUrl = new URL(`http://localhost:3000/api/projects/${row.id}`)
+        const patchReq = new NextRequest(patchUrl, {
+          method: "PATCH",
+          body: JSON.stringify({ pay_application_invoice_number: "AFTER" }),
+        })
+        const context = { params: Promise.resolve({ id: String(row.id) }) }
+        let response = await controller.handlePatch(patchReq, context)
+        expect(response.status).toBe(200)
+        let data = await response.json()
+        expect(data.pay_application_invoice_number).toBe("AFTER")
+
+        const clearReq = new NextRequest(patchUrl, {
+          method: "PATCH",
+          body: JSON.stringify({ pay_application_invoice_number: null }),
+        })
+        response = await controller.handlePatch(clearReq, context)
+        expect(response.status).toBe(200)
+        data = await response.json()
+        expect(data.pay_application_invoice_number).toBeNull()
+      })
+
+      it("should return 400 when pay_application_invoice_number is too long on PATCH", async () => {
+        const row = (mockPrisma as any).addProject({
+          name: `Inv Long ${Math.random().toString(36).slice(2, 9)}`,
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const url = new URL(`http://localhost:3000/api/projects/${row.id}`)
+        const req = new NextRequest(url, {
+          method: "PATCH",
+          body: JSON.stringify({ pay_application_invoice_number: "x".repeat(256) }),
+        })
+        const context = { params: Promise.resolve({ id: String(row.id) }) }
+        const response = await controller.handlePatch(req, context)
+        expect(response.status).toBe(400)
+      })
+    })
+
     describe("handleDelete", () => {
       it("should return 200 on successful deletion", async () => {
         const project = (mockPrisma as any).addProject({

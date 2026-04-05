@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { PayApplicationView } from "@/components/project/PayApplicationWorkspace";
+import type { ProjectFormState } from "@/app/projects/projects.models";
 import { cn } from "@/lib/theme";
+
+export type { ProjectFormState } from "@/app/projects/projects.models";
 
 const STATUS_OPTIONS = ["Not Started", "In Progress", "Completed"] as const;
 
@@ -16,18 +19,11 @@ type ProjectHeaderProps = {
   owner: string;
   district: string;
   status: string;
+  payApplicationInvoiceNumber: string;
   viewMode: PayApplicationView;
   onChangeView: (view: PayApplicationView) => void;
   onSaveProject?: (payload: ProjectFormState) => Promise<void> | void;
   isSaving?: boolean;
-};
-
-export type ProjectFormState = {
-  projectName: string;
-  code: string;
-  owner: string;
-  district: string;
-  status: string;
 };
 
 export function ProjectHeader({
@@ -38,6 +34,7 @@ export function ProjectHeader({
   owner,
   district,
   status,
+  payApplicationInvoiceNumber,
   viewMode,
   onChangeView,
   onSaveProject,
@@ -49,11 +46,11 @@ export function ProjectHeader({
     owner,
     district,
     status,
+    payApplicationInvoiceNumber,
   });
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedProjectName, setEditedProjectName] = useState(projectName);
   const [isExporting, setIsExporting] = useState(false);
-  const [invoiceNumber, setInvoiceNumber] = useState("");
 
   useEffect(() => {
     setInfo({
@@ -62,10 +59,20 @@ export function ProjectHeader({
       owner,
       district,
       status,
+      payApplicationInvoiceNumber,
     });
     setEditedProjectName(projectName);
     setIsEditingName(false);
-  }, [projectName, projectCode, owner, district, status, companyId, companyName]);
+  }, [
+    projectName,
+    projectCode,
+    owner,
+    district,
+    status,
+    payApplicationInvoiceNumber,
+    companyId,
+    companyName,
+  ]);
 
   const handleSaveProject = async () => {
     if (!onSaveProject) {
@@ -82,6 +89,7 @@ export function ProjectHeader({
     const payload: ProjectFormState = {
       ...info,
       projectName: effectiveName,
+      payApplicationInvoiceNumber: info.payApplicationInvoiceNumber.trim(),
     };
     await onSaveProject(payload);
   };
@@ -185,8 +193,10 @@ export function ProjectHeader({
             <span className="text-xs font-semibold text-white/70">INV#</span>
             <input
               type="text"
-              value={invoiceNumber}
-              onChange={(event) => setInvoiceNumber(event.target.value)}
+              value={info.payApplicationInvoiceNumber}
+              onChange={(event) =>
+                setInfo((prev) => ({ ...prev, payApplicationInvoiceNumber: event.target.value }))
+              }
               placeholder="Enter invoice #"
               className="w-28 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white placeholder:text-white/40 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
             />

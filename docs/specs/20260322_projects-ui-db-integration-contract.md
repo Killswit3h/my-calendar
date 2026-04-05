@@ -29,6 +29,7 @@ User-provided constraints and decisions:
 | 5 | Keep created APIs | R5 | Use canonical existing endpoints (`/api/projects`, `/api/project-pay-items`, `/api/pay-items`, `/api/event-quantities`, `/api/customers`) |
 | 6 | Projects page includes specific entities | R6 | Projects UI must query and compose these 5 entities |
 | 7 | Event info belongs on calendar | R7 | Projects page consumes event-quantity rollups; event CRUD remains on Calendar workflows |
+| — | Pay app header INV# persisted | R8 | `pay_application_invoice_number` on `project`; POST/PATCH + validation in `ProjectService` |
 
 ## Scope
 
@@ -85,6 +86,7 @@ User-provided constraints and decisions:
 - **Project-level fields** (optional on PATCH):
   - `procedure_checklist`: JSON object whose keys are the procedure checklist keys in UI (`contract`, `coi`, `bond`, `material`, `eeo`, `payroll`). Values: `NOT_STARTED` | `IN_PROGRESS` | `COMPLETE`.
   - `pay_application_notes`: free-text notes for the pay application workspace.
+  - `pay_application_invoice_number`: optional string (max 255) for the header **INV#**; trimmed on write; empty/`null` on PATCH clears the stored value. Accepted on **POST** (create) and **PATCH** (update). DB column: `project.pay_application_invoice_number`.
 - **Project pay item** rows: the Contract and Phases tabs share one list keyed by `project_pay_item.id`. Editable persisted fields include `contracted_quantity`, `stockpile_billed`, `unit_rate`, `notes`, `begin_station`, `end_station`, `status`, `locate_ticket`, `LF_RT`, `onsite_review`, `ready_to_work_date`, `status_date`, `surveyed`.
 - **Forbidden on workspace save:** writing **installed** quantity from this page; installed totals remain aggregates of `event_quantity` / calendar workflows (**R7**).
 - **Phases tab:** flat **one row per `project_pay_item`**; no nested synthetic phase entities persisted.
@@ -127,6 +129,11 @@ User-provided constraints and decisions:
 - Tests:
   - `tests/server/controllers/ProjectController.test.ts`
   - `tests/server/services/ProjectService.test.ts`
+  - `tests/app/projects/mapApiProjectToProject.test.ts`
+  - `tests/app/projects/projectWorkspaceSavePayload.test.ts`
+- UI ↔ API mapping helpers:
+  - `src/app/projects/mapApiProjectToProject.ts`
+  - `src/app/projects/projectWorkspaceSavePayload.ts`
   - `tests/server/controllers/ProjectPayItemController.test.ts`
   - `tests/server/services/ProjectPayItemService.test.ts`
 

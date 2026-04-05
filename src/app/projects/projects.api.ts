@@ -1,31 +1,8 @@
 import { getBaseUrl } from "@/lib/base-url"
 import type { QuantityItem } from "@/components/project/ProjectQuantitiesCard"
 import { mapPayRollupRow, toRollupNumber } from "./projectPayRollupMapping"
-import { CHECKLIST_ITEMS } from "@/components/project/payApplicationConstants"
-import type {
-  Company,
-  ProcedureChecklist,
-  ProcedureChecklistKey,
-  ProcedureChecklistStatus,
-  Project,
-  ProjectPayItemView,
-  ProjectStatus,
-  ProjectType,
-} from "./projects.models"
-
-type ApiProject = {
-  id: number
-  customer_id?: number | null
-  name: string
-  code?: string | null
-  owner?: string | null
-  district?: string | null
-  project_type?: string | null
-  status?: string | null
-  customer?: { id: number; name: string } | null
-  procedure_checklist?: unknown
-  pay_application_notes?: string | null
-}
+import type { Company, Project, ProjectPayItemView } from "./projects.models"
+import { type ApiProject, mapApiProjectToProject } from "./mapApiProjectToProject"
 
 type ApiPayItem = {
   id: number
@@ -63,68 +40,6 @@ type ApiEventQuantity = {
   quantity: string | number
 }
 
-const STATUS_MAP: Record<string, ProjectStatus> = {
-  "Not Started": "Not Started",
-  "In Progress": "In Progress",
-  Completed: "Completed",
-  ACTIVE: "In Progress",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-}
-
-function normalizeStatus(status: string | null | undefined): ProjectStatus {
-  if (!status) return "Not Started"
-  return STATUS_MAP[status] ?? "Not Started"
-}
-
-function normalizeProjectType(projectType: string | null | undefined): ProjectType {
-  const value = (projectType ?? "").trim().toUpperCase()
-  if (value === "HANDRAIL" || value === "GUARDRAIL" || value === "FENCE") {
-    return value
-  }
-  return "OTHER"
-}
-
-const CHECKLIST_STATUSES: ProcedureChecklistStatus[] = [
-  "NOT_STARTED",
-  "IN_PROGRESS",
-  "COMPLETE",
-]
-
-function parseProcedureChecklist(raw: unknown): ProcedureChecklist {
-  const out: ProcedureChecklist = {}
-  for (const { key } of CHECKLIST_ITEMS) {
-    out[key as ProcedureChecklistKey] = "NOT_STARTED"
-  }
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const obj = raw as Record<string, unknown>
-    for (const { key } of CHECKLIST_ITEMS) {
-      const v = obj[key]
-      if (typeof v === "string" && CHECKLIST_STATUSES.includes(v as ProcedureChecklistStatus)) {
-        out[key as ProcedureChecklistKey] = v as ProcedureChecklistStatus
-      }
-    }
-  }
-  return out
-}
-
-function mapProject(project: ApiProject): Project {
-  const companyId = String(project.customer_id ?? project.customer?.id ?? "unassigned")
-  return {
-    id: String(project.id),
-    companyId,
-    code: project.code?.trim() || "",
-    name: project.name,
-    status: normalizeStatus(project.status),
-    owner: project.owner?.trim() || "",
-    district: project.district?.trim() || "",
-    projectType: normalizeProjectType(project.project_type),
-    procedureChecklist: parseProcedureChecklist(project.procedure_checklist),
-    payApplicationNotes:
-      typeof project.pay_application_notes === "string" ? project.pay_application_notes : "",
-  }
-}
-
 async function readErrorMessage(response: Response): Promise<string> {
   const body = await response.json().catch(() => ({}))
   if (body && typeof body === "object" && typeof (body as { message?: string }).message === "string") {
@@ -155,7 +70,7 @@ export async function fetchProjects(): Promise<{ projects: Project[]; companies:
     fetchJson<ApiProject[]>("/api/projects?expanded=true"),
     fetchCustomers(),
   ])
-  const projects = rows.map(mapProject)
+  const projects = rows.map(mapApiProjectToProject)
   const companyLookup = new Map<string, Company>(customers.map((customer) => [customer.id, customer]))
 
   for (const row of rows) {
@@ -187,7 +102,7 @@ export async function fetchProjects(): Promise<{ projects: Project[]; companies:
 
 export async function fetchProjectById(id: string): Promise<{ project: Project; company: Company }> {
   const row = await fetchJson<ApiProject>(`/api/projects/${id}?expanded=true`)
-  const project = mapProject(row)
+  const project = mapApiProjectToProject(row)
   const company: Company = {
     id: project.companyId || String(row.customer?.id ?? ""),
     name: row.customer?.name ?? `Customer ${project.companyId || ""}`,

@@ -15,6 +15,7 @@ type ProjectRow = {
   updated_at: Date | null
   procedure_checklist?: unknown
   pay_application_notes?: string | null
+  pay_application_invoice_number?: string | null
 }
 
 /**
@@ -211,6 +212,12 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         status: data.status ?? "Not Started",
         created_at: data.created_at ?? new Date(),
         updated_at: data.updated_at ?? new Date(),
+        ...(data.pay_application_notes !== undefined && {
+          pay_application_notes: data.pay_application_notes,
+        }),
+        ...(data.pay_application_invoice_number !== undefined && {
+          pay_application_invoice_number: data.pay_application_invoice_number,
+        }),
       }
       projects.set(id, row)
       return { ...row }
@@ -283,6 +290,9 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         ...(data.pay_application_notes !== undefined && {
           pay_application_notes: data.pay_application_notes,
         }),
+        ...(data.pay_application_invoice_number !== undefined && {
+          pay_application_invoice_number: data.pay_application_invoice_number,
+        }),
         updated_at: new Date(),
       }
       projects.set(id, updated)
@@ -339,6 +349,8 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     is_payroll?: boolean | null
     is_EEO?: boolean | null
     status?: string | null
+    pay_application_notes?: string | null
+    pay_application_invoice_number?: string | null
   }) => {
     const id = data.id ?? randomId()
     
@@ -363,6 +375,12 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
       status: data.status ?? "ACTIVE",
       created_at: new Date(),
       updated_at: new Date(),
+      ...(data.pay_application_notes !== undefined && {
+        pay_application_notes: data.pay_application_notes,
+      }),
+      ...(data.pay_application_invoice_number !== undefined && {
+        pay_application_invoice_number: data.pay_application_invoice_number,
+      }),
     }
     projects.set(id, row)
     return row

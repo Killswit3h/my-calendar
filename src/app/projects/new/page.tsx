@@ -35,6 +35,7 @@ export default async function NewProjectPage({ searchParams }: PageProps) {
     projectType: "OTHER",
     procedureChecklist: blankProcedureChecklist,
     payApplicationNotes: "",
+    payApplicationInvoiceNumber: "",
   };
 
   return (
