@@ -62,15 +62,22 @@ import {
   type Employee as BaseEmployee,
   type Team as BaseTeam,
 } from "@/employees";
+import {
+  fetchEmployees as fetchEmployeesApi,
+  createEmployee as createEmployeeApi,
+  updateEmployee as updateEmployeeApi,
+  deleteEmployee as deleteEmployeeApi,
+  type ApiEmployee,
+  type CreateEmployeePayload,
+  type UpdateEmployeePayload,
+} from "@/lib/employeesApi";
 
-type PayType = "HOURLY" | "SALARY";
 type EmpStatus = "ACTIVE" | "ON_LEAVE" | "TERMINATED";
 type Role = "Foreman" | "Skilled Labor" | "Labor" | "Yard" | "Driver" | "Welder";
 
 type Pay = {
-  type: PayType;
   base: number;
-  otMultiplier?: number;
+  otMultiplier?: number; // Optional, for UI cost calculation only
   effective: string;
 };
 
@@ -81,7 +88,7 @@ type Employee = {
   name: string;
   role: Role;
   status: EmpStatus;
-  crew?: string;
+  location?: string; // Changed from crew to location
   phone?: string;
   email?: string;
   hireDate?: string;
@@ -95,7 +102,7 @@ type Employee = {
 type Filters = {
   status: EmpStatus | "ALL";
   role: Role | "ALL";
-  crew: string | "ALL";
+  location: string | "ALL"; // Changed from crew to location
 };
 
 type SortKey = "name" | "role" | "status" | "pay";
@@ -152,11 +159,8 @@ const payFormatter = new Intl.NumberFormat("en-US", {
 });
 
 function formatPay(pay: Pay): string {
-  if (pay.type === "SALARY") {
-    return `${payFormatter.format(pay.base)}/wk salary`;
-  }
   const ot = pay.otMultiplier ?? 1.5;
-  return `${payFormatter.format(pay.base)}/hr (OT ${ot}x)`;
+  return `${payFormatter.format(pay.base)}/hr${ot !== 1.5 ? ` (OT ${ot}x)` : ""}`;
 }
 
 function formatDate(value?: string) {
@@ -182,18 +186,6 @@ function calculateCost({
   regHours: number;
   otHours: number;
 }) {
-  if (pay.type === "SALARY") {
-    const weekly = pay.base;
-    const daily = weekly / 5;
-    return {
-      daily,
-      weekly,
-      breakdown: [
-        { label: "Weekly Salary", amount: weekly },
-        { label: "Estimated Daily", amount: daily },
-      ],
-    };
-  }
   const multiplier = pay.otMultiplier ?? 1.5;
   const regular = regHours * pay.base;
   const overtime = otHours * pay.base * multiplier;
@@ -217,6 +209,74 @@ function generateId() {
 
 const EMPLOYEE_STORAGE_KEY = "app.shell.employees.v1";
 
+/**
+ * Map API employee response to UI Employee shape
+ */
+function apiEmployeeToUI(api: ApiEmployee): Employee {
+  const wageRate = typeof api.wage_rate === "string" ? parseFloat(api.wage_rate) : api.wage_rate
+  return {
+    id: String(api.id),
+    name: api.name,
+    role: (api.role as Role) ?? "Labor",
+    status: api.active ? "ACTIVE" : "TERMINATED", // Map active boolean to status
+    location: api.location ?? undefined,
+    phone: api.phone_number ?? undefined,
+    email: api.email ?? undefined,
+    hireDate: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : undefined,
+    cdl: false, // Not in API, default to false
+    certs: [], // Not in API, default to empty
+    pay: {
+      base: wageRate,
+      otMultiplier: 1.5, // Default OT multiplier
+      effective: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+    },
+    rateHistory: [
+      {
+        base: wageRate,
+        otMultiplier: 1.5,
+        effective: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      },
+    ],
+    notes: api.notes ?? undefined,
+  }
+}
+
+/**
+ * Map UI Employee to API create payload
+ */
+function uiEmployeeToCreatePayload(ui: Partial<Employee>): CreateEmployeePayload {
+  return {
+    name: ui.name ?? "New Employee",
+    wage_rate: typeof ui.pay?.base === "number" ? ui.pay.base : 20,
+    start_date: ui.hireDate
+      ? new Date(ui.hireDate).toISOString()
+      : new Date().toISOString(),
+    phone_number: ui.phone || undefined,
+    email: ui.email || undefined,
+    active: ui.status === "ACTIVE",
+    notes: ui.notes || undefined,
+    role: ui.role || undefined,
+    location: ui.location || undefined,
+  }
+}
+
+/**
+ * Map UI Employee changes to API update payload
+ */
+function uiEmployeeToUpdatePayload(ui: Partial<Employee>): UpdateEmployeePayload {
+  const payload: UpdateEmployeePayload = {}
+  if (ui.name !== undefined) payload.name = ui.name
+  if (ui.pay?.base !== undefined) payload.wage_rate = ui.pay.base
+  if (ui.hireDate !== undefined) payload.start_date = new Date(ui.hireDate).toISOString()
+  if (ui.phone !== undefined) payload.phone_number = ui.phone || undefined
+  if (ui.email !== undefined) payload.email = ui.email || undefined
+  if (ui.status !== undefined) payload.active = ui.status === "ACTIVE"
+  if (ui.notes !== undefined) payload.notes = ui.notes || undefined
+  if (ui.role !== undefined) payload.role = ui.role || undefined
+  if (ui.location !== undefined) payload.location = ui.location || undefined
+  return payload
+}
+
 function splitNameParts(rawName: string): { firstName: string; lastName: string } {
   const trimmed = rawName.trim();
   if (!trimmed) return { firstName: "New", lastName: "Employee" };
@@ -226,18 +286,18 @@ function splitNameParts(rawName: string): { firstName: string; lastName: string 
   return { firstName, lastName };
 }
 
-function inferTeamFromCrew(crew?: string): BaseTeam {
-  if (!crew) return "South";
-  const normalized = crew.toLowerCase();
+function inferTeamFromLocation(location?: string): BaseTeam {
+  if (!location) return "South";
+  const normalized = location.toLowerCase();
   if (normalized.includes("guardrail") || normalized.includes("north") || normalized.includes("central")) {
     return "Central";
   }
   return "South";
 }
 
-function resolveCrewForTeam(team: BaseTeam, crew?: string): string | undefined {
-  if (crew && crew.trim().length > 0) return crew.trim();
-  return crewByTeam[team];
+function resolveLocationForTeam(team: BaseTeam, location?: string): string | undefined {
+  if (location && location.trim().length > 0) return location.trim();
+  return crewByTeam[team]; // Keep using crewByTeam for default, but field is now location
 }
 
 function resolveRoleForTeam(team: BaseTeam, role?: Role): Role {
@@ -256,19 +316,15 @@ function normalizePay(input: unknown, fallbackBase: number): Pay {
       typeof candidate.effective === "string" && candidate.effective.length > 0
         ? candidate.effective
         : new Date().toISOString().slice(0, 10);
-    if (candidate.type === "SALARY") {
-      return { type: "SALARY", base, effective };
-    }
     const ot =
       typeof candidate.otMultiplier === "number" &&
       Number.isFinite(candidate.otMultiplier) &&
       candidate.otMultiplier > 0
         ? candidate.otMultiplier
         : 1.5;
-    return { type: "HOURLY", base, otMultiplier: ot, effective };
+    return { base, otMultiplier: ot, effective };
   }
   return {
-    type: "HOURLY",
     base: fallbackBase,
     otMultiplier: 1.5,
     effective: new Date().toISOString().slice(0, 10),
@@ -281,7 +337,7 @@ function ensureEmployeeDefaults(
   index = 0,
 ): Employee {
   const directoryId = directory?.id ?? employee.id;
-  const team = directory?.team ?? inferTeamFromCrew(employee.crew);
+  const team = directory?.team ?? inferTeamFromLocation(employee.location);
   const { firstName, lastName } = splitNameParts(
     employee.name ?? (directory ? `${directory.firstName} ${directory.lastName}` : "New Employee"),
   );
@@ -297,7 +353,7 @@ function ensureEmployeeDefaults(
     name: `${firstName} ${lastName}`.trim(),
     role: resolveRoleForTeam(team, employee.role),
     status: employee.status ?? "ACTIVE",
-    crew: resolveCrewForTeam(team, employee.crew),
+    location: resolveLocationForTeam(team, employee.location),
     phone: employee.phone ?? undefined,
     email: employee.email ?? undefined,
     hireDate: employee.hireDate ?? pay.effective,
@@ -317,7 +373,7 @@ function buildEmployeeFromDirectory(entry: BaseEmployee, index: number): Employe
     {
       id: entry.id,
       name: `${entry.firstName} ${entry.lastName}`.trim(),
-      crew: crewByTeam[entry.team],
+      location: crewByTeam[entry.team], // Using crewByTeam for default but storing as location
       role: roleByTeam[entry.team],
     },
     entry,
@@ -376,7 +432,7 @@ function syncDirectoryEmployees(list: Employee[]) {
       id: emp.id,
       firstName,
       lastName,
-      team: inferTeamFromCrew(emp.crew),
+      team: inferTeamFromLocation(emp.location),
     };
   });
   saveDirectoryEmployees(simplified);
@@ -384,7 +440,7 @@ function syncDirectoryEmployees(list: Employee[]) {
 
 function deriveEmployeeIdentity(
   rawName: string,
-  crew: string | undefined,
+  location: string | undefined,
   existingIds: Set<string>,
 ): { id: string; firstName: string; lastName: string; team: BaseTeam } {
   const { firstName, lastName } = splitNameParts(rawName);
@@ -395,7 +451,7 @@ function deriveEmployeeIdentity(
   while (existingIds.has(candidate)) {
     candidate = `${baseId}-${suffix++}`;
   }
-  return { id: candidate, firstName, lastName, team: inferTeamFromCrew(crew) };
+  return { id: candidate, firstName, lastName, team: inferTeamFromLocation(location) };
 }
 
 function AvatarBubble({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
@@ -542,7 +598,7 @@ export default function EmployeesPage() {
   const [filters, setFilters] = useState<Filters>({
     status: "ALL",
     role: "ALL",
-    crew: "ALL",
+    location: "ALL",
   });
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>(
     { key: "name", direction: "asc" },
@@ -562,18 +618,37 @@ export default function EmployeesPage() {
   const [notesDraft, setNotesDraft] = useState("");
   const [costInputs, setCostInputs] = useState<{ reg: number; ot: number }>({ reg: 8, ot: 2 });
   const [payDraft, setPayDraft] = useState<Pay | null>(null);
-  const [assignCrewDraft, setAssignCrewDraft] = useState("");
-  const [bulkAssignCrewDraft, setBulkAssignCrewDraft] = useState("");
+  const [assignLocationDraft, setAssignLocationDraft] = useState("");
+  const [bulkAssignLocationDraft, setBulkAssignLocationDraft] = useState("");
   const [bulkPlacementMenu, setBulkPlacementMenu] = useState(false);
   const [rosterMenuFor, setRosterMenuFor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Load employees from API on mount
   useEffect(() => {
-    const initial = loadEmployeeState();
-    setEmployees(initial);
-    syncDirectoryEmployees(initial);
-    setHydrated(true);
-  }, []);
+    const loadEmployees = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const apiEmployees = await fetchEmployeesApi()
+        const uiEmployees = apiEmployees.map(apiEmployeeToUI)
+        setEmployees(uiEmployees)
+        // Optionally sync to directory for backward compatibility
+        syncDirectoryEmployees(uiEmployees)
+        setHydrated(true)
+      } catch (err) {
+        console.error("Failed to load employees:", err)
+        setError(err instanceof Error ? err.message : "Failed to load employees")
+        setHydrated(true) // Still mark as hydrated to show UI
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadEmployees()
+  }, [])
 
+  // Keep localStorage in sync for backward compatibility (optional)
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -586,12 +661,12 @@ export default function EmployeesPage() {
     syncDirectoryEmployees(employees);
   }, [employees, hydrated]);
 
-  const crews = useMemo(() => {
+  const locations = useMemo(() => {
     const set = new Set<string>();
     employees.forEach((emp) => {
-      if (emp.crew) set.add(emp.crew);
+      if (emp.location) set.add(emp.location);
     });
-    assignableCrews.forEach((crew) => set.add(crew));
+    assignableCrews.forEach((location) => set.add(location)); // Keep using assignableCrews as default locations
     return Array.from(set);
   }, [employees]);
 
@@ -614,13 +689,13 @@ export default function EmployeesPage() {
       const matchesQuery =
         !lowerQ ||
         emp.name.toLowerCase().includes(lowerQ) ||
-        (emp.crew ?? "").toLowerCase().includes(lowerQ) ||
+        (emp.location ?? "").toLowerCase().includes(lowerQ) ||
         emp.role.toLowerCase().includes(lowerQ) ||
         (emp.email ?? "").toLowerCase().includes(lowerQ);
       const matchesStatus = filters.status === "ALL" || emp.status === filters.status;
       const matchesRole = filters.role === "ALL" || emp.role === filters.role;
-      const matchesCrew = filters.crew === "ALL" || (emp.crew ?? "") === filters.crew;
-      return matchesQuery && matchesStatus && matchesRole && matchesCrew;
+      const matchesLocation = filters.location === "ALL" || (emp.location ?? "") === filters.location;
+      return matchesQuery && matchesStatus && matchesRole && matchesLocation;
     });
 
     const sorted = [...filtered].sort((a, b) => {
@@ -676,9 +751,9 @@ export default function EmployeesPage() {
   useEffect(() => {
     if (assignDialog.open && assignDialog.employeeId) {
       const target = employees.find((emp) => emp.id === assignDialog.employeeId);
-      setAssignCrewDraft(target?.crew ?? "");
+      setAssignLocationDraft(target?.location ?? "");
     } else if (!assignDialog.open) {
-      setAssignCrewDraft("");
+      setAssignLocationDraft("");
     }
   }, [assignDialog, employees]);
 
@@ -699,37 +774,21 @@ export default function EmployeesPage() {
   );
 
   const onCreateEmployee = useCallback(
-    (payload: Partial<Employee>) => {
-      const existingIds = new Set(employees.map((emp) => emp.id));
-      const name = payload.name ?? "New Employee";
-      const crewValue = payload.crew?.trim() || undefined;
-      const identity = deriveEmployeeIdentity(name, crewValue, existingIds);
-      const basePay = typeof payload.pay?.base === "number" ? payload.pay.base : 18;
-      const pay: Pay = payload.pay ? normalizePay(payload.pay, basePay) : normalizePay(undefined, basePay);
-
-      const draft: Partial<Employee> = {
-        id: identity.id,
-        name: `${identity.firstName} ${identity.lastName}`.trim(),
-        role: payload.role ?? "Labor",
-        status: payload.status ?? "ACTIVE",
-        crew: crewValue,
-        phone: payload.phone ?? undefined,
-        email: payload.email ?? undefined,
-        hireDate: payload.hireDate ?? pay.effective,
-        cdl: payload.cdl ?? false,
-        certs: payload.certs ?? [],
-        pay,
-        rateHistory: payload.rateHistory ?? [pay],
-        notes: payload.notes ?? "",
-      };
-
-      const employee = ensureEmployeeDefaults(draft);
-      setEmployees((prev) => [employee, ...prev]);
-      setDrawerId(employee.id);
-      setSheetOpen(true);
-      console.log("employees:create", employee);
+    async (payload: Partial<Employee>) => {
+      setError(null)
+      try {
+        const apiPayload = uiEmployeeToCreatePayload(payload)
+        const apiEmployee = await createEmployeeApi(apiPayload)
+        const uiEmployee = apiEmployeeToUI(apiEmployee)
+        setEmployees((prev) => [uiEmployee, ...prev])
+        console.log("employees:create", uiEmployee)
+      } catch (err) {
+        console.error("Failed to create employee:", err)
+        setError(err instanceof Error ? err.message : "Failed to create employee")
+        throw err // Re-throw so form can handle it
+      }
     },
-    [employees],
+    [],
   );
 
   const setEmployee = useCallback(
@@ -740,39 +799,103 @@ export default function EmployeesPage() {
   );
 
   const onEditPay = useCallback(
-    (empId: string, next: Pay) => {
-      console.log("employees:edit-pay", empId, next);
-      setEmployee(empId, (emp) => ({
-        ...emp,
-        pay: next,
-        rateHistory: [{ ...next }, ...emp.rateHistory],
-      }));
+    async (empId: string, next: Pay) => {
+      setError(null)
+      const employeeId = parseInt(empId, 10)
+      if (isNaN(employeeId)) {
+        setError("Invalid employee ID")
+        return
+      }
+      try {
+        const payload: UpdateEmployeePayload = {
+          wage_rate: next.base,
+        }
+        const apiEmployee = await updateEmployeeApi(employeeId, payload)
+        const uiEmployee = apiEmployeeToUI(apiEmployee)
+        setEmployee(empId, () => ({
+          ...uiEmployee,
+          pay: next,
+          rateHistory: [{ ...next }, ...uiEmployee.rateHistory],
+        }))
+        console.log("employees:edit-pay", empId, next)
+      } catch (err) {
+        console.error("Failed to update employee pay:", err)
+        setError(err instanceof Error ? err.message : "Failed to update pay")
+      }
     },
     [setEmployee],
   );
 
-  const onAssignCrew = useCallback(
-    (empId: string, crew: string) => {
-      console.log("employees:assign-crew", empId, crew);
-      setEmployee(empId, (emp) => ({ ...emp, crew }));
+  const onAssignLocation = useCallback(
+    async (empId: string, location: string) => {
+      setError(null)
+      const employeeId = parseInt(empId, 10)
+      if (isNaN(employeeId)) {
+        setError("Invalid employee ID")
+        return
+      }
+      try {
+        const payload: UpdateEmployeePayload = { location: location || undefined }
+        const apiEmployee = await updateEmployeeApi(employeeId, payload)
+        const uiEmployee = apiEmployeeToUI(apiEmployee)
+        setEmployee(empId, () => uiEmployee)
+        console.log("employees:assign-location", empId, location)
+      } catch (err) {
+        console.error("Failed to update employee location:", err)
+        setError(err instanceof Error ? err.message : "Failed to update location")
+      }
     },
     [setEmployee],
   );
 
   const onSetStatus = useCallback(
-    (empId: string, status: EmpStatus) => {
-      console.log("employees:set-status", empId, status);
-      setEmployee(empId, (emp) => ({ ...emp, status }));
+    async (empId: string, status: EmpStatus) => {
+      setError(null)
+      const employeeId = parseInt(empId, 10)
+      if (isNaN(employeeId)) {
+        setError("Invalid employee ID")
+        return
+      }
+      try {
+        const payload: UpdateEmployeePayload = { active: status === "ACTIVE" }
+        const apiEmployee = await updateEmployeeApi(employeeId, payload)
+        const uiEmployee = apiEmployeeToUI(apiEmployee)
+        setEmployee(empId, () => uiEmployee)
+        console.log("employees:set-status", empId, status)
+      } catch (err) {
+        console.error("Failed to update employee status:", err)
+        setError(err instanceof Error ? err.message : "Failed to update status")
+      }
     },
     [setEmployee],
   );
 
-  const onBulkAssignCrew = useCallback(
-    (crew: string) => {
-      console.log("employees:bulk-assign-crew", { selectedIds, crew });
-      setEmployees((prev) =>
-        prev.map((emp) => (selectedIds.includes(emp.id) ? { ...emp, crew } : emp)),
-      );
+  const onBulkAssignLocation = useCallback(
+    async (location: string) => {
+      setError(null)
+      console.log("employees:bulk-assign-location", { selectedIds, location })
+      const updates = selectedIds.map(async (id) => {
+        const employeeId = parseInt(id, 10)
+        if (isNaN(employeeId)) return null
+        try {
+          const payload: UpdateEmployeePayload = { location: location || undefined }
+          const apiEmployee = await updateEmployeeApi(employeeId, payload)
+          return apiEmployeeToUI(apiEmployee)
+        } catch (err) {
+          console.error(`Failed to update employee ${id}:`, err)
+          return null
+        }
+      })
+      const results = await Promise.all(updates)
+      const updated = results.filter((emp): emp is Employee => emp !== null)
+      if (updated.length > 0) {
+        setEmployees((prev) =>
+          prev.map((emp) => {
+            const updatedEmp = updated.find((u) => u.id === emp.id)
+            return updatedEmp || emp
+          }),
+        )
+      }
     },
     [selectedIds],
   );
@@ -795,7 +918,7 @@ export default function EmployeesPage() {
         "Name",
         "Role",
         "Status",
-        "Crew",
+        "Location",
         "Pay",
         "Effective",
         "Phone",
@@ -808,7 +931,7 @@ export default function EmployeesPage() {
           emp.name,
           emp.role,
           emp.status,
-          emp.crew ?? "",
+          emp.location ?? "",
           formatPay(emp.pay),
           formatDate(emp.pay.effective),
           emp.phone ?? "",
@@ -912,45 +1035,59 @@ export default function EmployeesPage() {
 
   const resetSelections = () => setSelectedIds([]);
 
-  const handleNewEmployeeSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleNewEmployeeSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const payType = formData.get("payType") as PayType;
     const base = Number(formData.get("payBase"));
     const ot = Number(formData.get("payOt") || 1.5);
-    const nextPay: Pay =
-      payType === "SALARY"
-        ? {
-            type: "SALARY",
-            base,
-            effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
-          }
-        : {
-            type: "HOURLY",
-            base,
-            otMultiplier: ot,
-            effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
-          };
+    const nextPay: Pay = {
+      base,
+      otMultiplier: ot,
+      effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
+    };
 
-    onCreateEmployee({
-      name: String(formData.get("name") || "New Employee"),
-      role: (formData.get("role") as Role) ?? "Labor",
-      status: (formData.get("status") as EmpStatus) ?? "ACTIVE",
-      crew: String(formData.get("crew") || "") || undefined,
-      phone: String(formData.get("phone") || "") || undefined,
-      email: String(formData.get("email") || "") || undefined,
-      hireDate: String(formData.get("hireDate") || "") || undefined,
-      cdl: formData.get("cdl") === "on",
-      notes: String(formData.get("notes") || ""),
-      pay: nextPay,
-      rateHistory: [nextPay],
-    });
-    setNewDialog(false);
-    event.currentTarget.reset();
+    try {
+      await onCreateEmployee({
+        name: String(formData.get("name") || "New Employee"),
+        role: (formData.get("role") as Role) ?? "Labor",
+        status: (formData.get("status") as EmpStatus) ?? "ACTIVE",
+        location: String(formData.get("location") || "") || undefined,
+        phone: String(formData.get("phone") || "") || undefined,
+        email: String(formData.get("email") || "") || undefined,
+        hireDate: String(formData.get("hireDate") || "") || undefined,
+        cdl: formData.get("cdl") === "on",
+        notes: String(formData.get("notes") || ""),
+        pay: nextPay,
+        rateHistory: [nextPay],
+      });
+      setNewDialog(false);
+      event.currentTarget.reset();
+    } catch {
+      // Error already set by onCreateEmployee, form stays open
+    }
   };
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-6 md:px-8 lg:px-10">
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+          <div className="font-semibold">Error</div>
+          <div className="text-sm">{error}</div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+      {loading && !hydrated && (
+        <div className="flex items-center justify-center p-8 text-muted">
+          Loading employees...
+        </div>
+      )}
       <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-[rgba(23,23,23,0.3)] p-4 text-white shadow-[0_20px_60px_rgba(3,6,23,0.45)] backdrop-blur-xl md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
@@ -980,7 +1117,7 @@ export default function EmployeesPage() {
             <Input
               value={query}
               onChange={(event) => onSearch(event.target.value)}
-              placeholder="Search name, crew, or contact"
+              placeholder="Search name, location, or contact"
               className="border-none bg-transparent px-0 text-white placeholder:text-white/50 focus-visible:ring-0"
             />
           </div>
@@ -1015,17 +1152,17 @@ export default function EmployeesPage() {
               <option value="Welder">Welder</option>
             </Select>
             <Select
-              label="Crew"
-              value={filters.crew}
+              label="Location"
+              value={filters.location}
               onChange={(event) =>
-                onFilterChange({ crew: event.target.value as string | "ALL" })
+                onFilterChange({ location: event.target.value as string | "ALL" })
               }
               className="min-w-[160px]"
             >
-              <option value="ALL">All Crews</option>
-              {crews.map((crew) => (
-                <option key={crew} value={crew}>
-                  {crew}
+              <option value="ALL">All Locations</option>
+              {locations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
                 </option>
               ))}
             </Select>
@@ -1078,7 +1215,7 @@ export default function EmployeesPage() {
                       onClick={() => sortBy("role")}
                     />
                   </TableHead>
-                  <TableHead>Crew</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>
                     <SortButton
                       label="Status"
@@ -1132,7 +1269,7 @@ export default function EmployeesPage() {
                       <RoleBadge role={emp.role} />
                     </TableCell>
                     <TableCell className="text-sm text-muted">
-                      {emp.crew ?? "—"}
+                      {emp.location ?? "—"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={emp.status} />
@@ -1165,7 +1302,7 @@ export default function EmployeesPage() {
                           className="text-xs"
                           onClick={() => setAssignDialog({ open: true, employeeId: emp.id })}
                         >
-                          Assign Crew
+                          Assign Location
                         </Button>
                         <div className="relative">
                           <Button
@@ -1222,7 +1359,7 @@ export default function EmployeesPage() {
                 </span>
                 <span className="hidden md:inline">|</span>
                 <span>
-                  Bulk update roster, crew, or status. CSV export limited to selection.
+                  Bulk update roster, location, or status. CSV export limited to selection.
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1312,9 +1449,9 @@ export default function EmployeesPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <RoleBadge role={currentEmployee.role} />
                   <StatusBadge status={currentEmployee.status} />
-                  {currentEmployee.crew ? (
+                  {currentEmployee.location ? (
                     <Badge className="border-transparent bg-foreground/10 text-xs uppercase tracking-[0.3em] text-muted">
-                      {currentEmployee.crew}
+                      {currentEmployee.location}
                     </Badge>
                   ) : null}
                 </div>
@@ -1326,9 +1463,9 @@ export default function EmployeesPage() {
                   </h3>
                   <div className="grid gap-4 rounded-2xl border border-border/60 bg-foreground/5 p-4 md:grid-cols-2">
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Crew</div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Location</div>
                       <div className="text-base text-foreground">
-                        {currentEmployee.crew ?? "Unassigned"}
+                        {currentEmployee.location ?? "Unassigned"}
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -1564,35 +1701,19 @@ export default function EmployeesPage() {
           {payDialogEmployee && payDraft ? (
             <form
               className="grid gap-4 py-2"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                onEditPay(payDialogEmployee.id, payDraft);
-                setPayDialog({ open: false });
+                try {
+                  await onEditPay(payDialogEmployee.id, payDraft);
+                  setPayDialog({ open: false });
+                } catch {
+                  // Error already set by onEditPay, dialog stays open
+                }
               }}
             >
               <div className="grid gap-3 md:grid-cols-2">
-                <Select
-                  label="Type"
-                  value={payDraft.type}
-                  onChange={(event) => {
-                    const nextType = event.target.value as PayType;
-                    setPayDraft((prev) =>
-                      prev
-                        ? {
-                            type: nextType,
-                            base: prev.base,
-                            otMultiplier: nextType === "HOURLY" ? prev.otMultiplier ?? 1.5 : undefined,
-                            effective: prev.effective,
-                          }
-                        : prev,
-                    );
-                  }}
-                >
-                  <option value="HOURLY">Hourly</option>
-                  <option value="SALARY">Salary (weekly)</option>
-                </Select>
                 <label className="text-sm text-muted">
-                  Base Rate
+                  Rate
                   <Input
                     type="number"
                     min={0}
@@ -1606,8 +1727,6 @@ export default function EmployeesPage() {
                     className="mt-1"
                   />
                 </label>
-              </div>
-              {payDraft.type === "HOURLY" ? (
                 <label className="text-sm text-muted">
                   OT Multiplier
                   <Input
@@ -1625,7 +1744,7 @@ export default function EmployeesPage() {
                     className="mt-1"
                   />
                 </label>
-              ) : null}
+              </div>
               <label className="text-sm text-muted">
                 Effective Date
                 <Input
@@ -1650,29 +1769,33 @@ export default function EmployeesPage() {
       <Dialog open={assignDialog.open} onOpenChange={(open) => setAssignDialog({ open })}>
         <DialogContent className="max-w-md bg-surface-soft text-foreground">
           <DialogHeader>
-            <DialogTitle>Assign Crew</DialogTitle>
+            <DialogTitle>Assign Location</DialogTitle>
             <DialogDescription>
-              Choose an existing crew or type a new crew assignment.
+              Choose an existing location or type a new location assignment.
             </DialogDescription>
           </DialogHeader>
           {assignDialogEmployee ? (
             <form
               className="grid gap-4 py-2"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                onAssignCrew(assignDialogEmployee.id, assignCrewDraft);
-                setAssignDialog({ open: false });
+                try {
+                  await onAssignLocation(assignDialogEmployee.id, assignLocationDraft);
+                  setAssignDialog({ open: false });
+                } catch {
+                  // Error already set by onAssignLocation, dialog stays open
+                }
               }}
             >
               <Select
-                label="Crew"
-                value={assignCrewDraft || ""}
-                onChange={(event) => setAssignCrewDraft(event.target.value)}
+                label="Location"
+                value={assignLocationDraft || ""}
+                onChange={(event) => setAssignLocationDraft(event.target.value)}
               >
                 <option value="">Unassigned</option>
-                {crews.map((crew) => (
-                  <option key={crew} value={crew}>
-                    {crew}
+                {locations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
                   </option>
                 ))}
               </Select>
@@ -1687,29 +1810,33 @@ export default function EmployeesPage() {
       <Dialog open={bulkAssignDialog} onOpenChange={setBulkAssignDialog}>
         <DialogContent className="max-w-md bg-surface-soft text-foreground">
           <DialogHeader>
-            <DialogTitle>Bulk Assign Crew</DialogTitle>
+            <DialogTitle>Bulk Assign Location</DialogTitle>
             <DialogDescription>
-              Apply a crew assignment to all selected team members.
+              Apply a location assignment to all selected team members.
             </DialogDescription>
           </DialogHeader>
           <form
             className="grid gap-4 py-2"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-              onBulkAssignCrew(bulkAssignCrewDraft);
-              setBulkAssignDialog(false);
-              setBulkAssignCrewDraft("");
+              try {
+                await onBulkAssignLocation(bulkAssignLocationDraft);
+                setBulkAssignDialog(false);
+                setBulkAssignLocationDraft("");
+              } catch {
+                // Error already set by onBulkAssignLocation, dialog stays open
+              }
             }}
           >
             <Select
-              label="Crew"
-              value={bulkAssignCrewDraft}
-              onChange={(event) => setBulkAssignCrewDraft(event.target.value)}
+              label="Location"
+              value={bulkAssignLocationDraft}
+              onChange={(event) => setBulkAssignLocationDraft(event.target.value)}
             >
               <option value="">Unassigned</option>
-              {crews.map((crew) => (
-                <option key={crew} value={crew}>
-                  {crew}
+              {locations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
                 </option>
               ))}
             </Select>
@@ -1783,8 +1910,8 @@ export default function EmployeesPage() {
                 <Input name="hireDate" type="date" />
               </label>
               <label className="grid gap-1 text-sm text-muted">
-                Crew
-                <Input name="crew" placeholder="Guardrail A" />
+                Location
+                <Input name="location" placeholder="Guardrail A" maxLength={64} />
               </label>
               <Select label="Role" name="role" defaultValue="Labor">
                 <option value="Foreman">Foreman</option>
@@ -1810,12 +1937,8 @@ export default function EmployeesPage() {
             </div>
             <Separator className="border-border/60" />
             <div className="grid gap-4 md:grid-cols-2">
-              <Select label="Pay Type" name="payType" defaultValue="HOURLY">
-                <option value="HOURLY">Hourly</option>
-                <option value="SALARY">Salary (weekly)</option>
-              </Select>
               <label className="grid gap-1 text-sm text-muted">
-                Base Pay
+                Rate
                 <Input
                   name="payBase"
                   type="number"

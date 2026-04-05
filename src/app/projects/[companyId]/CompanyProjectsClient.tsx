@@ -3,17 +3,23 @@
 import { useMemo, useState } from "react";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { ProjectRow } from "@/components/ui/ProjectRow";
-import type { Project } from "@/lib/mock/projects";
+import type { Project } from "../projects.models";
 
 const PROJECT_STATUS = {
-  ACTIVE: "ACTIVE",
-  COMPLETED: "COMPLETED",
+  NOT_STARTED: "Not Started",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
 } as const;
 
+const ALL_PROJECTS = "All" as const;
+
 type ProjectStatus = (typeof PROJECT_STATUS)[keyof typeof PROJECT_STATUS];
+type StatusTab = typeof ALL_PROJECTS | ProjectStatus;
 
 const isProjectStatus = (value: string): value is ProjectStatus =>
-  value === PROJECT_STATUS.ACTIVE || value === PROJECT_STATUS.COMPLETED;
+  value === PROJECT_STATUS.NOT_STARTED ||
+  value === PROJECT_STATUS.IN_PROGRESS ||
+  value === PROJECT_STATUS.COMPLETED;
 
 type Props = {
   companyId: string;
@@ -21,9 +27,17 @@ type Props = {
 };
 
 export function CompanyProjectsClient({ companyId, projects }: Props) {
-  const [status, setStatus] = useState<ProjectStatus>(PROJECT_STATUS.ACTIVE);
-  const filtered = useMemo(() => projects.filter((project) => project.status === status), [projects, status]);
+  const [status, setStatus] = useState<StatusTab>(ALL_PROJECTS);
+  const filtered = useMemo(
+    () =>
+      status === ALL_PROJECTS ? projects : projects.filter((project) => project.status === status),
+    [projects, status],
+  );
   const handleStatusChange = (value: string) => {
+    if (value === ALL_PROJECTS) {
+      setStatus(ALL_PROJECTS);
+      return;
+    }
     if (isProjectStatus(value)) {
       setStatus(value);
     }
@@ -36,7 +50,9 @@ export function CompanyProjectsClient({ companyId, projects }: Props) {
           value={status}
           onChange={handleStatusChange}
           options={[
-            { value: PROJECT_STATUS.ACTIVE, label: "Active" },
+            { value: ALL_PROJECTS, label: "All" },
+            { value: PROJECT_STATUS.NOT_STARTED, label: "Not Started" },
+            { value: PROJECT_STATUS.IN_PROGRESS, label: "In Progress" },
             { value: PROJECT_STATUS.COMPLETED, label: "Completed" },
           ]}
         />

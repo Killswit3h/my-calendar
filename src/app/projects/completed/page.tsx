@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/ui/PageHeader";
-import { COMPANIES, PROJECTS } from "@/lib/mock/projects";
-import { cn } from "@/lib/theme";
+import { fetchProjects } from "../projects.api";
 
-export default function CompletedProjectsPage() {
-  const companyLookup = Object.fromEntries(COMPANIES.map(company => [company.id, company.name]));
-  const completed = PROJECTS.filter(project => project.status === "COMPLETED").map(project => ({
+export default async function CompletedProjectsPage() {
+  const { companies, projects } = await fetchProjects()
+  const companyLookup = Object.fromEntries(companies.map(company => [company.id, company.name]));
+  const completed = projects.filter(project => project.status === "Completed").map(project => ({
     ...project,
     companyName: companyLookup[project.companyId] ?? "—",
   }));
@@ -60,18 +60,5 @@ export default function CompletedProjectsPage() {
       </div>
     </main>
   );
-}
-
-function projectTypeTone(projectType: string) {
-  switch (projectType) {
-    case "HANDRAIL":
-      return "border-sky-400/20 bg-sky-500/10 text-sky-100";
-    case "GUARDRAIL":
-      return "border-emerald-400/20 bg-emerald-500/10 text-emerald-100";
-    case "FENCE":
-      return "border-amber-400/20 bg-amber-500/10 text-amber-100";
-    default:
-      return "border-purple-400/20 bg-purple-500/10 text-purple-100";
-  }
 }
 

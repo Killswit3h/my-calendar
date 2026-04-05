@@ -1,4 +1,4 @@
-import type { Project } from "@/lib/mock/projects";
+import type { Project } from "./projects.models";
 
 export type BoardLaneDefinition = {
   id: string;

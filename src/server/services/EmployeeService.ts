@@ -85,10 +85,44 @@ export class EmployeeService extends AbstractService<
         throw new ValidationError("phone_number must be a string")
       }
     }
+
+    // Notes validation (if provided)
+    if (data.notes !== undefined && data.notes !== null) {
+      if (typeof data.notes !== "string") {
+        throw new ValidationError("notes must be a string")
+      }
+      // Trim and validate length
+      const trimmed = data.notes.trim()
+      if (trimmed.length > 0 && trimmed.length > 10000) {
+        throw new ValidationError("notes must be less than 10000 characters")
+      }
+    }
+
+    // Role validation (if provided)
+    if (data.role !== undefined && data.role !== null) {
+      if (typeof data.role !== "string") {
+        throw new ValidationError("role must be a string")
+      }
+      const trimmed = data.role.trim()
+      if (trimmed.length > 255) {
+        throw new ValidationError("role must be less than 255 characters")
+      }
+    }
+
+    // Location validation (if provided)
+    if (data.location !== undefined && data.location !== null) {
+      if (typeof data.location !== "string") {
+        throw new ValidationError("location must be a string")
+      }
+      const trimmed = data.location.trim()
+      if (trimmed.length > 64) {
+        throw new ValidationError("location must be less than 64 characters")
+      }
+    }
   }
 
   /**
-   * Hook called before create - check email uniqueness
+   * Hook called before create - check email uniqueness and normalize fields
    */
   protected async beforeCreate(
     data: Prisma.employeeCreateInput
@@ -99,11 +133,24 @@ export class EmployeeService extends AbstractService<
         throw new ConflictError("An employee with this email already exists")
       }
     }
-    return data
+
+    // Normalize optional string fields: trim and set to null if empty
+    const normalized: Prisma.employeeCreateInput = { ...data }
+    if (normalized.notes !== undefined && typeof normalized.notes === "string") {
+      normalized.notes = normalized.notes.trim() || null
+    }
+    if (normalized.role !== undefined && typeof normalized.role === "string") {
+      normalized.role = normalized.role.trim() || null
+    }
+    if (normalized.location !== undefined && typeof normalized.location === "string") {
+      normalized.location = normalized.location.trim() || null
+    }
+
+    return normalized
   }
 
   /**
-   * Hook called before update - check email uniqueness if email is being changed
+   * Hook called before update - check email uniqueness if email is being changed and normalize fields
    */
   protected async beforeUpdate(
     id: number,
@@ -115,7 +162,20 @@ export class EmployeeService extends AbstractService<
         throw new ConflictError("An employee with this email already exists")
       }
     }
-    return data
+
+    // Normalize optional string fields: trim and set to null if empty
+    const normalized: Prisma.employeeUpdateInput = { ...data }
+    if (normalized.notes !== undefined && normalized.notes !== null && typeof normalized.notes === "string") {
+      normalized.notes = normalized.notes.trim() || null
+    }
+    if (normalized.role !== undefined && normalized.role !== null && typeof normalized.role === "string") {
+      normalized.role = normalized.role.trim() || null
+    }
+    if (normalized.location !== undefined && normalized.location !== null && typeof normalized.location === "string") {
+      normalized.location = normalized.location.trim() || null
+    }
+
+    return normalized
   }
 
   /**

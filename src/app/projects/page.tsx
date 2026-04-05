@@ -1,27 +1,24 @@
 import Link from "next/link";
-import { ArrowUpRight, KanbanSquare, ListFilter, PanelsTopLeft, Sparkles, Users2 } from "lucide-react";
+import { ArrowUpRight, Users2 } from "lucide-react";
 
 import { PageHeader } from "@/components/ui/PageHeader";
 import { NewProjectLauncher } from "./NewProjectLauncher";
-import { COMPANIES, PROJECTS } from "@/lib/mock/projects";
 import { cn } from "@/lib/theme";
 import {
   boardLaneDefinitions,
   projectTypeToneMap,
   statusToneMap,
-  typeFilters,
 } from "./projects.data";
 import type { BoardLane } from "./projects.types";
+import { fetchProjects } from "./projects.api";
 
-export default function ProjectsPage() {
-  const companyLookup = Object.fromEntries(COMPANIES.map(company => [company.id, company.name]));
-  const activeProjects = PROJECTS.filter(project => project.status === "ACTIVE");
-  const completedProjects = PROJECTS.filter(project => project.status === "COMPLETED");
-  const uniqueDistricts = new Set(PROJECTS.map(project => project.district));
+export default async function ProjectsPage() {
+  const { companies, projects } = await fetchProjects()
+  const companyLookup = Object.fromEntries(companies.map(company => [company.id, company.name]));
 
   const boardLanes: BoardLane[] = boardLaneDefinitions.map(definition => ({
     ...definition,
-    projects: PROJECTS.filter(definition.filter).map(project => ({
+    projects: projects.filter(definition.filter).map(project => ({
       ...project,
       companyName: companyLookup[project.companyId] ?? "—",
     })),
@@ -42,7 +39,7 @@ export default function ProjectsPage() {
                 <Users2 className="h-4 w-4" />
                 All customers
               </Link>
-              <NewProjectLauncher companies={COMPANIES} />
+              <NewProjectLauncher companies={companies} />
             </div>
           }
         />
@@ -64,11 +61,11 @@ export default function ProjectsPage() {
           <div className="overflow-x-auto pb-6">
             <div className="grid min-w-[860px] grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 lg:gap-6">
               {boardLanes
-                .filter(lane => lane.id !== "closeout")
-                .map(lane => {
+                .filter((lane) => lane.id !== "closeout")
+                .map((lane) => {
                 const loadPercent = Math.min(
                   100,
-                  Math.round((lane.projects.length / Math.max(1, PROJECTS.length)) * 100),
+                  Math.round((lane.projects.length / Math.max(1, projects.length)) * 100),
                 );
 
                 return (
@@ -152,7 +149,7 @@ export default function ProjectsPage() {
                       ))}
                       {lane.projects.length === 0 && (
                         <li className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 text-sm text-white/60">
-                          No projects in this lane yet. Once data matches the rule set, cards will appear here automatically.
+                          No projects in this lane yet. New work shows here by status (Not Started, In Progress, or Completed).
                         </li>
                       )}
                     </ul>

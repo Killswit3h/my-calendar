@@ -466,5 +466,166 @@ describe("ProjectService", () => {
         expect(result.status).toBe("In Progress")
       })
     })
+
+    describe("pay application workspace fields", () => {
+      it("should reject procedure_checklist with invalid key", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P1",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        await expect(
+          service.update(project.id, {
+            procedure_checklist: { not_a_key: "NOT_STARTED" },
+          } as any)
+        ).rejects.toThrow(ValidationError)
+      })
+
+      it("should reject procedure_checklist with invalid status value", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P2",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        await expect(
+          service.update(project.id, {
+            procedure_checklist: { contract: "DONE" },
+          } as any)
+        ).rejects.toThrow(ValidationError)
+      })
+
+      it("should persist cleaned procedure_checklist on update", async () => {
+        const project = (mockPrisma as any).addProject({
+          name: "P3",
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const result = await service.update(project.id, {
+          procedure_checklist: { contract: "COMPLETE", coi: "IN_PROGRESS" },
+        } as any)
+        expect(result.procedure_checklist).toEqual({
+          contract: "COMPLETE",
+          coi: "IN_PROGRESS",
+        })
+      })
+
+      describe("pay_application_invoice_number", () => {
+        const baseCreate = () => ({
+          name: "Invoice Project",
+          location: "Loc",
+          retainage: new Prisma.Decimal(0),
+          vendor: "Vend",
+        })
+
+        it("should persist trimmed value on create", async () => {
+          const result = await service.create({
+            ...baseCreate(),
+            pay_application_invoice_number: "  INV-001  ",
+          } as any)
+          expect(result.pay_application_invoice_number).toBe("INV-001")
+        })
+
+        it("should store null when create sends empty string", async () => {
+          const result = await service.create({
+            ...baseCreate(),
+            name: "Invoice Project Empty",
+            pay_application_invoice_number: "",
+          } as any)
+          expect(result.pay_application_invoice_number).toBeNull()
+        })
+
+        it("should reject non-string pay_application_invoice_number on create", async () => {
+          await expect(
+            service.create({
+              ...baseCreate(),
+              name: "Invoice Project Bad Type",
+              pay_application_invoice_number: 42,
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("should reject string longer than 255 on create", async () => {
+          await expect(
+            service.create({
+              ...baseCreate(),
+              name: "Invoice Project Too Long",
+              pay_application_invoice_number: "y".repeat(256),
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("should reject non-string pay_application_invoice_number on update", async () => {
+          const project = (mockPrisma as any).addProject({
+            name: "P-inv-type",
+            location: "L",
+            retainage: 1,
+            vendor: "V",
+          })
+          await expect(
+            service.update(project.id, {
+              pay_application_invoice_number: 99,
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("should reject string longer than 255 on update", async () => {
+          const project = (mockPrisma as any).addProject({
+            name: "P-inv-len",
+            location: "L",
+            retainage: 1,
+            vendor: "V",
+          })
+          await expect(
+            service.update(project.id, {
+              pay_application_invoice_number: "x".repeat(256),
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("should trim and persist on update", async () => {
+          const project = (mockPrisma as any).addProject({
+            name: "P-inv-trim",
+            location: "L",
+            retainage: 1,
+            vendor: "V",
+          })
+          const result = await service.update(project.id, {
+            pay_application_invoice_number: "  ABC-9  ",
+          } as any)
+          expect(result.pay_application_invoice_number).toBe("ABC-9")
+        })
+
+        it("should clear to null when update sends null", async () => {
+          const project = (mockPrisma as any).addProject({
+            name: "P-inv-null",
+            location: "L",
+            retainage: 1,
+            vendor: "V",
+            pay_application_invoice_number: "OLD",
+          })
+          const result = await service.update(project.id, {
+            pay_application_invoice_number: null,
+          } as any)
+          expect(result.pay_application_invoice_number).toBeNull()
+        })
+
+        it("should clear to null when update sends empty string", async () => {
+          const project = (mockPrisma as any).addProject({
+            name: "P-inv-empty",
+            location: "L",
+            retainage: 1,
+            vendor: "V",
+            pay_application_invoice_number: "OLD",
+          })
+          const result = await service.update(project.id, {
+            pay_application_invoice_number: "",
+          } as any)
+          expect(result.pay_application_invoice_number).toBeNull()
+        })
+      })
+    })
   })
 })

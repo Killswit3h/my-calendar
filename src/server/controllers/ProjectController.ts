@@ -45,7 +45,7 @@ export class ProjectController extends AbstractController<
   /**
    * Handle GET request
    * Supports:
-   * - GET /api/projects - list all projects (with optional ?name=, ?location=, ?vendor=, ?customer_id= filters)
+   * - GET /api/projects - list all projects (with optional ?name=, ?location=, ?vendor=, ?customer_id=, ?code=, ?owner=, ?district=, ?project_type=, ?status= filters)
    * - GET /api/projects/[id] - get single project by ID (path parameter)
    * - Query parameter ?expanded=true to include all relations
    */
@@ -71,6 +71,11 @@ export class ProjectController extends AbstractController<
       const locationFilter = queryParams.location
       const vendorFilter = queryParams.vendor
       const customerIdFilter = queryParams.customer_id
+      const codeFilter = queryParams.code
+      const ownerFilter = queryParams.owner
+      const districtFilter = queryParams.district
+      const projectTypeFilter = queryParams.project_type
+      const statusFilter = queryParams.status
 
       let filters: any = {}
       if (nameFilter && typeof nameFilter === "string") {
@@ -96,6 +101,30 @@ export class ProjectController extends AbstractController<
         if (!isNaN(customerId)) {
           filters.customer_id = customerId
         }
+      }
+      if (codeFilter && typeof codeFilter === "string") {
+        filters.code = {
+          contains: codeFilter,
+          mode: "insensitive",
+        }
+      }
+      if (ownerFilter && typeof ownerFilter === "string") {
+        filters.owner = {
+          contains: ownerFilter,
+          mode: "insensitive",
+        }
+      }
+      if (districtFilter && typeof districtFilter === "string") {
+        filters.district = {
+          contains: districtFilter,
+          mode: "insensitive",
+        }
+      }
+      if (projectTypeFilter && typeof projectTypeFilter === "string") {
+        filters.project_type = projectTypeFilter
+      }
+      if (statusFilter && typeof statusFilter === "string") {
+        filters.status = statusFilter
       }
 
       // Use repository directly if expand is needed, otherwise use service
@@ -126,7 +155,16 @@ export class ProjectController extends AbstractController<
       const expandOptions = this.parseExpand(queryParams.expanded)
       // Accept API-friendly `customer_id` and let the service normalize it.
       const body = await this.parseBody<
-        Prisma.projectCreateInput & { customer_id?: number | null }
+        Prisma.projectCreateInput & {
+          customer_id?: number | null
+          code?: string
+          owner?: string
+          district?: string
+          project_type?: string
+          procedure_checklist?: Record<string, string>
+          pay_application_notes?: string
+          pay_application_invoice_number?: string | null
+        }
       >(req)
 
       const project = await this.service.create(body, expandOptions)
@@ -156,7 +194,16 @@ export class ProjectController extends AbstractController<
 
       // Accept API-friendly `customer_id` and let the service normalize it.
       const body = await this.parseBody<
-        Prisma.projectUpdateInput & { customer_id?: number | null }
+        Prisma.projectUpdateInput & {
+          customer_id?: number | null
+          code?: string | null
+          owner?: string | null
+          district?: string | null
+          project_type?: string | null
+          procedure_checklist?: Record<string, string> | null
+          pay_application_notes?: string | null
+          pay_application_invoice_number?: string | null
+        }
       >(req)
 
       const project = await this.service.update(id, body, expandOptions)

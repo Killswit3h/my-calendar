@@ -82,7 +82,18 @@ export class ProjectPayItemController extends AbstractController<
       const queryParams = this.parseQueryParams(req)
       const expandOptions = this.parseExpand(queryParams.expanded)
       // Accept API-friendly `project_id` and `pay_item_id` and let the service normalize it.
-      const body = await this.parseBody<Prisma.project_pay_itemCreateInput & { project_id?: number; pay_item_id?: number }>(req)
+      const body = await this.parseBody<
+        Prisma.project_pay_itemCreateInput & {
+          project_id?: number
+          pay_item_id?: number | null
+          pay_item_number?: string
+          pay_item_description?: string | null
+          pay_item_unit?: string | null
+          ready_to_work_date?: string | Date | null
+          status_date?: string | Date | null
+          surveyed?: boolean | null
+        }
+      >(req)
 
       const projectPayItem = await this.service.create(body, expandOptions)
       return this.successResponse(projectPayItem, 201)
@@ -110,7 +121,18 @@ export class ProjectPayItemController extends AbstractController<
       }
 
       // Accept API-friendly `project_id` and `pay_item_id` and let the service normalize it.
-      const body = await this.parseBody<Prisma.project_pay_itemUpdateInput & { project_id?: number; pay_item_id?: number }>(req)
+      const body = await this.parseBody<
+        Prisma.project_pay_itemUpdateInput & {
+          project_id?: number
+          pay_item_id?: number | null
+          pay_item_number?: string
+          pay_item_description?: string | null
+          pay_item_unit?: string | null
+          ready_to_work_date?: string | Date | null
+          status_date?: string | Date | null
+          surveyed?: boolean | null
+        }
+      >(req)
 
       const projectPayItem = await this.service.update(id, body, expandOptions)
       return this.successResponse(projectPayItem, 200)

@@ -24,14 +24,35 @@ export class ProjectRepository extends AbstractRepository<
     client?: PrismaClient | Prisma.TransactionClient
   ): Promise<Prisma.projectGetPayload<{}> | null> {
     return this.findFirst(
-      { 
+      {
         name: {
           equals: name,
-          mode: "insensitive"
-        }
+          mode: "insensitive",
+        },
       } as Prisma.projectWhereInput,
       undefined,
-      client
+      client,
+    )
+  }
+
+  /**
+   * Case-insensitive name match excluding a project id (for update uniqueness checks).
+   * Avoids false conflicts when multiple rows could match `findByName` ordering.
+   */
+  async findFirstByNameCaseInsensitiveExcludingId(
+    name: string,
+    excludeId: number,
+    client?: PrismaClient | Prisma.TransactionClient,
+  ): Promise<Prisma.projectGetPayload<{}> | null> {
+    return this.findFirst(
+      {
+        AND: [
+          { name: { equals: name, mode: "insensitive" } },
+          { id: { not: excludeId } },
+        ],
+      } as Prisma.projectWhereInput,
+      undefined,
+      client,
     )
   }
 

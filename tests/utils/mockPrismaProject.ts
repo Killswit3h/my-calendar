@@ -13,6 +13,9 @@ type ProjectRow = {
   status: string | null
   created_at: Date | null
   updated_at: Date | null
+  procedure_checklist?: unknown
+  pay_application_notes?: string | null
+  pay_application_invoice_number?: string | null
 }
 
 /**
@@ -130,15 +133,28 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     findFirst: async ({ where, select }: any) => {
       let rows = Array.from(projects.values())
 
-      if (where?.name) {
-        const equals = where.name.equals
-        const mode = where.name.mode || "default"
+      const applyNameClause = (nameWhere: { equals: string; mode?: string }) => {
+        const equals = nameWhere.equals
+        const mode = nameWhere.mode || "default"
         rows = rows.filter((row) => {
-          const name = mode === "insensitive" 
-            ? row.name.toLowerCase() 
-            : row.name
+          const name =
+            mode === "insensitive" ? row.name.toLowerCase() : row.name
           return name === (mode === "insensitive" ? equals.toLowerCase() : equals)
         })
+      }
+
+      if (where?.AND && Array.isArray(where.AND)) {
+        for (const clause of where.AND) {
+          if (clause?.name?.equals !== undefined) {
+            applyNameClause(clause.name)
+          }
+          if (clause?.id?.not !== undefined) {
+            const skipId = clause.id.not
+            rows = rows.filter((row) => row.id !== skipId)
+          }
+        }
+      } else if (where?.name) {
+        applyNameClause(where.name)
       }
 
       const row = rows[0] || null
@@ -196,6 +212,12 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         status: data.status ?? "Not Started",
         created_at: data.created_at ?? new Date(),
         updated_at: data.updated_at ?? new Date(),
+        ...(data.pay_application_notes !== undefined && {
+          pay_application_notes: data.pay_application_notes,
+        }),
+        ...(data.pay_application_invoice_number !== undefined && {
+          pay_application_invoice_number: data.pay_application_invoice_number,
+        }),
       }
       projects.set(id, row)
       return { ...row }
@@ -262,6 +284,15 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         ...(data.is_EEO !== undefined && { is_EEO: data.is_EEO }),
         ...(data.vendor !== undefined && { vendor: data.vendor }),
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.procedure_checklist !== undefined && {
+          procedure_checklist: data.procedure_checklist,
+        }),
+        ...(data.pay_application_notes !== undefined && {
+          pay_application_notes: data.pay_application_notes,
+        }),
+        ...(data.pay_application_invoice_number !== undefined && {
+          pay_application_invoice_number: data.pay_application_invoice_number,
+        }),
         updated_at: new Date(),
       }
       projects.set(id, updated)
@@ -318,6 +349,8 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     is_payroll?: boolean | null
     is_EEO?: boolean | null
     status?: string | null
+    pay_application_notes?: string | null
+    pay_application_invoice_number?: string | null
   }) => {
     const id = data.id ?? randomId()
     
@@ -342,6 +375,12 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
       status: data.status ?? "ACTIVE",
       created_at: new Date(),
       updated_at: new Date(),
+      ...(data.pay_application_notes !== undefined && {
+        pay_application_notes: data.pay_application_notes,
+      }),
+      ...(data.pay_application_invoice_number !== undefined && {
+        pay_application_invoice_number: data.pay_application_invoice_number,
+      }),
     }
     projects.set(id, row)
     return row
