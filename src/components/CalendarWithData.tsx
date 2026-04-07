@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
-import { EllipsisVertical } from 'lucide-react';
+import { EllipsisVertical, X as XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +13,7 @@ import '@/styles/calendar.css';
 import EmployeeMultiSelect from './EmployeeMultiSelect';
 import CustomerCombobox from './CustomerCombobox';
 import { getEmployees } from '@/employees';
+import { payById } from '@/data/employeeRoster';
 import { eventOverlapsLocalDay } from '@/lib/dateUtils';
 import { getYardForDate } from '@/lib/yard';
 import { getAbsentForDate } from '@/lib/absent';
@@ -30,26 +31,24 @@ import {
   zonedStartOfDayUtc,
   addDaysUtc,
 } from '@/lib/timezone';
+import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
@@ -58,6 +57,7 @@ type Checklist = {
   locate?: { ticket?: string; requested?: string; expires?: string; contacted?: boolean };
   subtasks?: { id: string; text: string; done: boolean }[];
   employees?: string[];
+  employeePay?: Record<string, string>;
 };
 type WorkShift = 'DAY' | 'NIGHT';
 type PaymentType = 'DAILY' | 'ADJUSTED';
@@ -140,7 +140,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<NewEvent | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'tickets' | 'quantities'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'work' | 'quantities'>('info');
   const [modalHasQuantities, setModalHasQuantities] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [isMobile, setIsMobile] = useState(false);
@@ -1139,22 +1139,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     setActiveTab('info');
   }, [createBlankDraft]);
 
-  const handleAllDayToggle = () => {
-    setDraft(prev => {
-      if (!prev) return prev;
-      if (prev.allDay) {
-        const startDate = new Date(prev.start);
-        const endDate = prev.end ? new Date(prev.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
-        return { ...prev, allDay: false, start: startDate.toISOString(), end: endDate.toISOString() };
-      }
-      const startUtc = parseAppDateOnly(String(prev.start), APP_TIMEZONE) ?? zonedStartOfDayUtc(formatInTimeZone(new Date(prev.start), APP_TIMEZONE).date, APP_TIMEZONE);
-      const endUtc = addDaysUtc(startUtc, 1);
-      return { ...prev, allDay: true, start: startUtc.toISOString(), end: endUtc.toISOString() };
-    });
-    setUserChangedStart(false);
-    setUserChangedEnd(false);
-  };
-
   const handleStartFieldChange = (value: string) => {
     if (!draft) return;
     if (draft.allDay) {
@@ -1344,22 +1328,48 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
             Work Time
           </Typography>
-          <ToggleButtonGroup
-            value={draft.shift ?? 'DAY'}
-            exclusive
-            size="small"
-            onChange={(_, value) => {
-              if (value) setDraft({ ...draft, shift: value as WorkShift });
+          <button
+            type="button"
+            role="switch"
+            aria-checked={(draft.shift || "DAY") === "NIGHT"}
+            onClick={() => {
+              const newShift = (draft.shift ?? "DAY") === "DAY" ? "NIGHT" : "DAY";
+              let startIso = draft.start;
+              let endIso = draft.end ?? draft.start;
+              if (newShift === "NIGHT" && !userChangedStart && !userChangedEnd) {
+                const s = new Date(draft.start);
+                s.setHours(19, 0, 0, 0);
+                const e = new Date(s);
+                e.setDate(e.getDate() + 1);
+                e.setHours(5, 0, 0, 0);
+                startIso = s.toISOString();
+                endIso = e.toISOString();
+              }
+              setDraft({ ...draft, shift: newShift, start: startIso, end: endIso });
             }}
+            className="relative inline-flex h-10 w-[140px] items-center rounded-full border border-white/15 bg-black/40 px-1 transition"
           >
-            <ToggleButton value="DAY">Day</ToggleButton>
-            <ToggleButton value="NIGHT">Night</ToggleButton>
-          </ToggleButtonGroup>
+            <span
+              className={`absolute left-1 top-1 h-8 w-[64px] rounded-full bg-white/80 text-black shadow-sm transition-transform ${
+                (draft.shift || "DAY") === "NIGHT" ? "translate-x-[64px]" : ""
+              }`}
+            />
+            <span
+              className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                (draft.shift || "DAY") === "DAY" ? "text-black" : "text-white/70"
+              }`}
+            >
+              Day
+            </span>
+            <span
+              className={`relative z-10 flex w-1/2 items-center justify-center text-sm font-semibold ${
+                (draft.shift || "DAY") === "NIGHT" ? "text-black" : "text-white/70"
+              }`}
+            >
+              Night
+            </span>
+          </button>
         </Box>
-        <FormControlLabel
-          control={<Switch checked={draft.allDay} onChange={handleAllDayToggle} />}
-          label={draft.allDay ? 'All-day event' : 'Timed event'}
-        />
         <TextField
           select
           label="Type"
@@ -1411,7 +1421,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const workInfoContent: ReactNode = draft ? (
     <Stack spacing={3} sx={{ mt: 1 }}>
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
         <TextField
           select
           label="Vendor"
@@ -1437,7 +1447,15 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
           select
           label="Payment"
           value={draft.payment ?? 'DAILY'}
-          onChange={e => setDraft({ ...draft, payment: e.target.value as PaymentType })}
+          onChange={e => {
+            const newPayment = e.target.value as PaymentType
+            const ids = draft.checklist?.employees ?? []
+            const recalcPay: Record<string, string> = {}
+            ids.forEach(id => {
+              recalcPay[id] = newPayment === 'DAILY' ? String((payById[id] ?? 0) * 8) : ''
+            })
+            setDraft({ ...draft, payment: newPayment, checklist: { ...(draft.checklist ?? defaultChecklist()), employeePay: recalcPay } })
+          }}
           fullWidth
         >
           <MenuItem value="DAILY">Daily</MenuItem>
@@ -1448,13 +1466,71 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
           Employees
         </Typography>
-        <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', p: 1.5, maxHeight: 200, overflowY: 'auto' }}>
-          <EmployeeMultiSelect
-            employees={employees}
-            value={draft.checklist?.employees ?? []}
-            onChange={(sel) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel } })}
-          />
-        </Box>
+        <EmployeeMultiSelect
+          employees={employees}
+          value={draft.checklist?.employees ?? []}
+          suppressTags
+          onChange={(sel) => {
+            const prevIds = draft.checklist?.employees ?? []
+            const prevPay = draft.checklist?.employeePay ?? {}
+            const newPay: Record<string, string> = {}
+            sel.forEach(id => {
+              if (prevIds.includes(id)) {
+                newPay[id] = prevPay[id] ?? ''
+              } else {
+                newPay[id] = (draft.payment ?? 'DAILY') === 'DAILY'
+                  ? String((payById[id] ?? 0) * 8)
+                  : ''
+              }
+            })
+            setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: sel, employeePay: newPay } })
+          }}
+        />
+        {(draft.checklist?.employees ?? []).length > 0 && (
+          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            {(draft.checklist?.employees ?? []).map(empId => {
+              const emp = employees.find(e => e.id === empId)
+              if (!emp) return null
+              const payVal = draft.checklist?.employeePay?.[empId] ?? ''
+              return (
+                <Box key={empId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 28, height: 28, fontSize: 11, flexShrink: 0 }}>
+                    {emp.firstName[0]}{emp.lastName[0]}
+                  </Avatar>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                    {emp.firstName} {emp.lastName}
+                  </Typography>
+                  <TextField
+                    size="small"
+                    label="Pay"
+                    value={payVal}
+                    placeholder={(draft.payment ?? 'DAILY') === 'ADJUSTED' ? 'Enter amount' : '0.00'}
+                    onChange={e => {
+                      const newPay = { ...(draft.checklist?.employeePay ?? {}), [empId]: e.target.value }
+                      setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employeePay: newPay } })
+                    }}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    }}
+                    sx={{ width: 130 }}
+                  />
+                  <IconButton
+                    size="small"
+                    aria-label={`Remove ${emp.firstName} ${emp.lastName}`}
+                    onClick={() => {
+                      const newIds = (draft.checklist?.employees ?? []).filter(id => id !== empId)
+                      const newPay = { ...(draft.checklist?.employeePay ?? {}) }
+                      delete newPay[empId]
+                      setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), employees: newIds, employeePay: newPay } })
+                    }}
+                  >
+                    <XIcon size={14} />
+                  </IconButton>
+                </Box>
+              )
+            })}
+          </Box>
+        )}
       </Box>
       <TextField
         label="Notes"
@@ -1462,61 +1538,20 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         onChange={e => setDraft({ ...draft, description: e.target.value })}
         onKeyDown={handleDescKeyDown}
         multiline
-        minRows={4}
+        minRows={2}
         fullWidth
       />
     </Stack>
   ) : null;
 
-  const ticketsContent: ReactNode = draft ? (
-    <Stack spacing={3} sx={{ mt: 1 }}>
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
-          <TextField
-            label="Ticket #"
-            value={draft.checklist?.locate?.ticket ?? ''}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), ticket: e.target.value } } })}
-            fullWidth
-          />
-          <TextField
-            label="Requested"
-            type="date"
-            value={(draft.checklist?.locate?.requested ?? '').slice(0, 10)}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), requested: e.target.value } } })}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-          <TextField
-            label="Expires"
-            type="date"
-            value={(draft.checklist?.locate?.expires ?? '').slice(0, 10)}
-            onChange={e => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), locate: { ...(draft.checklist?.locate ?? {}), expires: e.target.value } } })}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-        </Box>
-      </Paper>
-      <Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-          Subtasks
-        </Typography>
-        <SubtasksEditor
-          value={draft.checklist?.subtasks ?? []}
-          onChange={(subs) => setDraft({ ...draft, checklist: { ...(draft.checklist ?? defaultChecklist()), subtasks: subs } })}
-        />
-      </Box>
-    </Stack>
-  ) : null;
-
   const quantitiesContent: ReactNode = draft ? (
     <Box sx={{ mt: 1 }}>
-      {editId ? (
-        <EventQuantitiesEditor eventId={editId} onHasQuantitiesChange={handleQuantitiesChange} />
-      ) : (
-        <Typography variant="body2" color="text.secondary">
+      <EventQuantitiesEditor eventId={editId ?? undefined} onHasQuantitiesChange={handleQuantitiesChange} />
+      {!editId ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
           Save the event to add quantities.
         </Typography>
-      )}
+      ) : null}
     </Box>
   ) : null;
 
@@ -1838,12 +1873,10 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
             >
               <Tab value="info" label="Event Info" />
               <Tab value="work" label="Work & Payroll" />
-              <Tab value="tickets" label="Tickets & Subtasks" />
               <Tab value="quantities" label="Quantities" />
             </Tabs>
             <Box sx={{ display: activeTab === 'info' ? 'block' : 'none' }}>{eventInfoContent}</Box>
             <Box sx={{ display: activeTab === 'work' ? 'block' : 'none' }}>{workInfoContent}</Box>
-            <Box sx={{ display: activeTab === 'tickets' ? 'block' : 'none' }}>{ticketsContent}</Box>
             <Box sx={{ display: activeTab === 'quantities' ? 'block' : 'none' }}>{quantitiesContent}</Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
@@ -2252,26 +2285,3 @@ function parseTodoNotes(notes?: string | null): { description?: string; locate?:
   return { description: notes };
 }
 
-function SubtasksEditor({ value, onChange }: { value: { id: string; text: string; done: boolean }[]; onChange: (v: { id: string; text: string; done: boolean }[]) => void }) {
-  const [text, setText] = useState('');
-  const add = () => { const t = text.trim(); if (!t) return; onChange([...(value ?? []), { id: uid(), text: t, done: false }]); setText(''); };
-  const toggle = (id: string) => onChange((value ?? []).map(s => s.id === id ? { ...s, done: !s.done } : s));
-  const del = (id: string) => onChange((value ?? []).filter(s => s.id !== id));
-  return (
-    <div className="subtasks">
-      <div className="input-row">
-        <input className="subtask-input" placeholder="Add subtask" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} />
-        <button className="btn" onClick={add}>Add</button>
-      </div>
-      <div className="subtask-list">
-        {(value ?? []).map(s => (
-          <div key={s.id} className="subtask-item">
-            <input type="checkbox" checked={!!s.done} onChange={() => toggle(s.id)} />
-            <span className={s.done ? 'subtask-text muted' : 'subtask-text'}>{s.text}</span>
-            <button className="subtask-remove" onClick={() => del(s.id)}>Remove</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

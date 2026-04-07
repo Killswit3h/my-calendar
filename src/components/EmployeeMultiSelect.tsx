@@ -21,6 +21,10 @@ interface Props {
   onChange: (next: string[]) => void;
   placeholder?: string;
   label?: string;
+  /** When true, renders selected employees as chips below the input instead of inside it */
+  tagsBelow?: boolean;
+  /** When true, suppresses all tag rendering (use when the parent manages the selection display) */
+  suppressTags?: boolean;
 }
 
 const LISTBOX_PADDING = 8; // px
@@ -59,7 +63,7 @@ const ListboxComponent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<H
   );
 });
 
-export default function EmployeeMultiSelect({ employees, value, onChange, placeholder = "Select employees", label }: Props) {
+export default function EmployeeMultiSelect({ employees, value, onChange, placeholder = "Select employees", label, tagsBelow = false, suppressTags = false }: Props) {
   const selected = useMemo(() => employees.filter((e) => value.includes(e.id)), [employees, value]);
   const filterOptions = (opts: Employee[], { inputValue }: any) => {
     const term = inputValue.toLowerCase();
@@ -75,81 +79,101 @@ export default function EmployeeMultiSelect({ employees, value, onChange, placeh
   };
 
   return (
-    <Autocomplete
-      multiple
-      size="small"
-      options={employees}
-      value={selected}
-      disableCloseOnSelect
-      getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
-      isOptionEqualToValue={(o, v) => o.id === v.id}
-      filterOptions={filterOptions}
-      onChange={(_, next) => onChange(next.map((n) => n.id))}
-      ListboxComponent={employees.length > 200 ? ListboxComponent : undefined}
-      slotProps={{
-        paper: { sx: { bgcolor: (theme) => (theme.palette as any).surfaceContainerLow } },
-      }}
-      renderTags={(val, getTagProps) =>
-        val.map((option, idx) => (
-          <Chip
-            {...getTagProps({ index: idx })}
-            key={option.id}
-            label={`${option.firstName} ${option.lastName}`}
+    <Box>
+      <Autocomplete
+        multiple
+        size="small"
+        options={employees}
+        value={selected}
+        disableCloseOnSelect
+        getOptionLabel={(o) => `${o.firstName} ${o.lastName}`}
+        isOptionEqualToValue={(o, v) => o.id === v.id}
+        filterOptions={filterOptions}
+        onChange={(_, next) => onChange(next.map((n) => n.id))}
+        ListboxComponent={employees.length > 200 ? ListboxComponent : undefined}
+        slotProps={{
+          paper: { sx: { bgcolor: (theme) => (theme.palette as any).surfaceContainerLow } },
+        }}
+        renderTags={(suppressTags || tagsBelow) ? () => null : (val, getTagProps) =>
+          val.map((option, idx) => (
+            <Chip
+              {...getTagProps({ index: idx })}
+              key={option.id}
+              label={`${option.firstName} ${option.lastName}`}
+              size="small"
+            />
+          ))
+        }
+        renderOption={(props, option) => (
+          <li {...props} key={option.id} style={{ padding: 0 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1 }}>
+              <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: "background.paper", color: "text.secondary" }}>
+                {option.firstName[0]}
+                {option.lastName[0]}
+              </Avatar>
+              <Typography
+                variant="body2"
+                sx={{
+                  flexGrow: 1,
+                  typography: "bodyMedium",
+                  color: (theme) => theme.palette.common.white,
+                  fontWeight: 600,
+                  textShadow: "0 1px 1px rgba(0,0,0,0.3)",
+                }}
+              >
+                {option.firstName} {option.lastName}
+              </Typography>
+              <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
+                ({option.team})
+              </Typography>
+            </Box>
+          </li>
+        )}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label ?? "Select employees"}
+            placeholder={selected.length > 0 && tagsBelow ? "" : placeholder}
             size="small"
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {value.length > 0 && (
+                    <Button
+                      color="primary"
+                      size="small"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => onChange([])}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
           />
-        ))
-      }
-      renderOption={(props, option) => (
-        <li {...props} key={option.id} style={{ padding: 0 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1 }}>
-            <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: "background.paper", color: "text.secondary" }}>
-              {option.firstName[0]}
-              {option.lastName[0]}
-            </Avatar>
-            <Typography
-              variant="body2"
-              sx={{
-                flexGrow: 1,
-                typography: "bodyMedium",
-                color: (theme) => theme.palette.common.white,
-                fontWeight: 600,
-                textShadow: "0 1px 1px rgba(0,0,0,0.3)",
-              }}
-            >
-              {option.firstName} {option.lastName}
-            </Typography>
-            <Typography variant="body2" sx={{ typography: "bodyMedium" }} color="text.secondary">
-              ({option.team})
-            </Typography>
-          </Box>
-        </li>
+        )}
+      />
+      {!suppressTags && tagsBelow && selected.length > 0 && (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 1 }}>
+          {selected.map((option) => (
+            <Chip
+              key={option.id}
+              label={`${option.firstName} ${option.lastName}`}
+              size="small"
+              onDelete={() => onChange(value.filter((id) => id !== option.id))}
+              avatar={
+                <Avatar sx={{ fontSize: 10 }}>
+                  {option.firstName[0]}
+                  {option.lastName[0]}
+                </Avatar>
+              }
+            />
+          ))}
+        </Box>
       )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label ?? "Select employees"}
-          placeholder={placeholder}
-          size="small"
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {value.length > 0 && (
-                  <Button
-                    color="primary"
-                    size="small"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => onChange([])}
-                  >
-                    Clear all
-                  </Button>
-                )}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
-        />
-      )}
-    />
+    </Box>
   );
 }
