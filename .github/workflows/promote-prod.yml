@@ -1,0 +1,59 @@
+name: Promote to Production Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Optional: sha-<commit> tag to promote (leave blank to promote current main SHA)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set variables
+        id: vars
+        run: |
+          TS=$(date -u +"%Y%m%d-%H%M")
+          echo "ts=$TS" >> $GITHUB_OUTPUT
+
+          if [ -n "${{ inputs.source_sha }}" ]; then
+            SRC="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.source_sha }}"
+          else
+            SRC="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          fi
+
+          echo "src=$SRC" >> $GITHUB_OUTPUT
+          echo "dst=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod-${TS}" >> $GITHUB_OUTPUT
+          echo "dst_latest=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod" >> $GITHUB_OUTPUT
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull source image
+        run: docker pull "${{ steps.vars.outputs.src }}"
+
+      - name: Tag as production (timestamped)
+        run: docker tag "${{ steps.vars.outputs.src }}" "${{ steps.vars.outputs.dst }}"
+
+      - name: Push production tag (timestamped)
+        run: docker push "${{ steps.vars.outputs.dst }}"
+
+      - name: Also update :prod (moving pointer)
+        run: |
+          docker tag "${{ steps.vars.outputs.src }}" "${{ steps.vars.outputs.dst_latest }}"
+          docker push "${{ steps.vars.outputs.dst_latest }}"
