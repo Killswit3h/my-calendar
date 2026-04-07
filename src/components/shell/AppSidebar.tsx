@@ -28,23 +28,38 @@ type AppSidebarProps = {
   className?: string;
   style?: CSSProperties;
   onNavigate?: () => void;
+  forceExpanded?: boolean;
+  onCollapse?: () => void;
 };
 
-export default function AppSidebar({ current = "/", className = "", style, onNavigate }: AppSidebarProps) {
+export default function AppSidebar({
+  current = "/",
+  className = "",
+  style,
+  onNavigate,
+  forceExpanded = false,
+  onCollapse,
+}: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [showReports, setShowReports] = useState(false);
+  const isExpanded = forceExpanded || !collapsed;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (forceExpanded) return;
+    if (typeof window === "undefined") return;
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved) setCollapsed(saved === "1");
-  }, []);
+  }, [forceExpanded]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (forceExpanded) {
+      document.documentElement.style.setProperty("--sidebar-w", "256px");
+      return;
+    }
+    if (typeof window === "undefined") return;
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
     document.documentElement.style.setProperty("--sidebar-w", collapsed ? "72px" : "256px");
-  }, [collapsed]);
+  }, [collapsed, forceExpanded]);
 
   useEffect(() => {
     let active = true;
@@ -74,12 +89,20 @@ export default function AppSidebar({ current = "/", className = "", style, onNav
   }, [showReports]);
 
   const mergedStyle: CSSProperties = {
-    width: collapsed ? "auto" : "var(--sidebar-w, 256px)",
+    width: isExpanded ? "var(--sidebar-w, 256px)" : "auto",
     ...style,
   };
-  const chromeClasses = collapsed
-    ? "border-transparent bg-transparent backdrop-blur-0"
-    : "border-white/10 bg-black/30 backdrop-blur-xl";
+  const chromeClasses = isExpanded
+    ? "border-white/10 bg-black/30 backdrop-blur-xl"
+    : "border-transparent bg-transparent backdrop-blur-0";
+
+  const handleCollapse = () => {
+    if (forceExpanded && onCollapse) {
+      onCollapse();
+    } else {
+      setCollapsed(v => !v);
+    }
+  };
 
   return (
     <aside
@@ -88,17 +111,17 @@ export default function AppSidebar({ current = "/", className = "", style, onNav
     >
       <div className="flex items-center gap-2 p-3">
         <button
-          onClick={() => setCollapsed(v => !v)}
+          onClick={handleCollapse}
           className="btn hidden md:inline-flex items-center justify-center"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand" : "Collapse"}
+          aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          title={isExpanded ? "Collapse" : "Expand"}
         >
-          {collapsed ? <Menu size={18} aria-hidden="true" /> : <X size={18} aria-hidden="true" />}
+          {isExpanded ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
         </button>
-        {!collapsed && <div className="text-lg font-semibold">Control Center</div>}
+        {isExpanded && <div className="text-lg font-semibold">Control Center</div>}
       </div>
 
-      {!collapsed && (
+      {isExpanded && (
         <nav className="h-[calc(100dvh-56px)] overflow-y-auto px-2 pb-4 animate-[slideIn_0.3s_ease-out_forwards]">
           {sections.map((s) => (
             <div key={s.title} className="mb-4">

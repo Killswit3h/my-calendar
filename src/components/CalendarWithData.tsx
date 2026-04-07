@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, TouchEvent, Suspense } from 'react';
-import { EllipsisVertical } from 'lucide-react';
+import { EllipsisVertical, Menu } from "lucide-react";
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -19,8 +19,6 @@ import { getAbsentForDate } from '@/lib/absent';
 import UnassignedSidebar from '@/components/UnassignedSidebar';
 import EventQuantitiesEditor from '@/components/EventQuantitiesEditor';
 import { Toast } from '@/components/Toast';
-import PayItemsManager from '@/components/PayItemsManager';
-import { CutoffReportDialog } from '@/components/reports/CutoffReportDialog';
 import {
   APP_TIMEZONE,
   APP_TZ,
@@ -51,7 +49,12 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
-type Props = { calendarId: string; initialYear?: number | null; initialMonth0?: number | null; };
+type Props = {
+  calendarId: string
+  initialYear?: number | null
+  initialMonth0?: number | null
+  onOpenSidebar?: () => void
+}
 type JobType = 'FENCE' | 'GUARDRAIL' | 'ATTENUATOR' | 'HANDRAIL' | 'TEMP_FENCE';
 type Vendor = 'JORGE' | 'TONY' | 'CHRIS';
 type Checklist = {
@@ -123,7 +126,7 @@ function normalizeEvent<T extends EventLikeWithLegacyFields>(obj: T): Normalized
   return { ...obj, start, end } as NormalizedEvent<T>
 }
 
-export default function CalendarWithData({ calendarId, initialYear, initialMonth0 }: Props) {
+export default function CalendarWithData({ calendarId, initialYear, initialMonth0, onOpenSidebar }: Props) {
   const initialDate = useMemo(() => {
     const now = new Date();
     const y = Number.isFinite(initialYear as any) ? Number(initialYear) : now.getUTCFullYear();
@@ -266,7 +269,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   const optsRef = useRef<HTMLDivElement | null>(null);
-  const legacyOptsRef = useRef<HTMLDivElement | null>(null);
   const touchStart = useRef<number | null>(null);
 
   useEffect(() => {
@@ -296,9 +298,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
     const handleOutside = (event: Event) => {
       const target = event.target as Node | null;
       if (!target) return;
-      const inPrimary = optsRef.current?.contains(target);
-      const inLegacy = legacyOptsRef.current?.contains(target);
-      if (!inPrimary && !inLegacy) setOptsOpen(false);
+      if (!optsRef.current?.contains(target)) setOptsOpen(false);
     };
     document.addEventListener('mousedown', handleOutside);
     document.addEventListener('touchstart', handleOutside);
@@ -1235,9 +1235,7 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
-  const [cutoffReportOpen, setCutoffReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<string>('');
-  const [payItemsDialog, setPayItemsDialog] = useState(false);
   const reloadTodos = useCallback(async () => {
     try {
       const r = await fetch(`/api/calendars/${calendarId}/todos`, { cache: 'no-store' });
@@ -1526,8 +1524,42 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
       <Toast message={toast.message} open={toast.open} onClose={closeToast} />
       {/* controls */}
       <div className="cal-controls calendar-bleed flex-col items-start gap-2 flex-nowrap text-[rgba(23,23,23,1)]">
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="options-wrap" ref={optsRef}>
+        <div className="flex gap-2 items-center flex-wrap w-full">
+          {onOpenSidebar ? (
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Open navigation"
+              onClick={onOpenSidebar}
+            >
+              <Menu size={18} aria-hidden="true" />
+            </button>
+          ) : null}
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <div className="view-toggle inline-flex ml-auto" style={{ gap: "4px" }}>
+            <button type="button" className={`btn${currentView === "dayGridWeek" ? " primary" : ""}`} onClick={() => changeView("dayGridWeek")}>Week</button>
+            <button type="button" className={`btn${currentView === "dayGridMonth" ? " primary" : ""}`} onClick={() => changeView("dayGridMonth")}>Month</button>
+          </div>
+          <button
+            className="btn"
+            onClick={() => {
+              const now = new Date();
+              const y = now.getFullYear();
+              const m = String(now.getMonth() + 1).padStart(2, "0");
+              const d = String(now.getDate()).padStart(2, "0");
+              setReportDate(`${y}-${m}-${d}`);
+              setReportPickerOpen(true);
+            }}
+          >
+            Generate Daily Report
+          </button>
+          <div className="options-wrap ml-auto" ref={optsRef}>
             <button
               type="button"
               className="icon-btn"
@@ -1542,49 +1574,9 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
               <div className="menu-card" role="menu">
                 <button className="menu-row" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}><span className="menu-ico">📅</span><span className="menu-text">Holidays</span></button>
                 <button className="menu-row" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}><span className="menu-ico">⛅</span><span className="menu-text">Weather</span></button>
-                <button className="menu-row" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}><span className="menu-ico">📋</span><span className="menu-text">Pay Items</span></button>
               </div>
             ) : null}
           </div>
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="options-wrap" ref={legacyOptsRef}>
-            <button
-              type="button"
-              className="btn"
-              aria-haspopup="menu"
-              aria-expanded={optsOpen}
-              onClick={() => setOptsOpen(v => !v)}
-            >Options ▾</button>
-            {optsOpen ? (
-              <div className="menu-card" role="menu">
-                <button className="menu-item" role="menuitem" onClick={() => { setHolidayDialog(true); setOptsOpen(false); }}>Holidays…</button>
-                <button className="menu-item" role="menuitem" onClick={() => { setWeatherDialog(true); setOptsOpen(false); }}>Weather…</button>
-                <button className="menu-item" role="menuitem" onClick={() => { setPayItemsDialog(true); setOptsOpen(false); }}>Pay Items…</button>
-              </div>
-            ) : null}
-          </div>
-          <div className="view-toggle inline-flex" style={{ gap: '4px' }}>
-            <button type="button" className={`btn${currentView==='dayGridWeek' ? ' primary' : ''}`} onClick={() => changeView('dayGridWeek')}>Week</button>
-            <button type="button" className={`btn${currentView==='dayGridMonth' ? ' primary' : ''}`} onClick={() => changeView('dayGridMonth')}>Month</button>
-          </div>
-          <button className="btn" onClick={() => {
-            // Default to today's local date regardless of current view
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            setReportDate(`${y}-${m}-${d}`);
-            setReportPickerOpen(true);
-          }}>Generate Daily Report</button>
-          <button className="btn" onClick={() => setCutoffReportOpen(true)}>Generate Cut-Off Report</button>
         </div>
       </div>
 
@@ -1810,8 +1802,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
         </div>
       ) : null}
 
-      <CutoffReportDialog open={cutoffReportOpen} onClose={() => setCutoffReportOpen(false)} />
-
       {draft ? (
         <Dialog
           open={open}
@@ -1905,18 +1895,6 @@ export default function CalendarWithData({ calendarId, initialYear, initialMonth
                 }}>Save</button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {payItemsDialog && (
-        <div className="modal-root" onClick={(e) => { if (e.currentTarget === e.target) setPayItemsDialog(false); }}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={{ width: 'min(860px, 95vw)', maxHeight: '92vh', overflow: 'auto' }}>
-            <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Pay Items</span>
-              <button className="icon-btn" aria-label="Close" onClick={() => setPayItemsDialog(false)}>✕</button>
-            </div>
-            <PayItemsManager condensed />
           </div>
         </div>
       )}

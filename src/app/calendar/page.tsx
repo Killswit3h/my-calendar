@@ -1,5 +1,4 @@
 import CalendarWithData from '@/components/CalendarWithData'
-import BackButton from '@/components/BackButton'
 import { CalendarAccessPanel } from '@/components/calendar/CalendarAccessPanel'
 
 export const runtime = 'nodejs'
@@ -8,7 +7,6 @@ export const dynamic = 'force-dynamic'
 export default function CalendarPage() {
   return (
     <main className="w-full max-w-full space-y-6">
-      <BackButton />
       <header>
         <h1 className="text-3xl font-semibold">Calendar</h1>
         <p className="text-muted">Manage your events and schedule</p>
