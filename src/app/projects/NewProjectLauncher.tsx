@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Company } from "./projects.models";
+import type { Company } from "@/lib/mock/projects";
 
 type Props = {
   companies: Company[];
@@ -41,7 +41,7 @@ export function NewProjectLauncher({ companies }: Props) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--fc-border-color)] shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        className="inline-flex items-center gap-2 rounded-full bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
       >
         New project
       </button>

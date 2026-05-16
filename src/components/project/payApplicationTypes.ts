@@ -24,6 +24,7 @@ export type PhaseItem = {
 export type Phase = {
   id: string;
   name: string;
+  invoiceSuffix: string;
   locateTicket: string;
   dateCreated: string;
   readyToWorkDate: string;

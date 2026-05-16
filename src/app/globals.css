@@ -70,7 +70,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--primary); text-decoration: none; }
+@layer base {
+  a { color: var(--primary); text-decoration: none; }
+}
 
 .glass-text {
   text-shadow: 0 2px 6px rgba(255, 255, 255, 0.18);

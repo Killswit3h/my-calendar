@@ -102,7 +102,7 @@ export function ProjectChecklistCard({ projectType }: Props) {
                   <button
                     type="button"
                     onClick={() => handleSaveNotes(item.key)}
-                    className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
+                    className="inline-flex items-center rounded-lg bg-[rgba(18,115,24,1)] px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                   >
                     Save
                   </button>
