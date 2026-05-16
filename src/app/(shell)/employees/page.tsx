@@ -9,13 +9,18 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   BadgeDollarSign,
   Building2,
   Check,
   ChevronDown,
   DollarSign,
   Download,
+  Eye,
+  EyeOff,
   Filter,
+  Lock,
+  Pencil,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/theme";
@@ -32,14 +37,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -62,22 +59,15 @@ import {
   type Employee as BaseEmployee,
   type Team as BaseTeam,
 } from "@/employees";
-import {
-  fetchEmployees as fetchEmployeesApi,
-  createEmployee as createEmployeeApi,
-  updateEmployee as updateEmployeeApi,
-  deleteEmployee as deleteEmployeeApi,
-  type ApiEmployee,
-  type CreateEmployeePayload,
-  type UpdateEmployeePayload,
-} from "@/lib/employeesApi";
 
+type PayType = "HOURLY" | "SALARY";
 type EmpStatus = "ACTIVE" | "ON_LEAVE" | "TERMINATED";
 type Role = "Foreman" | "Skilled Labor" | "Labor" | "Yard" | "Driver" | "Welder";
 
 type Pay = {
+  type: PayType;
   base: number;
-  otMultiplier?: number; // Optional, for UI cost calculation only
+  otMultiplier?: number;
   effective: string;
 };
 
@@ -88,9 +78,11 @@ type Employee = {
   name: string;
   role: Role;
   status: EmpStatus;
-  location?: string; // Changed from crew to location
+  crew?: string;
   phone?: string;
   email?: string;
+  address?: string;
+  ssn4?: string;
   hireDate?: string;
   cdl?: boolean;
   certs?: Cert[];
@@ -102,7 +94,7 @@ type Employee = {
 type Filters = {
   status: EmpStatus | "ALL";
   role: Role | "ALL";
-  location: string | "ALL"; // Changed from crew to location
+  crew: string | "ALL";
 };
 
 type SortKey = "name" | "role" | "status" | "pay";
@@ -159,8 +151,19 @@ const payFormatter = new Intl.NumberFormat("en-US", {
 });
 
 function formatPay(pay: Pay): string {
+  if (pay.type === "SALARY") {
+    return `${payFormatter.format(pay.base)}/wk salary`;
+  }
   const ot = pay.otMultiplier ?? 1.5;
-  return `${payFormatter.format(pay.base)}/hr${ot !== 1.5 ? ` (OT ${ot}x)` : ""}`;
+  return `${payFormatter.format(pay.base)}/hr (OT ${ot}x)`;
+}
+
+/** Table-friendly pay display: shows rate only, no OT suffix. */
+function formatPayTable(pay: Pay): string {
+  if (pay.type === "SALARY") {
+    return `${payFormatter.format(pay.base)}/wk`;
+  }
+  return `${payFormatter.format(pay.base)}/hr`;
 }
 
 function formatDate(value?: string) {
@@ -177,28 +180,6 @@ function addDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function calculateCost({
-  pay,
-  regHours,
-  otHours,
-}: {
-  pay: Pay;
-  regHours: number;
-  otHours: number;
-}) {
-  const multiplier = pay.otMultiplier ?? 1.5;
-  const regular = regHours * pay.base;
-  const overtime = otHours * pay.base * multiplier;
-  const daily = regular + overtime;
-  return {
-    daily,
-    weekly: daily * 5,
-    breakdown: [
-      { label: `Regular (${regHours}h)`, amount: regular },
-      { label: `OT (${otHours}h @ ${multiplier}x)`, amount: overtime },
-    ],
-  };
-}
 
 function generateId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -209,74 +190,6 @@ function generateId() {
 
 const EMPLOYEE_STORAGE_KEY = "app.shell.employees.v1";
 
-/**
- * Map API employee response to UI Employee shape
- */
-function apiEmployeeToUI(api: ApiEmployee): Employee {
-  const wageRate = typeof api.wage_rate === "string" ? parseFloat(api.wage_rate) : api.wage_rate
-  return {
-    id: String(api.id),
-    name: api.name,
-    role: (api.role as Role) ?? "Labor",
-    status: api.active ? "ACTIVE" : "TERMINATED", // Map active boolean to status
-    location: api.location ?? undefined,
-    phone: api.phone_number ?? undefined,
-    email: api.email ?? undefined,
-    hireDate: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : undefined,
-    cdl: false, // Not in API, default to false
-    certs: [], // Not in API, default to empty
-    pay: {
-      base: wageRate,
-      otMultiplier: 1.5, // Default OT multiplier
-      effective: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-    },
-    rateHistory: [
-      {
-        base: wageRate,
-        otMultiplier: 1.5,
-        effective: api.start_date ? new Date(api.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-      },
-    ],
-    notes: api.notes ?? undefined,
-  }
-}
-
-/**
- * Map UI Employee to API create payload
- */
-function uiEmployeeToCreatePayload(ui: Partial<Employee>): CreateEmployeePayload {
-  return {
-    name: ui.name ?? "New Employee",
-    wage_rate: typeof ui.pay?.base === "number" ? ui.pay.base : 20,
-    start_date: ui.hireDate
-      ? new Date(ui.hireDate).toISOString()
-      : new Date().toISOString(),
-    phone_number: ui.phone || undefined,
-    email: ui.email || undefined,
-    active: ui.status === "ACTIVE",
-    notes: ui.notes || undefined,
-    role: ui.role || undefined,
-    location: ui.location || undefined,
-  }
-}
-
-/**
- * Map UI Employee changes to API update payload
- */
-function uiEmployeeToUpdatePayload(ui: Partial<Employee>): UpdateEmployeePayload {
-  const payload: UpdateEmployeePayload = {}
-  if (ui.name !== undefined) payload.name = ui.name
-  if (ui.pay?.base !== undefined) payload.wage_rate = ui.pay.base
-  if (ui.hireDate !== undefined) payload.start_date = new Date(ui.hireDate).toISOString()
-  if (ui.phone !== undefined) payload.phone_number = ui.phone || undefined
-  if (ui.email !== undefined) payload.email = ui.email || undefined
-  if (ui.status !== undefined) payload.active = ui.status === "ACTIVE"
-  if (ui.notes !== undefined) payload.notes = ui.notes || undefined
-  if (ui.role !== undefined) payload.role = ui.role || undefined
-  if (ui.location !== undefined) payload.location = ui.location || undefined
-  return payload
-}
-
 function splitNameParts(rawName: string): { firstName: string; lastName: string } {
   const trimmed = rawName.trim();
   if (!trimmed) return { firstName: "New", lastName: "Employee" };
@@ -286,18 +199,18 @@ function splitNameParts(rawName: string): { firstName: string; lastName: string 
   return { firstName, lastName };
 }
 
-function inferTeamFromLocation(location?: string): BaseTeam {
-  if (!location) return "South";
-  const normalized = location.toLowerCase();
+function inferTeamFromCrew(crew?: string): BaseTeam {
+  if (!crew) return "South";
+  const normalized = crew.toLowerCase();
   if (normalized.includes("guardrail") || normalized.includes("north") || normalized.includes("central")) {
     return "Central";
   }
   return "South";
 }
 
-function resolveLocationForTeam(team: BaseTeam, location?: string): string | undefined {
-  if (location && location.trim().length > 0) return location.trim();
-  return crewByTeam[team]; // Keep using crewByTeam for default, but field is now location
+function resolveCrewForTeam(team: BaseTeam, crew?: string): string | undefined {
+  if (crew && crew.trim().length > 0) return crew.trim();
+  return crewByTeam[team];
 }
 
 function resolveRoleForTeam(team: BaseTeam, role?: Role): Role {
@@ -316,15 +229,19 @@ function normalizePay(input: unknown, fallbackBase: number): Pay {
       typeof candidate.effective === "string" && candidate.effective.length > 0
         ? candidate.effective
         : new Date().toISOString().slice(0, 10);
+    if (candidate.type === "SALARY") {
+      return { type: "SALARY", base, effective };
+    }
     const ot =
       typeof candidate.otMultiplier === "number" &&
       Number.isFinite(candidate.otMultiplier) &&
       candidate.otMultiplier > 0
         ? candidate.otMultiplier
         : 1.5;
-    return { base, otMultiplier: ot, effective };
+    return { type: "HOURLY", base, otMultiplier: ot, effective };
   }
   return {
+    type: "HOURLY",
     base: fallbackBase,
     otMultiplier: 1.5,
     effective: new Date().toISOString().slice(0, 10),
@@ -337,7 +254,7 @@ function ensureEmployeeDefaults(
   index = 0,
 ): Employee {
   const directoryId = directory?.id ?? employee.id;
-  const team = directory?.team ?? inferTeamFromLocation(employee.location);
+  const team = directory?.team ?? inferTeamFromCrew(employee.crew);
   const { firstName, lastName } = splitNameParts(
     employee.name ?? (directory ? `${directory.firstName} ${directory.lastName}` : "New Employee"),
   );
@@ -353,9 +270,11 @@ function ensureEmployeeDefaults(
     name: `${firstName} ${lastName}`.trim(),
     role: resolveRoleForTeam(team, employee.role),
     status: employee.status ?? "ACTIVE",
-    location: resolveLocationForTeam(team, employee.location),
+    crew: resolveCrewForTeam(team, employee.crew),
     phone: employee.phone ?? undefined,
     email: employee.email ?? undefined,
+    address: employee.address ?? undefined,
+    ssn4: employee.ssn4 ?? undefined,
     hireDate: employee.hireDate ?? pay.effective,
     cdl: employee.cdl ?? false,
     certs: employee.certs ?? [],
@@ -373,7 +292,7 @@ function buildEmployeeFromDirectory(entry: BaseEmployee, index: number): Employe
     {
       id: entry.id,
       name: `${entry.firstName} ${entry.lastName}`.trim(),
-      location: crewByTeam[entry.team], // Using crewByTeam for default but storing as location
+      crew: crewByTeam[entry.team],
       role: roleByTeam[entry.team],
     },
     entry,
@@ -432,7 +351,7 @@ function syncDirectoryEmployees(list: Employee[]) {
       id: emp.id,
       firstName,
       lastName,
-      team: inferTeamFromLocation(emp.location),
+      team: inferTeamFromCrew(emp.crew),
     };
   });
   saveDirectoryEmployees(simplified);
@@ -440,7 +359,7 @@ function syncDirectoryEmployees(list: Employee[]) {
 
 function deriveEmployeeIdentity(
   rawName: string,
-  location: string | undefined,
+  crew: string | undefined,
   existingIds: Set<string>,
 ): { id: string; firstName: string; lastName: string; team: BaseTeam } {
   const { firstName, lastName } = splitNameParts(rawName);
@@ -451,7 +370,7 @@ function deriveEmployeeIdentity(
   while (existingIds.has(candidate)) {
     candidate = `${baseId}-${suffix++}`;
   }
-  return { id: candidate, firstName, lastName, team: inferTeamFromLocation(location) };
+  return { id: candidate, firstName, lastName, team: inferTeamFromCrew(crew) };
 }
 
 function AvatarBubble({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
@@ -598,7 +517,7 @@ export default function EmployeesPage() {
   const [filters, setFilters] = useState<Filters>({
     status: "ALL",
     role: "ALL",
-    location: "ALL",
+    crew: "ALL",
   });
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>(
     { key: "name", direction: "asc" },
@@ -615,40 +534,24 @@ export default function EmployeesPage() {
     bulk?: boolean;
   }>({ open: false });
   const [newDialog, setNewDialog] = useState(false);
-  const [notesDraft, setNotesDraft] = useState("");
-  const [costInputs, setCostInputs] = useState<{ reg: number; ot: number }>({ reg: 8, ot: 2 });
   const [payDraft, setPayDraft] = useState<Pay | null>(null);
-  const [assignLocationDraft, setAssignLocationDraft] = useState("");
-  const [bulkAssignLocationDraft, setBulkAssignLocationDraft] = useState("");
+  const [assignCrewDraft, setAssignCrewDraft] = useState("");
+  const [bulkAssignCrewDraft, setBulkAssignCrewDraft] = useState("");
   const [bulkPlacementMenu, setBulkPlacementMenu] = useState(false);
   const [rosterMenuFor, setRosterMenuFor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<Partial<Employee>>({});
+  const [ssnRevealed, setSsnRevealed] = useState(false);
+  const [terminateDialog, setTerminateDialog] = useState<{ open: boolean; employeeId?: string }>({ open: false });
+  const [terminateDraft, setTerminateDraft] = useState({ reason: "", notes: "", effectiveDate: new Date().toISOString().slice(0, 10) });
 
-  // Load employees from API on mount
   useEffect(() => {
-    const loadEmployees = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const apiEmployees = await fetchEmployeesApi()
-        const uiEmployees = apiEmployees.map(apiEmployeeToUI)
-        setEmployees(uiEmployees)
-        // Optionally sync to directory for backward compatibility
-        syncDirectoryEmployees(uiEmployees)
-        setHydrated(true)
-      } catch (err) {
-        console.error("Failed to load employees:", err)
-        setError(err instanceof Error ? err.message : "Failed to load employees")
-        setHydrated(true) // Still mark as hydrated to show UI
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadEmployees()
-  }, [])
+    const initial = loadEmployeeState();
+    setEmployees(initial);
+    syncDirectoryEmployees(initial);
+    setHydrated(true);
+  }, []);
 
-  // Keep localStorage in sync for backward compatibility (optional)
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -661,12 +564,12 @@ export default function EmployeesPage() {
     syncDirectoryEmployees(employees);
   }, [employees, hydrated]);
 
-  const locations = useMemo(() => {
+  const crews = useMemo(() => {
     const set = new Set<string>();
     employees.forEach((emp) => {
-      if (emp.location) set.add(emp.location);
+      if (emp.crew) set.add(emp.crew);
     });
-    assignableCrews.forEach((location) => set.add(location)); // Keep using assignableCrews as default locations
+    assignableCrews.forEach((crew) => set.add(crew));
     return Array.from(set);
   }, [employees]);
 
@@ -689,13 +592,13 @@ export default function EmployeesPage() {
       const matchesQuery =
         !lowerQ ||
         emp.name.toLowerCase().includes(lowerQ) ||
-        (emp.location ?? "").toLowerCase().includes(lowerQ) ||
+        (emp.crew ?? "").toLowerCase().includes(lowerQ) ||
         emp.role.toLowerCase().includes(lowerQ) ||
         (emp.email ?? "").toLowerCase().includes(lowerQ);
       const matchesStatus = filters.status === "ALL" || emp.status === filters.status;
       const matchesRole = filters.role === "ALL" || emp.role === filters.role;
-      const matchesLocation = filters.location === "ALL" || (emp.location ?? "") === filters.location;
-      return matchesQuery && matchesStatus && matchesRole && matchesLocation;
+      const matchesCrew = filters.crew === "ALL" || (emp.crew ?? "") === filters.crew;
+      return matchesQuery && matchesStatus && matchesRole && matchesCrew;
     });
 
     const sorted = [...filtered].sort((a, b) => {
@@ -730,12 +633,6 @@ export default function EmployeesPage() {
     [drawerId, employees],
   );
 
-  useEffect(() => {
-    if (drawerId && currentEmployee) {
-      setNotesDraft(currentEmployee.notes ?? "");
-      setCostInputs({ reg: 8, ot: 2 });
-    }
-  }, [drawerId, currentEmployee]);
 
   useEffect(() => {
     if (payDialog.open && payDialog.employeeId) {
@@ -751,9 +648,9 @@ export default function EmployeesPage() {
   useEffect(() => {
     if (assignDialog.open && assignDialog.employeeId) {
       const target = employees.find((emp) => emp.id === assignDialog.employeeId);
-      setAssignLocationDraft(target?.location ?? "");
+      setAssignCrewDraft(target?.crew ?? "");
     } else if (!assignDialog.open) {
-      setAssignLocationDraft("");
+      setAssignCrewDraft("");
     }
   }, [assignDialog, employees]);
 
@@ -774,21 +671,39 @@ export default function EmployeesPage() {
   );
 
   const onCreateEmployee = useCallback(
-    async (payload: Partial<Employee>) => {
-      setError(null)
-      try {
-        const apiPayload = uiEmployeeToCreatePayload(payload)
-        const apiEmployee = await createEmployeeApi(apiPayload)
-        const uiEmployee = apiEmployeeToUI(apiEmployee)
-        setEmployees((prev) => [uiEmployee, ...prev])
-        console.log("employees:create", uiEmployee)
-      } catch (err) {
-        console.error("Failed to create employee:", err)
-        setError(err instanceof Error ? err.message : "Failed to create employee")
-        throw err // Re-throw so form can handle it
-      }
+    (payload: Partial<Employee>) => {
+      const existingIds = new Set(employees.map((emp) => emp.id));
+      const name = payload.name ?? "New Employee";
+      const crewValue = payload.crew?.trim() || undefined;
+      const identity = deriveEmployeeIdentity(name, crewValue, existingIds);
+      const basePay = typeof payload.pay?.base === "number" ? payload.pay.base : 18;
+      const pay: Pay = payload.pay ? normalizePay(payload.pay, basePay) : normalizePay(undefined, basePay);
+
+      const draft: Partial<Employee> = {
+        id: identity.id,
+        name: `${identity.firstName} ${identity.lastName}`.trim(),
+        role: payload.role ?? "Labor",
+        status: payload.status ?? "ACTIVE",
+        crew: crewValue,
+        phone: payload.phone ?? undefined,
+        email: payload.email ?? undefined,
+        address: payload.address ?? undefined,
+        ssn4: payload.ssn4 ?? undefined,
+        hireDate: payload.hireDate ?? pay.effective,
+        cdl: payload.cdl ?? false,
+        certs: payload.certs ?? [],
+        pay,
+        rateHistory: payload.rateHistory ?? [pay],
+        notes: payload.notes ?? "",
+      };
+
+      const employee = ensureEmployeeDefaults(draft);
+      setEmployees((prev) => [employee, ...prev]);
+      setDrawerId(employee.id);
+      setSheetOpen(true);
+      console.log("employees:create", employee);
     },
-    [],
+    [employees],
   );
 
   const setEmployee = useCallback(
@@ -799,103 +714,39 @@ export default function EmployeesPage() {
   );
 
   const onEditPay = useCallback(
-    async (empId: string, next: Pay) => {
-      setError(null)
-      const employeeId = parseInt(empId, 10)
-      if (isNaN(employeeId)) {
-        setError("Invalid employee ID")
-        return
-      }
-      try {
-        const payload: UpdateEmployeePayload = {
-          wage_rate: next.base,
-        }
-        const apiEmployee = await updateEmployeeApi(employeeId, payload)
-        const uiEmployee = apiEmployeeToUI(apiEmployee)
-        setEmployee(empId, () => ({
-          ...uiEmployee,
-          pay: next,
-          rateHistory: [{ ...next }, ...uiEmployee.rateHistory],
-        }))
-        console.log("employees:edit-pay", empId, next)
-      } catch (err) {
-        console.error("Failed to update employee pay:", err)
-        setError(err instanceof Error ? err.message : "Failed to update pay")
-      }
+    (empId: string, next: Pay) => {
+      console.log("employees:edit-pay", empId, next);
+      setEmployee(empId, (emp) => ({
+        ...emp,
+        pay: next,
+        rateHistory: [{ ...next }, ...emp.rateHistory],
+      }));
     },
     [setEmployee],
   );
 
-  const onAssignLocation = useCallback(
-    async (empId: string, location: string) => {
-      setError(null)
-      const employeeId = parseInt(empId, 10)
-      if (isNaN(employeeId)) {
-        setError("Invalid employee ID")
-        return
-      }
-      try {
-        const payload: UpdateEmployeePayload = { location: location || undefined }
-        const apiEmployee = await updateEmployeeApi(employeeId, payload)
-        const uiEmployee = apiEmployeeToUI(apiEmployee)
-        setEmployee(empId, () => uiEmployee)
-        console.log("employees:assign-location", empId, location)
-      } catch (err) {
-        console.error("Failed to update employee location:", err)
-        setError(err instanceof Error ? err.message : "Failed to update location")
-      }
+  const onAssignCrew = useCallback(
+    (empId: string, crew: string) => {
+      console.log("employees:assign-crew", empId, crew);
+      setEmployee(empId, (emp) => ({ ...emp, crew }));
     },
     [setEmployee],
   );
 
   const onSetStatus = useCallback(
-    async (empId: string, status: EmpStatus) => {
-      setError(null)
-      const employeeId = parseInt(empId, 10)
-      if (isNaN(employeeId)) {
-        setError("Invalid employee ID")
-        return
-      }
-      try {
-        const payload: UpdateEmployeePayload = { active: status === "ACTIVE" }
-        const apiEmployee = await updateEmployeeApi(employeeId, payload)
-        const uiEmployee = apiEmployeeToUI(apiEmployee)
-        setEmployee(empId, () => uiEmployee)
-        console.log("employees:set-status", empId, status)
-      } catch (err) {
-        console.error("Failed to update employee status:", err)
-        setError(err instanceof Error ? err.message : "Failed to update status")
-      }
+    (empId: string, status: EmpStatus) => {
+      console.log("employees:set-status", empId, status);
+      setEmployee(empId, (emp) => ({ ...emp, status }));
     },
     [setEmployee],
   );
 
-  const onBulkAssignLocation = useCallback(
-    async (location: string) => {
-      setError(null)
-      console.log("employees:bulk-assign-location", { selectedIds, location })
-      const updates = selectedIds.map(async (id) => {
-        const employeeId = parseInt(id, 10)
-        if (isNaN(employeeId)) return null
-        try {
-          const payload: UpdateEmployeePayload = { location: location || undefined }
-          const apiEmployee = await updateEmployeeApi(employeeId, payload)
-          return apiEmployeeToUI(apiEmployee)
-        } catch (err) {
-          console.error(`Failed to update employee ${id}:`, err)
-          return null
-        }
-      })
-      const results = await Promise.all(updates)
-      const updated = results.filter((emp): emp is Employee => emp !== null)
-      if (updated.length > 0) {
-        setEmployees((prev) =>
-          prev.map((emp) => {
-            const updatedEmp = updated.find((u) => u.id === emp.id)
-            return updatedEmp || emp
-          }),
-        )
-      }
+  const onBulkAssignCrew = useCallback(
+    (crew: string) => {
+      console.log("employees:bulk-assign-crew", { selectedIds, crew });
+      setEmployees((prev) =>
+        prev.map((emp) => (selectedIds.includes(emp.id) ? { ...emp, crew } : emp)),
+      );
     },
     [selectedIds],
   );
@@ -918,7 +769,7 @@ export default function EmployeesPage() {
         "Name",
         "Role",
         "Status",
-        "Location",
+        "Crew",
         "Pay",
         "Effective",
         "Phone",
@@ -931,7 +782,7 @@ export default function EmployeesPage() {
           emp.name,
           emp.role,
           emp.status,
-          emp.location ?? "",
+          emp.crew ?? "",
           formatPay(emp.pay),
           formatDate(emp.pay.effective),
           emp.phone ?? "",
@@ -986,21 +837,39 @@ export default function EmployeesPage() {
     (id: string) => {
       setDrawerId(id);
       setSheetOpen(true);
+      setEditMode(false);
+      setSsnRevealed(false);
+      setProfileDraft({});
     },
     [],
+  );
+
+  const onSaveProfile = useCallback(
+    (empId: string, draft: Partial<Employee>) => {
+      setEmployee(empId, (emp) => ({
+        ...emp,
+        name: draft.name ?? emp.name,
+        role: draft.role ?? emp.role,
+        status: draft.status ?? emp.status,
+        crew: draft.crew !== undefined ? (draft.crew || undefined) : emp.crew,
+        phone: draft.phone !== undefined ? (draft.phone || undefined) : emp.phone,
+        email: draft.email !== undefined ? (draft.email || undefined) : emp.email,
+        address: draft.address !== undefined ? (draft.address || undefined) : emp.address,
+        ssn4: draft.ssn4 !== undefined ? (draft.ssn4 || undefined) : emp.ssn4,
+        cdl: draft.cdl !== undefined ? draft.cdl : emp.cdl,
+        notes: draft.notes !== undefined ? draft.notes : emp.notes,
+      }));
+      setEditMode(false);
+      setProfileDraft({});
+    },
+    [setEmployee],
   );
 
   const isAllSelected =
     filteredEmployees.length > 0 &&
     filteredEmployees.every((emp) => selectedIds.includes(emp.id));
 
-  const currentCost = currentEmployee
-    ? calculateCost({ pay: currentEmployee.pay, regHours: costInputs.reg, otHours: costInputs.ot })
-    : null;
 
-  const handleNotesSave = (empId: string) => {
-    setEmployee(empId, (emp) => ({ ...emp, notes: notesDraft }));
-  };
 
   const payDialogEmployee = payDialog.employeeId
     ? employees.find((emp) => emp.id === payDialog.employeeId) ?? null
@@ -1035,59 +904,45 @@ export default function EmployeesPage() {
 
   const resetSelections = () => setSelectedIds([]);
 
-  const handleNewEmployeeSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleNewEmployeeSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    const payType = formData.get("payType") as PayType;
     const base = Number(formData.get("payBase"));
     const ot = Number(formData.get("payOt") || 1.5);
-    const nextPay: Pay = {
-      base,
-      otMultiplier: ot,
-      effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
-    };
+    const nextPay: Pay =
+      payType === "SALARY"
+        ? {
+            type: "SALARY",
+            base,
+            effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
+          }
+        : {
+            type: "HOURLY",
+            base,
+            otMultiplier: ot,
+            effective: String(formData.get("payEffective") || new Date().toISOString().slice(0, 10)),
+          };
 
-    try {
-      await onCreateEmployee({
-        name: String(formData.get("name") || "New Employee"),
-        role: (formData.get("role") as Role) ?? "Labor",
-        status: (formData.get("status") as EmpStatus) ?? "ACTIVE",
-        location: String(formData.get("location") || "") || undefined,
-        phone: String(formData.get("phone") || "") || undefined,
-        email: String(formData.get("email") || "") || undefined,
-        hireDate: String(formData.get("hireDate") || "") || undefined,
-        cdl: formData.get("cdl") === "on",
-        notes: String(formData.get("notes") || ""),
-        pay: nextPay,
-        rateHistory: [nextPay],
-      });
-      setNewDialog(false);
-      event.currentTarget.reset();
-    } catch {
-      // Error already set by onCreateEmployee, form stays open
-    }
+    onCreateEmployee({
+      name: String(formData.get("name") || "New Employee"),
+      role: (formData.get("role") as Role) ?? "Labor",
+      status: (formData.get("status") as EmpStatus) ?? "ACTIVE",
+      crew: String(formData.get("crew") || "") || undefined,
+      phone: String(formData.get("phone") || "") || undefined,
+      email: String(formData.get("email") || "") || undefined,
+      hireDate: String(formData.get("hireDate") || "") || undefined,
+      cdl: formData.get("cdl") === "on",
+      notes: String(formData.get("notes") || ""),
+      pay: nextPay,
+      rateHistory: [nextPay],
+    });
+    setNewDialog(false);
+    event.currentTarget.reset();
   };
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-6 md:px-8 lg:px-10">
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
-          <div className="font-semibold">Error</div>
-          <div className="text-sm">{error}</div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() => setError(null)}
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
-      {loading && !hydrated && (
-        <div className="flex items-center justify-center p-8 text-muted">
-          Loading employees...
-        </div>
-      )}
       <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-[rgba(23,23,23,0.3)] p-4 text-white shadow-[0_20px_60px_rgba(3,6,23,0.45)] backdrop-blur-xl md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
@@ -1117,7 +972,7 @@ export default function EmployeesPage() {
             <Input
               value={query}
               onChange={(event) => onSearch(event.target.value)}
-              placeholder="Search name, location, or contact"
+              placeholder="Search name, crew, or contact"
               className="border-none bg-transparent px-0 text-white placeholder:text-white/50 focus-visible:ring-0"
             />
           </div>
@@ -1152,17 +1007,17 @@ export default function EmployeesPage() {
               <option value="Welder">Welder</option>
             </Select>
             <Select
-              label="Location"
-              value={filters.location}
+              label="Crew"
+              value={filters.crew}
               onChange={(event) =>
-                onFilterChange({ location: event.target.value as string | "ALL" })
+                onFilterChange({ crew: event.target.value as string | "ALL" })
               }
               className="min-w-[160px]"
             >
-              <option value="ALL">All Locations</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
+              <option value="ALL">All Crews</option>
+              {crews.map((crew) => (
+                <option key={crew} value={crew}>
+                  {crew}
                 </option>
               ))}
             </Select>
@@ -1192,13 +1047,6 @@ export default function EmployeesPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50">
-                  <TableHead className="w-12">
-                    <EmployeesCheckbox
-                      checked={isAllSelected}
-                      onCheckedChange={(checked) => toggleSelectAll(checked)}
-                      aria-label="Select All"
-                    />
-                  </TableHead>
                   <TableHead>
                     <SortButton
                       label="Name"
@@ -1215,7 +1063,7 @@ export default function EmployeesPage() {
                       onClick={() => sortBy("role")}
                     />
                   </TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Office Location</TableHead>
                   <TableHead>
                     <SortButton
                       label="Status"
@@ -1233,32 +1081,22 @@ export default function EmployeesPage() {
                     />
                   </TableHead>
                   <TableHead>Effective</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="w-[220px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEmployees.map((emp) => (
-                  <TableRow key={emp.id} className="border-white/10 hover:bg-white/5">
-                    <TableCell>
-                      <EmployeesCheckbox
-                        checked={selectedIds.includes(emp.id)}
-                        onCheckedChange={(checked) => toggleSelect(emp.id, checked)}
-                        aria-label={`Select ${emp.name}`}
-                      />
-                    </TableCell>
+                  <TableRow
+                    key={emp.id}
+                    className="cursor-pointer border-white/10 hover:bg-white/5"
+                    onClick={() => openDrawer(emp.id)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <AvatarBubble name={emp.name} size="sm" />
                         <div>
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(emp.id)}
-                            className="text-sm font-semibold text-foreground transition hover:text-accent"
-                          >
+                          <div className="text-sm font-semibold text-foreground">
                             {emp.name}
-                          </button>
+                          </div>
                           <div className="text-xs text-muted">
                             {emp.hireDate ? `Hired ${formatDate(emp.hireDate)}` : "Hire date TBD"}
                           </div>
@@ -1269,70 +1107,16 @@ export default function EmployeesPage() {
                       <RoleBadge role={emp.role} />
                     </TableCell>
                     <TableCell className="text-sm text-muted">
-                      {emp.location ?? "—"}
+                      {emp.crew ?? "—"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={emp.status} />
                     </TableCell>
                     <TableCell className="text-sm font-medium text-foreground">
-                      {formatPay(emp.pay)}
+                      {formatPayTable(emp.pay)}
                     </TableCell>
                     <TableCell className="text-sm text-muted">
                       {formatDate(emp.pay.effective)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted">
-                      {emp.phone ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted">
-                      {emp.email ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => setPayDialog({ open: true, employeeId: emp.id })}
-                        >
-                          Edit Pay
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => setAssignDialog({ open: true, employeeId: emp.id })}
-                        >
-                          Assign Location
-                        </Button>
-                        <div className="relative">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-xs"
-                            onClick={() =>
-                              setRosterMenuFor((prev) => (prev === emp.id ? null : emp.id))
-                            }
-                          >
-                            Move
-                            <ChevronDown className="h-3 w-3 opacity-70" />
-                          </Button>
-                          <RosterMenu
-                            open={rosterMenuFor === emp.id}
-                            onClose={() => setRosterMenuFor(null)}
-                            onSelect={(placement) => {
-                              void onMoveToday(emp.id, placement);
-                            }}
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-danger hover:text-danger"
-                          onClick={() => setStatusDialog({ open: true, employeeId: emp.id })}
-                        >
-                          Deactivate
-                        </Button>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1359,7 +1143,7 @@ export default function EmployeesPage() {
                 </span>
                 <span className="hidden md:inline">|</span>
                 <span>
-                  Bulk update roster, location, or status. CSV export limited to selection.
+                  Bulk update roster, crew, or status. CSV export limited to selection.
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1427,125 +1211,309 @@ export default function EmployeesPage() {
         ) : null}
       </AnimatePresence>
 
-      <Sheet
+      {/* ── Employee Profile Modal ─────────────────────────────────────── */}
+      <Dialog
         open={sheetOpen && Boolean(currentEmployee)}
         onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) setDrawerId(null);
+          if (!open) {
+            setSheetOpen(false);
+            setDrawerId(null);
+            setEditMode(false);
+            setSsnRevealed(false);
+            setProfileDraft({});
+          }
         }}
       >
-        <SheetContent className="bg-surface-soft/95 backdrop-blur-lg">
+        <DialogContent className="max-w-2xl gap-0 p-0 bg-[rgba(23,23,23,0.6)] backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(3,6,23,0.55)] text-white overflow-hidden [&>button.absolute]:z-20 [&>button.absolute]:text-white/40 [&>button.absolute]:hover:text-white [&>button.absolute]:top-5 [&>button.absolute]:right-5">
+          <DialogTitle className="sr-only">
+            {currentEmployee ? `Employee Profile: ${currentEmployee.name}` : "Employee Profile"}
+          </DialogTitle>
+
           {currentEmployee ? (
-            <>
-              <SheetHeader className="border-b border-border/60 bg-foreground/5">
-                <SheetTitle className="flex flex-col gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-                    Employee Profile
-                  </span>
-                  <span className="text-2xl font-semibold text-foreground">
-                    {currentEmployee.name}
-                  </span>
-                </SheetTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <RoleBadge role={currentEmployee.role} />
-                  <StatusBadge status={currentEmployee.status} />
-                  {currentEmployee.location ? (
-                    <Badge className="border-transparent bg-foreground/10 text-xs uppercase tracking-[0.3em] text-muted">
-                      {currentEmployee.location}
-                    </Badge>
-                  ) : null}
+            <div className="relative flex flex-col max-h-[88vh]">
+              {/* Ambient glows */}
+              <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl z-0" />
+              <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-emerald-500/5 blur-2xl z-0" />
+
+              {/* ── Header ───────────────────────────────────────────────── */}
+              <div className="relative z-10 px-6 pt-6 pb-5 pr-14 border-b border-white/10">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-base font-bold text-emerald-300 ring-1 ring-emerald-500/30">
+                      {(profileDraft.name ?? currentEmployee.name)
+                        .split(" ")
+                        .map((p: string) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">
+                        Employee Profile
+                      </p>
+                      {editMode ? (
+                        <Input
+                          value={profileDraft.name ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) => ({ ...prev, name: e.target.value }))
+                          }
+                          className="mt-1 h-9 bg-white/5 border-white/20 text-white text-xl font-bold"
+                        />
+                      ) : (
+                        <h2 className="text-2xl font-bold text-white truncate">
+                          {currentEmployee.name}
+                        </h2>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex items-center gap-2 mt-1">
+                    {editMode ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
+                          onClick={() => onSaveProfile(currentEmployee.id, profileDraft)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-white/15 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          onClick={() => { setEditMode(false); setProfileDraft({}); }}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 border-white/15 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                        onClick={() => { setProfileDraft({ ...currentEmployee }); setEditMode(true); }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </SheetHeader>
-              <SheetBody className="space-y-6 text-sm text-muted">
+
+                {/* Badges / role+status selects */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {editMode ? (
+                    <>
+                      <Select
+                        label="Role"
+                        value={profileDraft.role ?? currentEmployee.role}
+                        onChange={(e) =>
+                          setProfileDraft((prev) => ({ ...prev, role: e.target.value as Role }))
+                        }
+                        className="min-w-[140px]"
+                      >
+                        <option value="Foreman">Foreman</option>
+                        <option value="Skilled Labor">Skilled Labor</option>
+                        <option value="Labor">Labor</option>
+                        <option value="Yard">Yard</option>
+                        <option value="Driver">Driver</option>
+                        <option value="Welder">Welder</option>
+                      </Select>
+                      <Select
+                        label="Status"
+                        value={profileDraft.status ?? currentEmployee.status}
+                        onChange={(e) =>
+                          setProfileDraft((prev) => ({
+                            ...prev,
+                            status: e.target.value as EmpStatus,
+                          }))
+                        }
+                        className="min-w-[130px]"
+                      >
+                        <option value="ACTIVE">Active</option>
+                        <option value="ON_LEAVE">On Leave</option>
+                        <option value="TERMINATED">Terminated</option>
+                      </Select>
+                    </>
+                  ) : (
+                    <>
+                      <RoleBadge role={currentEmployee.role} />
+                      <StatusBadge status={currentEmployee.status} />
+                      {currentEmployee.crew ? (
+                        <Badge className="border-transparent bg-white/10 text-xs uppercase tracking-[0.3em] text-white/50">
+                          {currentEmployee.crew}
+                        </Badge>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Scrollable body ───────────────────────────────────────── */}
+              <div className="relative z-10 flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                {/* EMPLOYMENT */}
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">
                     Employment
                   </h3>
-                  <div className="grid gap-4 rounded-2xl border border-border/60 bg-foreground/5 p-4 md:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Location</div>
-                      <div className="text-base text-foreground">
-                        {currentEmployee.location ?? "Unassigned"}
-                      </div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/40">Office Location</div>
+                      {editMode ? (
+                        <Select
+                          label=""
+                          value={profileDraft.crew ?? currentEmployee.crew ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) => ({ ...prev, crew: e.target.value }))
+                          }
+                        >
+                          <option value="">Unassigned</option>
+                          {crews.map((crew) => (
+                            <option key={crew} value={crew}>{crew}</option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <div className="text-sm text-white">{currentEmployee.crew ?? "—"}</div>
+                      )}
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Hire Date</div>
-                      <div className="text-base text-foreground">
-                        {formatDate(currentEmployee.hireDate)}
-                      </div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/40">Hire Date</div>
+                      <div className="text-sm text-white">{formatDate(currentEmployee.hireDate)}</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Contact</div>
-                      <div className="flex flex-col text-foreground">
-                        {currentEmployee.phone ? <span>{currentEmployee.phone}</span> : null}
-                        {currentEmployee.email ? (
-                          <span className="text-muted">{currentEmployee.email}</span>
-                        ) : null}
-                      </div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/40">Phone</div>
+                      {editMode ? (
+                        <Input
+                          value={profileDraft.phone ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) => ({ ...prev, phone: e.target.value || undefined }))
+                          }
+                          placeholder="305-555-0101"
+                          className="h-8 bg-white/5 border-white/20 text-white text-sm"
+                        />
+                      ) : (
+                        <div className="text-sm text-white">{currentEmployee.phone ?? "—"}</div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-[0.2em] text-muted">Credentials</div>
-                      <div className="flex flex-wrap gap-2">
-                        {currentEmployee.cdl ? (
-                          <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-200">
-                            CDL
-                          </Badge>
-                        ) : null}
-                        {currentEmployee.certs?.map((cert) => (
-                          <Badge key={cert.code} variant="secondary" className="bg-foreground/10">
-                            {cert.label}
-                            {cert.expires ? (
-                              <span className="ml-2 text-xs text-muted">
-                                exp {formatDate(cert.expires)}
-                              </span>
-                            ) : null}
-                          </Badge>
-                        ))}
-                        {!currentEmployee.cdl && !currentEmployee.certs?.length ? (
-                          <span className="text-xs text-muted">No certifications recorded.</span>
-                        ) : null}
-                      </div>
+                    <div className="space-y-1">
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/40">Email</div>
+                      {editMode ? (
+                        <Input
+                          type="email"
+                          value={profileDraft.email ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) => ({ ...prev, email: e.target.value || undefined }))
+                          }
+                          placeholder="name@company.com"
+                          className="h-8 bg-white/5 border-white/20 text-white text-sm"
+                        />
+                      ) : (
+                        <div className="text-sm text-white">{currentEmployee.email ?? "—"}</div>
+                      )}
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <div className="text-xs uppercase tracking-[0.2em] text-white/40">Address</div>
+                      {editMode ? (
+                        <Input
+                          value={profileDraft.address ?? ""}
+                          onChange={(e) =>
+                            setProfileDraft((prev) => ({ ...prev, address: e.target.value || undefined }))
+                          }
+                          placeholder="123 Main St, Miami, FL 33101"
+                          className="h-8 bg-white/5 border-white/20 text-white text-sm"
+                        />
+                      ) : (
+                        <div className="text-sm text-white">{currentEmployee.address ?? "—"}</div>
+                      )}
                     </div>
                   </div>
                 </section>
 
+                {/* SENSITIVE */}
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-                    Pay
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.35em] text-white/40">
+                    <Lock className="h-3 w-3 text-white/25" />
+                    Sensitive
                   </h3>
-                  <div className="grid gap-4 rounded-2xl border border-border/60 bg-foreground/5 p-4 md:grid-cols-[1.2fr_1fr]">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="text-xs uppercase tracking-[0.2em] text-white/40">SSN (Last 4)</div>
+                        {editMode ? (
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={profileDraft.ssn4 ?? ""}
+                            onChange={(e) =>
+                              setProfileDraft((prev) => ({
+                                ...prev,
+                                ssn4: e.target.value.replace(/\D/g, "").slice(0, 4) || undefined,
+                              }))
+                            }
+                            placeholder="1234"
+                            className="h-8 w-24 bg-white/5 border-white/20 text-white text-sm font-mono"
+                          />
+                        ) : (
+                          <div className="mt-1 font-mono text-base text-white">
+                            {ssnRevealed ? (
+                              currentEmployee.ssn4 ?? (
+                                <span className="text-sm text-white/30">Not set</span>
+                              )
+                            ) : (
+                              <span className="tracking-widest text-white/60">••••</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {!editMode && (
+                        <button
+                          type="button"
+                          onClick={() => setSsnRevealed((prev) => !prev)}
+                          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50 transition hover:bg-white/10 hover:text-white"
+                        >
+                          {ssnRevealed ? (
+                            <><EyeOff className="h-3.5 w-3.5" /> Hide</>
+                          ) : (
+                            <><Eye className="h-3.5 w-3.5" /> Reveal</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* PAY */}
+                <section className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">Pay</h3>
+                  <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-[1.2fr_1fr]">
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <DollarSign className="h-5 w-5 text-accent" />
+                      <div className="flex items-center gap-2 text-lg font-semibold text-white">
+                        <DollarSign className="h-5 w-5 text-emerald-400" />
                         {formatPay(currentEmployee.pay)}
                       </div>
-                      <div className="grid gap-2 text-xs uppercase tracking-[0.24em] text-muted">
+                      <div className="grid gap-1.5 text-xs uppercase tracking-[0.24em] text-white/40">
                         <div>Effective {formatDate(currentEmployee.pay.effective)}</div>
                         {currentEmployee.pay.type === "HOURLY" ? (
                           <div>OT {currentEmployee.pay.otMultiplier ?? 1.5}x</div>
                         ) : (
                           <div>Salary (weekly)</div>
                         )}
-                        <div>
-                          Next Review{" "}
-                          {formatDate(addDays(currentEmployee.pay.effective, 180))}
-                        </div>
+                        <div>Next Review {formatDate(addDays(currentEmployee.pay.effective, 180))}</div>
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">
+                      <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/40">
                         Rate History
                       </div>
-                      <div className="max-h-40 space-y-2 overflow-auto pr-1 text-sm">
+                      <div className="max-h-36 space-y-2 overflow-auto pr-1 text-sm">
                         {currentEmployee.rateHistory.map((entry, index) => (
                           <div
                             key={`${entry.effective}-${index}`}
-                            className="flex items-center justify-between rounded-xl border border-border/40 bg-foreground/5 px-3 py-2"
+                            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
                           >
-                            <span>{formatPay(entry)}</span>
-                            <span className="text-xs text-muted">
-                              {formatDate(entry.effective)}
-                            </span>
+                            <span className="text-white/70">{formatPay(entry)}</span>
+                            <span className="text-xs text-white/30">{formatDate(entry.effective)}</span>
                           </div>
                         ))}
                       </div>
@@ -1553,142 +1521,221 @@ export default function EmployeesPage() {
                   </div>
                 </section>
 
+                {/* CREDENTIALS */}
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-                    Today&apos;s Roster
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">
+                    Credentials
                   </h3>
-                  <div className="flex flex-wrap gap-2 rounded-2xl border border-border/60 bg-foreground/5 p-4">
-                    {rosterOptions.map(([value, label]) => (
-                      <Button
-                        key={value}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => void onMoveToday(currentEmployee.id, value)}
-                      >
-                        <Building2 className="h-3.5 w-3.5 text-accent" />
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-                    Cost Estimator
-                  </h3>
-                  <div className="grid gap-4 rounded-2xl border border-border/60 bg-foreground/5 p-4 md:grid-cols-[1fr_1fr]">
-                    <div className="space-y-3">
-                      <div className="grid gap-3">
-                        <label className="text-xs uppercase tracking-[0.2em] text-muted">
-                          Regular Hours
-                          <Input
-                            type="number"
-                            min={0}
-                            value={costInputs.reg}
-                            onChange={(event) =>
-                              setCostInputs((prev) => ({
-                                ...prev,
-                                reg: Number(event.target.value ?? 0),
-                              }))
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {editMode ? (
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-white/70">
+                          <input
+                            type="checkbox"
+                            checked={profileDraft.cdl ?? false}
+                            onChange={(e) =>
+                              setProfileDraft((prev) => ({ ...prev, cdl: e.target.checked }))
                             }
-                            className="mt-1"
+                            className="h-4 w-4 rounded border border-white/20 bg-white/5 accent-emerald-400"
                           />
+                          CDL
                         </label>
-                        <label className="text-xs uppercase tracking-[0.2em] text-muted">
-                          OT Hours
-                          <Input
-                            type="number"
-                            min={0}
-                            value={costInputs.ot}
-                            onChange={(event) =>
-                              setCostInputs((prev) => ({
-                                ...prev,
-                                ot: Number(event.target.value ?? 0),
-                              }))
-                            }
-                            className="mt-1"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    <div className="space-y-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-foreground">
-                      {currentCost ? (
-                        <>
-                          <div className="text-xs uppercase tracking-[0.3em] text-muted">
-                            Estimated Spend
-                          </div>
-                          <div className="text-xl font-semibold text-foreground">
-                            {payFormatter.format(currentCost.daily)} / day
-                          </div>
-                          <div className="text-sm text-muted">
-                            {payFormatter.format(currentCost.weekly)} / week
-                          </div>
-                          <Separator className="border-border/40" />
-                          <div className="space-y-1 text-xs text-muted">
-                            {currentCost.breakdown.map((line) => (
-                              <div key={line.label} className="flex justify-between">
-                                <span>{line.label}</span>
-                                <span>{payFormatter.format(line.amount)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
                       ) : (
-                        <div className="text-sm text-muted">
-                          Enter hours to generate a cost estimate.
-                        </div>
+                        <>
+                          {currentEmployee.cdl ? (
+                            <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-200">CDL</Badge>
+                          ) : null}
+                          {currentEmployee.certs?.map((cert) => (
+                            <Badge key={cert.code} variant="secondary" className="bg-white/10 text-white/60">
+                              {cert.label}
+                              {cert.expires ? (
+                                <span className="ml-2 text-xs text-white/30">
+                                  exp {formatDate(cert.expires)}
+                                </span>
+                              ) : null}
+                            </Badge>
+                          ))}
+                          {!currentEmployee.cdl && !currentEmployee.certs?.length ? (
+                            <span className="text-xs text-white/30">No certifications recorded.</span>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
                 </section>
 
+                {/* NOTES */}
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-muted">
-                    Notes
-                  </h3>
-                  <div className="rounded-2xl border border-border/60 bg-foreground/5 p-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">Notes</h3>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <Textarea
-                      value={notesDraft}
-                      onChange={(event) => setNotesDraft(event.target.value)}
-                      placeholder="Performance, certifications, reminders..."
-                      className="min-h-[120px] resize-none bg-transparent"
+                      value={editMode ? (profileDraft.notes ?? "") : (currentEmployee.notes ?? "")}
+                      readOnly={!editMode}
+                      onChange={
+                        editMode
+                          ? (e) => setProfileDraft((prev) => ({ ...prev, notes: e.target.value }))
+                          : undefined
+                      }
+                      placeholder={
+                        editMode ? "Performance, certifications, reminders…" : "No notes recorded."
+                      }
+                      className={cn(
+                        "min-h-[100px] resize-none bg-transparent border-transparent text-white placeholder:text-white/25",
+                        !editMode && "cursor-default opacity-70",
+                      )}
                     />
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleNotesSave(currentEmployee.id)}
-                      >
-                        Save Notes
-                      </Button>
-                    </div>
                   </div>
                 </section>
-              </SheetBody>
-              <SheetFooter className="flex flex-wrap justify-between gap-2 border-t border-border/60 bg-foreground/5">
-                <Button
-                  variant="outline"
-                  onClick={() => setAssignDialog({ open: true, employeeId: currentEmployee.id })}
+              </div>
+
+              {/* ── Footer ───────────────────────────────────────────────── */}
+              <div className="relative z-10 flex items-center justify-between border-t border-white/10 bg-white/[0.02] px-6 py-4">
+                <button
+                  type="button"
+                  disabled={editMode}
+                  onClick={() => {
+                    setTerminateDraft({
+                      reason: "",
+                      notes: "",
+                      effectiveDate: new Date().toISOString().slice(0, 10),
+                    });
+                    setTerminateDialog({ open: true, employeeId: currentEmployee.id });
+                  }}
+                  className="flex items-center gap-1.5 text-sm font-medium text-red-400/80 transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  Assign Crew
-                </Button>
-                <div className="flex flex-wrap items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Terminate
+                </button>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
+                    size="sm"
+                    disabled={editMode}
+                    className="border-white/15 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
                     onClick={() => setPayDialog({ open: true, employeeId: currentEmployee.id })}
                   >
                     Edit Pay
                   </Button>
-                  <Button variant="ghost" onClick={() => setSheetOpen(false)}>
-                    Close
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={editMode}
+                    className="border-white/15 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    onClick={() => setAssignDialog({ open: true, employeeId: currentEmployee.id })}
+                  >
+                    Assign Crew
                   </Button>
                 </div>
-              </SheetFooter>
-            </>
+              </div>
+            </div>
           ) : null}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Terminate Dialog ───────────────────────────────────────────── */}
+      <Dialog
+        open={terminateDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setTerminateDialog({ open: false });
+        }}
+      >
+        <DialogContent className="max-w-md bg-[rgba(23,23,23,0.6)] backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(3,6,23,0.55)] text-white [&>button.absolute]:text-white/40 [&>button.absolute]:hover:text-white">
+          <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-red-500/10 blur-3xl" />
+          <DialogHeader className="relative">
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+              Terminate Employee
+            </DialogTitle>
+            <DialogDescription className="text-white/40">
+              {terminateDialog.employeeId
+                ? employees.find((e) => e.id === terminateDialog.employeeId)?.name
+                : ""}
+              {" — "}This action will mark the employee as terminated.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="relative grid gap-4 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const empId = terminateDialog.employeeId;
+              if (!empId) return;
+              onSetStatus(empId, "TERMINATED");
+              const logLine = `[Terminated ${terminateDraft.effectiveDate}] Reason: ${terminateDraft.reason}${terminateDraft.notes ? ` — ${terminateDraft.notes}` : ""}`;
+              setEmployee(empId, (emp) => ({
+                ...emp,
+                notes: [emp.notes, logLine].filter(Boolean).join("\n"),
+              }));
+              setTerminateDialog({ open: false });
+              setTerminateDraft({ reason: "", notes: "", effectiveDate: new Date().toISOString().slice(0, 10) });
+              setSheetOpen(false);
+              setDrawerId(null);
+              setEditMode(false);
+            }}
+          >
+            <Select
+              label="Reason"
+              value={terminateDraft.reason}
+              onChange={(e) => setTerminateDraft((prev) => ({ ...prev, reason: e.target.value }))}
+              required
+            >
+              <option value="">Select a reason…</option>
+              <option value="Resignation">Resignation</option>
+              <option value="Layoff">Layoff</option>
+              <option value="Performance">Performance</option>
+              <option value="End of Contract">End of Contract</option>
+              <option value="Other">Other</option>
+            </Select>
+            <label className="grid gap-1 text-sm text-white/50">
+              Details
+              {terminateDraft.reason === "Other" && (
+                <span className="text-red-400 text-xs"> (required)</span>
+              )}
+              <Textarea
+                value={terminateDraft.notes}
+                onChange={(e) =>
+                  setTerminateDraft((prev) => ({ ...prev, notes: e.target.value }))
+                }
+                placeholder="Additional context…"
+                required={terminateDraft.reason === "Other"}
+                className="min-h-[80px] resize-none bg-white/5 border-white/15 text-white placeholder:text-white/25"
+              />
+            </label>
+            <label className="grid gap-1 text-sm text-white/50">
+              Effective Date
+              <Input
+                type="date"
+                value={terminateDraft.effectiveDate}
+                onChange={(e) =>
+                  setTerminateDraft((prev) => ({ ...prev, effectiveDate: e.target.value }))
+                }
+                required
+                className="bg-white/5 border-white/15 text-white"
+              />
+            </label>
+            <DialogFooter className="flex gap-2 pt-2">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setTerminateDialog({ open: false })}
+                className="text-white/50 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !terminateDraft.reason ||
+                  (terminateDraft.reason === "Other" && !terminateDraft.notes) ||
+                  !terminateDraft.effectiveDate
+                }
+                className="bg-red-500/20 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/30 disabled:opacity-40"
+              >
+                Confirm Termination
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={payDialog.open} onOpenChange={(open) => setPayDialog({ open })}>
         <DialogContent className="max-w-xl bg-surface-soft text-foreground">
@@ -1701,19 +1748,35 @@ export default function EmployeesPage() {
           {payDialogEmployee && payDraft ? (
             <form
               className="grid gap-4 py-2"
-              onSubmit={async (event) => {
+              onSubmit={(event) => {
                 event.preventDefault();
-                try {
-                  await onEditPay(payDialogEmployee.id, payDraft);
-                  setPayDialog({ open: false });
-                } catch {
-                  // Error already set by onEditPay, dialog stays open
-                }
+                onEditPay(payDialogEmployee.id, payDraft);
+                setPayDialog({ open: false });
               }}
             >
               <div className="grid gap-3 md:grid-cols-2">
+                <Select
+                  label="Type"
+                  value={payDraft.type}
+                  onChange={(event) => {
+                    const nextType = event.target.value as PayType;
+                    setPayDraft((prev) =>
+                      prev
+                        ? {
+                            type: nextType,
+                            base: prev.base,
+                            otMultiplier: nextType === "HOURLY" ? prev.otMultiplier ?? 1.5 : undefined,
+                            effective: prev.effective,
+                          }
+                        : prev,
+                    );
+                  }}
+                >
+                  <option value="HOURLY">Hourly</option>
+                  <option value="SALARY">Salary (weekly)</option>
+                </Select>
                 <label className="text-sm text-muted">
-                  Rate
+                  Base Rate
                   <Input
                     type="number"
                     min={0}
@@ -1727,6 +1790,8 @@ export default function EmployeesPage() {
                     className="mt-1"
                   />
                 </label>
+              </div>
+              {payDraft.type === "HOURLY" ? (
                 <label className="text-sm text-muted">
                   OT Multiplier
                   <Input
@@ -1744,7 +1809,7 @@ export default function EmployeesPage() {
                     className="mt-1"
                   />
                 </label>
-              </div>
+              ) : null}
               <label className="text-sm text-muted">
                 Effective Date
                 <Input
@@ -1769,33 +1834,29 @@ export default function EmployeesPage() {
       <Dialog open={assignDialog.open} onOpenChange={(open) => setAssignDialog({ open })}>
         <DialogContent className="max-w-md bg-surface-soft text-foreground">
           <DialogHeader>
-            <DialogTitle>Assign Location</DialogTitle>
+            <DialogTitle>Assign Crew</DialogTitle>
             <DialogDescription>
-              Choose an existing location or type a new location assignment.
+              Choose an existing crew or type a new crew assignment.
             </DialogDescription>
           </DialogHeader>
           {assignDialogEmployee ? (
             <form
               className="grid gap-4 py-2"
-              onSubmit={async (event) => {
+              onSubmit={(event) => {
                 event.preventDefault();
-                try {
-                  await onAssignLocation(assignDialogEmployee.id, assignLocationDraft);
-                  setAssignDialog({ open: false });
-                } catch {
-                  // Error already set by onAssignLocation, dialog stays open
-                }
+                onAssignCrew(assignDialogEmployee.id, assignCrewDraft);
+                setAssignDialog({ open: false });
               }}
             >
               <Select
-                label="Location"
-                value={assignLocationDraft || ""}
-                onChange={(event) => setAssignLocationDraft(event.target.value)}
+                label="Crew"
+                value={assignCrewDraft || ""}
+                onChange={(event) => setAssignCrewDraft(event.target.value)}
               >
                 <option value="">Unassigned</option>
-                {locations.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
+                {crews.map((crew) => (
+                  <option key={crew} value={crew}>
+                    {crew}
                   </option>
                 ))}
               </Select>
@@ -1810,33 +1871,29 @@ export default function EmployeesPage() {
       <Dialog open={bulkAssignDialog} onOpenChange={setBulkAssignDialog}>
         <DialogContent className="max-w-md bg-surface-soft text-foreground">
           <DialogHeader>
-            <DialogTitle>Bulk Assign Location</DialogTitle>
+            <DialogTitle>Bulk Assign Crew</DialogTitle>
             <DialogDescription>
-              Apply a location assignment to all selected team members.
+              Apply a crew assignment to all selected team members.
             </DialogDescription>
           </DialogHeader>
           <form
             className="grid gap-4 py-2"
-            onSubmit={async (event) => {
+            onSubmit={(event) => {
               event.preventDefault();
-              try {
-                await onBulkAssignLocation(bulkAssignLocationDraft);
-                setBulkAssignDialog(false);
-                setBulkAssignLocationDraft("");
-              } catch {
-                // Error already set by onBulkAssignLocation, dialog stays open
-              }
+              onBulkAssignCrew(bulkAssignCrewDraft);
+              setBulkAssignDialog(false);
+              setBulkAssignCrewDraft("");
             }}
           >
             <Select
-              label="Location"
-              value={bulkAssignLocationDraft}
-              onChange={(event) => setBulkAssignLocationDraft(event.target.value)}
+              label="Crew"
+              value={bulkAssignCrewDraft}
+              onChange={(event) => setBulkAssignCrewDraft(event.target.value)}
             >
               <option value="">Unassigned</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
+              {crews.map((crew) => (
+                <option key={crew} value={crew}>
+                  {crew}
                 </option>
               ))}
             </Select>
@@ -1910,8 +1967,8 @@ export default function EmployeesPage() {
                 <Input name="hireDate" type="date" />
               </label>
               <label className="grid gap-1 text-sm text-muted">
-                Location
-                <Input name="location" placeholder="Guardrail A" maxLength={64} />
+                Crew
+                <Input name="crew" placeholder="Guardrail A" />
               </label>
               <Select label="Role" name="role" defaultValue="Labor">
                 <option value="Foreman">Foreman</option>
@@ -1937,8 +1994,12 @@ export default function EmployeesPage() {
             </div>
             <Separator className="border-border/60" />
             <div className="grid gap-4 md:grid-cols-2">
+              <Select label="Pay Type" name="payType" defaultValue="HOURLY">
+                <option value="HOURLY">Hourly</option>
+                <option value="SALARY">Salary (weekly)</option>
+              </Select>
               <label className="grid gap-1 text-sm text-muted">
-                Rate
+                Base Pay
                 <Input
                   name="payBase"
                   type="number"
