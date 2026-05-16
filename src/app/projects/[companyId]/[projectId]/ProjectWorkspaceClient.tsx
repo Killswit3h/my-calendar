@@ -22,6 +22,11 @@ import type {
   Project,
   ProjectPayItemView,
 } from "../../projects.models";
+import type { ApiProjectPhase } from "@/lib/projectPhaseApiFormat";
+import type { Phase } from "@/components/project/payApplicationTypes";
+import { mapApiPhasesToWorkspacePhases } from "../../mapApiPhasesToWorkspacePhases";
+import { mergePhasesWithPayLines } from "../../mergePhasesWithPayLines";
+import { buildPhasesPutPayload } from "../../buildPhasesPutPayload";
 
 const PROJECT_STATUS_LABELS: Record<Project["status"], string> = {
   "Not Started": "Not Started",
@@ -78,13 +83,23 @@ type Props = {
   company: Company;
   project: Project;
   initialPayLines: ProjectPayItemView[];
+  initialApiPhases?: ApiProjectPhase[];
 };
 
-export function ProjectWorkspaceClient({ company, project, initialPayLines }: Props) {
+export function ProjectWorkspaceClient({
+  company,
+  project,
+  initialPayLines,
+  initialApiPhases = [],
+}: Props) {
   const [viewMode, setViewMode] = useState<PayApplicationView>("contract");
   const [liveInvoiceNumber, setLiveInvoiceNumber] = useState(project.payApplicationInvoiceNumber);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPhases, setIsSavingPhases] = useState(false);
   const [payLines, setPayLines] = useState<ProjectPayItemView[]>(initialPayLines);
+  const [phases, setPhases] = useState<Phase[]>(() =>
+    mapApiPhasesToWorkspacePhases(initialApiPhases, initialPayLines),
+  );
   const [checklist, setChecklist] = useState<Record<string, ChecklistStatus>>(() => {
     const m: Record<string, ChecklistStatus> = {};
     for (const { key } of CHECKLIST_ITEMS) {
@@ -151,6 +166,51 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
     () => new Set(initialPayLines.filter((r) => !isTempPayLineId(r.id)).map((r) => r.id)),
     [initialPayLines],
   );
+
+  const mergedPhases = useMemo(
+    () => mergePhasesWithPayLines(phases, payLines),
+    [phases, payLines],
+  );
+
+  const hasUnsavedPayLines = useMemo(
+    () => payLines.some((row) => isTempPayLineId(row.id)),
+    [payLines],
+  );
+
+  const projectIdNumeric = Number(project.id);
+  const projectIdValid = Number.isInteger(projectIdNumeric) && projectIdNumeric > 0;
+
+  const phasesSaveDisabledReason = !projectIdValid
+    ? "Save the project first so it has an id before saving phases."
+    : hasUnsavedPayLines
+      ? "Save Project first: new contract lines must be stored before phases can reference them."
+      : null;
+
+  const handleSavePhases = useCallback(async () => {
+    if (!projectIdValid || hasUnsavedPayLines) return;
+    setIsSavingPhases(true);
+    try {
+      const response = await fetch(`/api/projects/${project.id}/phases`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPhasesPutPayload(phases)),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(
+          typeof errorBody.message === "string" ? errorBody.message : "Failed to save phases",
+        );
+      }
+      const data = (await response.json()) as { phases?: ApiProjectPhase[] };
+      const next = data.phases ?? [];
+      setPhases(mapApiPhasesToWorkspacePhases(next, payLines));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save phases";
+      window?.alert?.(message);
+    } finally {
+      setIsSavingPhases(false);
+    }
+  }, [hasUnsavedPayLines, project.id, phases, payLines, projectIdValid]);
 
   const handleSaveProject = async (payload: ProjectFormState) => {
     setIsSaving(true);
@@ -286,6 +346,11 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
         notes={notes}
         onNotesChange={setNotes}
         viewMode={viewMode}
+        phases={mergedPhases}
+        onPhasesChange={setPhases}
+        onSavePhases={handleSavePhases}
+        phasesSaveDisabledReason={phasesSaveDisabledReason}
+        isSavingPhases={isSavingPhases}
         invoiceNumber={liveInvoiceNumber}
       />
     </>
