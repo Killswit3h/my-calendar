@@ -91,6 +91,7 @@ model project {
 
   customer          customer?            @relation(fields: [customer_id], references: [id])
   project_pay_items project_pay_item[]
+  project_phases    project_phase[]
   events            event[]
 
   @@map("project")
@@ -118,11 +119,51 @@ model project_pay_item {
   status_date           DateTime? @map("status_date")
   surveyed              Boolean?  @map("surveyed")
 
-  project          project          @relation(fields: [project_id], references: [id])
-  pay_item         pay_item?        @relation(fields: [pay_item_id], references: [id])
-  event_quantities event_quantity[]
+  project              project               @relation(fields: [project_id], references: [id])
+  pay_item             pay_item?             @relation(fields: [pay_item_id], references: [id])
+  event_quantities     event_quantity[]
+  project_phase_lines project_phase_line[]
 
   @@map("project_pay_item")
+}
+
+model project_phase {
+  id                 Int       @id @default(autoincrement())
+  project_id         Int       @map("project_id")
+  sort_order         Int       @default(0) @map("sort_order")
+  name               String    @db.VarChar(255)
+  locate_ticket      String?   @map("locate_ticket") @db.VarChar(255)
+  date_created       DateTime? @map("date_created") @db.Date
+  ready_to_work_date DateTime? @map("ready_to_work_date") @db.Date
+  onsite_review      Boolean   @default(false) @map("onsite_review")
+  surveyed           Boolean   @default(false) @map("surveyed")
+  status             String?   @db.VarChar(255)
+  status_date        DateTime? @map("status_date") @db.Date
+  notes              String?   @db.Text
+  created_at         DateTime  @default(now()) @map("created_at")
+  updated_at         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  lines   project_phase_line[]
+
+  @@index([project_id])
+  @@map("project_phase")
+}
+
+model project_phase_line {
+  id                  Int     @id @default(autoincrement())
+  phase_id            Int     @map("phase_id")
+  project_pay_item_id Int     @map("project_pay_item_id")
+  phase_quantity      Decimal @map("phase_quantity") @db.Decimal(10, 2)
+  sort_order          Int     @default(0) @map("sort_order")
+  line_description    String? @map("line_description") @db.Text
+
+  phase            project_phase    @relation(fields: [phase_id], references: [id], onDelete: Cascade)
+  project_pay_item project_pay_item @relation(fields: [project_pay_item_id], references: [id], onDelete: Cascade)
+
+  @@unique([phase_id, project_pay_item_id])
+  @@index([phase_id])
+  @@map("project_phase_line")
 }
 
 model event {

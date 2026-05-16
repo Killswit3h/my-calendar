@@ -24,9 +24,9 @@ User-provided constraints and decisions:
 |---|------------|----------------|-------|
 | 1 | Use Not Started/In Progress/Completed | R1 | Normalize project status contract in UI + API/service validation/defaults |
 | 2 | UX fields should be real DB fields | R2 | Add migration + API exposure for missing project metadata fields |
-| 3 | Determine where phase data belongs | R3 | No `phase` model found; map to `project_pay_item` unless new table is explicitly approved |
+| 3 | Determine where phase data belongs | R3 | Nested phases use `project_phase` + `project_phase_line` (2026-04-06); see `.cursor/specs/projectPhasesEndpoint.md` |
 | 4 | stockpile billed is fine | R4 | Keep `project_pay_item.stockpile_billed` as persisted stockpile value |
-| 5 | Keep created APIs | R5 | Use canonical existing endpoints (`/api/projects`, `/api/project-pay-items`, `/api/pay-items`, `/api/event-quantities`, `/api/customers`) |
+| 5 | Keep created APIs | R5 | Use canonical endpoints (`/api/projects`, `/api/project-pay-items`, `/api/pay-items`, `/api/event-quantities`, `/api/customers`); **exception:** nested phases use `GET`/`PUT /api/projects/[id]/phases` (see `.cursor/specs/projectPhasesEndpoint.md`) |
 | 6 | Projects page includes specific entities | R6 | Projects UI must query and compose these 5 entities |
 | 7 | Event info belongs on calendar | R7 | Projects page consumes event-quantity rollups; event CRUD remains on Calendar workflows |
 | — | Pay app header INV# persisted | R8 | `pay_application_invoice_number` on `project`; POST/PATCH + validation in `ProjectService` |
@@ -60,10 +60,10 @@ User-provided constraints and decisions:
 - New project flow:
   - Company/customer picker reads from real customers.
   - Create persists via `POST /api/projects` using validated schema fields.
-- Phases:
-  - Phase-like fields persist on each `project_pay_item`:
-    - `begin_station`, `end_station`, `status`, `locate_ticket`, `LF_RT`, `onsite_review`, `notes`, `ready_to_work_date`, `status_date`, `surveyed`.
-  - UI uses a flat list of project pay item rows (no separate `phase` table).
+- Phases (2026-04-06 update):
+  - Nested **Phases** tab persists via `project_phase` + `project_phase_line` and **Save phases** (`GET` / `PUT /api/projects/[id]/phases`). See `.cursor/specs/projectPhasesEndpoint.md`.
+  - Each `project_pay_item` may appear in **at most one** phase line (`project_phase_line.project_pay_item_id` unique).
+  - Per-line **Contract** fields on `project_pay_item` (`begin_station`, `end_station`, `status`, `locate_ticket`, etc.) remain separate from phase-level metadata on `project_phase`.
 - Stockpile:
   - Persist stockpile value via `project_pay_item.stockpile_billed`.
   - Derived UI calculations can remain client-derived from qty/rate inputs.
@@ -87,9 +87,9 @@ User-provided constraints and decisions:
   - `procedure_checklist`: JSON object whose keys are the procedure checklist keys in UI (`contract`, `coi`, `bond`, `material`, `eeo`, `payroll`). Values: `NOT_STARTED` | `IN_PROGRESS` | `COMPLETE`.
   - `pay_application_notes`: free-text notes for the pay application workspace.
   - `pay_application_invoice_number`: optional string (max 255) for the header **INV#**; trimmed on write; empty/`null` on PATCH clears the stored value. Accepted on **POST** (create) and **PATCH** (update). DB column: `project.pay_application_invoice_number`.
-- **Project pay item** rows: the Contract and Phases tabs share one list keyed by `project_pay_item.id`. Editable persisted fields include `contracted_quantity`, `stockpile_billed`, `unit_rate`, `notes`, `begin_station`, `end_station`, `status`, `locate_ticket`, `LF_RT`, `onsite_review`, `ready_to_work_date`, `status_date`, `surveyed`.
+- **Project pay item** rows: the **Contract** tab edits lines keyed by `project_pay_item.id`. Editable persisted fields on **Save Project** include `contracted_quantity`, `stockpile_billed`, `unit_rate`, `notes`, `begin_station`, `end_station`, `status`, `locate_ticket`, `LF_RT`, `onsite_review`, `ready_to_work_date`, `status_date`, `surveyed`.
 - **Forbidden on workspace save:** writing **installed** quantity from this page; installed totals remain aggregates of `event_quantity` / calendar workflows (**R7**).
-- **Phases tab:** flat **one row per `project_pay_item`**; no nested synthetic phase entities persisted.
+- **Phases tab:** nested phases persist with **Save phases** (separate from **Save Project**); see `.cursor/specs/projectPhasesEndpoint.md`.
 - **Create line:** `POST /api/project-pay-items` accepts `pay_item_number` (exact catalog match, case-insensitive) **or** `pay_item_id`. Unknown pay item numbers are rejected (400).
 - **Delete line:** `DELETE` is blocked with a business error if any `event_quantity` rows reference that `project_pay_item` (protect calendar data).
 - **Stockpile UI “purchased qty”:** not persisted in v1 (display/input only). **`stockpile_billed`** stores the dollar amount from the stockpile section.
@@ -115,13 +115,16 @@ User-provided constraints and decisions:
   - `src/components/project/PayApplicationContractView.tsx`
   - `src/components/project/PayApplicationPhasesView.tsx`
 - API and server layers:
-  - `src/app/api/projects/*.ts`
+  - `src/app/api/projects/*.ts` (includes `src/app/api/projects/[id]/phases/route.ts` for pay-application phases)
   - `src/app/api/project-pay-items/*.ts`
   - `src/app/api/pay-items/*.ts`
   - `src/app/api/event-quantities/*.ts`
   - `src/server/controllers/ProjectController.ts`
+  - `src/server/controllers/ProjectPhaseController.ts`
   - `src/server/services/ProjectService.ts`
+  - `src/server/services/ProjectPhaseService.ts`
   - `src/server/services/ProjectPayItemService.ts`
+  - `src/server/repositories/ProjectPhaseRepository.ts`
   - `src/server/services/EventQuantityService.ts`
 - Schema and migration:
   - `prisma/schema.prisma`

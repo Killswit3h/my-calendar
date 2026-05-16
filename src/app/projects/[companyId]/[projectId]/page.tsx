@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { ProjectWorkspaceClient } from "./ProjectWorkspaceClient";
 import { fetchCustomers, fetchProjectById } from "../../projects.api";
 import { loadProjectPayItemsWithRollups } from "../../loadProjectPayRollups";
+import { loadProjectPhasesForProject } from "../../loadProjectPhases";
+import type { ApiProjectPhase } from "@/lib/projectPhaseApiFormat";
 
 type PageProps = {
   params: Promise<{ companyId: string; projectId: string }>;
@@ -15,15 +17,18 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   let project: Awaited<ReturnType<typeof fetchProjectById>>["project"];
   let fetchedCompany: Awaited<ReturnType<typeof fetchProjectById>>["company"];
   let initialPayLines: Awaited<ReturnType<typeof loadProjectPayItemsWithRollups>>["projectPayItems"];
+  let initialApiPhases: ApiProjectPhase[] = [];
 
   try {
-    const [projectBundle, rollups] = await Promise.all([
+    const [projectBundle, rollups, phasesResult] = await Promise.all([
       fetchProjectById(projectId),
       loadProjectPayItemsWithRollups(projectId),
+      loadProjectPhasesForProject(projectId),
     ]);
     project = projectBundle.project;
     fetchedCompany = projectBundle.company;
     initialPayLines = rollups.projectPayItems;
+    initialApiPhases = phasesResult.phases;
   } catch {
     notFound();
   }
@@ -53,6 +58,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           company={company}
           project={project}
           initialPayLines={initialPayLines}
+          initialApiPhases={initialApiPhases}
         />
       </div>
     </main>

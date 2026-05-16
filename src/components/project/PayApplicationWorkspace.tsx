@@ -37,6 +37,13 @@ type PayApplicationWorkspaceProps = {
   notes: string;
   onNotesChange: (value: string) => void;
   viewMode: PayApplicationView;
+  /** Persisted phase tree; lifted to parent for Save phases */
+  phases: Phase[];
+  onPhasesChange: (next: Phase[]) => void;
+  onSavePhases?: () => void | Promise<void>;
+  /** When set, Save phases is disabled and this explains why */
+  phasesSaveDisabledReason?: string | null;
+  isSavingPhases?: boolean;
   invoiceNumber?: string;
 };
 
@@ -46,97 +53,11 @@ function enrichPayLines(payLines: ProjectPayItemView[]): EnrichedPayLine[] {
   return payLines.map((row) => ({
     ...row,
     rate: PAY_ITEM_RATES[row.payItemNumber] ?? 0,
-  }))
+  }));
 }
 
-/** Phases tab: legacy UI seeded from contract pay lines (local state; not persisted separately). */
-function buildInitialPhases(items: EnrichedPayLine[]): Phase[] {
-  if (!items.length) {
-    return [
-      {
-        id: "phase-1",
-        name: "Phase 1",
-        invoiceSuffix: "A",
-        locateTicket: "",
-        dateCreated: "",
-        readyToWorkDate: "",
-        onsiteReview: false,
-        surveyed: false,
-        status: "Pending",
-        statusDate: "",
-        notes: "",
-        items: [],
-      },
-      {
-        id: "phase-2",
-        name: "Phase 2",
-        invoiceSuffix: "B",
-        locateTicket: "",
-        dateCreated: "",
-        readyToWorkDate: "",
-        onsiteReview: false,
-        surveyed: false,
-        status: "Pending",
-        statusDate: "",
-        notes: "",
-        items: [],
-      },
-    ]
-  }
-
-  const baseItems = items.slice(0, 2)
-  const extraItems = items.slice(2, 4)
-
-  return [
-      {
-        id: "phase-1",
-        name: "Phase 1",
-        invoiceSuffix: "A",
-        locateTicket: "TCK-48213",
-      dateCreated: "2025-12-01",
-      readyToWorkDate: "2025-12-04",
-      onsiteReview: true,
-      surveyed: true,
-      status: "Ready",
-      statusDate: "2025-12-05",
-      notes: "Northbound alignment; ensure MOT update before pour.",
-      items: baseItems.map((item, idx) => ({
-        id: `p1-${item.id}-${idx}`,
-        payItem: item.payItemNumber,
-        description: item.payItemDescription,
-        quantity: item.contractedQuantity,
-        installedQty: item.installedQuantity,
-      })),
-    },
-      {
-        id: "phase-2",
-        name: "Phase 2",
-        invoiceSuffix: "B",
-        locateTicket: "TCK-48277",
-      dateCreated: "2025-12-06",
-      readyToWorkDate: "2025-12-10",
-      onsiteReview: false,
-      surveyed: true,
-      status: "Pending",
-      statusDate: "2025-12-11",
-      notes: "Southbound; await utility clearance.",
-      items: extraItems.length
-        ? extraItems.map((item, idx) => ({
-            id: `p2-${item.id}-${idx}`,
-            payItem: item.payItemNumber,
-            description: item.payItemDescription,
-            quantity: item.contractedQuantity,
-            installedQty: item.installedQuantity,
-          }))
-        : baseItems.map((item, idx) => ({
-            id: `p2-fallback-${item.id}-${idx}`,
-            payItem: item.payItemNumber,
-            description: item.payItemDescription,
-            quantity: Math.round(item.contractedQuantity / 2),
-            installedQty: Math.round(item.installedQuantity / 2),
-          })),
-    },
-  ]
+function isTempPayLineId(id: string): boolean {
+  return id.startsWith("temp-");
 }
 
 export function PayApplicationWorkspace({
@@ -149,16 +70,16 @@ export function PayApplicationWorkspace({
   notes,
   onNotesChange,
   viewMode,
+  phases,
+  onPhasesChange,
+  onSavePhases,
+  phasesSaveDisabledReason,
+  isSavingPhases = false,
   invoiceNumber = "",
 }: PayApplicationWorkspaceProps) {
-  const enrichedPayLines = useMemo(() => enrichPayLines(payLines), [payLines])
+  const enrichedPayLines = useMemo(() => enrichPayLines(payLines), [payLines]);
 
-  const [phaseSearch, setPhaseSearch] = useState("")
-  const [phases, setPhases] = useState<Phase[]>(() => buildInitialPhases(enrichPayLines(payLines)))
-
-  useEffect(() => {
-    setPhases(buildInitialPhases(enrichedPayLines))
-  }, [enrichedPayLines])
+  const [phaseSearch, setPhaseSearch] = useState("");
 
   const [showContractForm, setShowContractForm] = useState(false);
   const [newContractItem, setNewContractItem] = useState<NewContractItem>({
@@ -182,18 +103,18 @@ export function PayApplicationWorkspace({
   }, [payLines]);
 
   const updatePhase = (phaseId: string, updates: Partial<Phase>) => {
-    setPhases((prev) => prev.map((phase) => (phase.id === phaseId ? { ...phase, ...updates } : phase)));
+    onPhasesChange(phases.map((phase) => (phase.id === phaseId ? { ...phase, ...updates } : phase)));
   };
 
   const togglePhaseBoolean = (phaseId: string, key: "onsiteReview" | "surveyed") => {
-    setPhases((prev) =>
-      prev.map((phase) => (phase.id === phaseId ? { ...phase, [key]: !phase[key] } : phase)),
+    onPhasesChange(
+      phases.map((phase) => (phase.id === phaseId ? { ...phase, [key]: !phase[key] } : phase)),
     );
   };
 
   const updatePhaseItem = (phaseId: string, itemId: string, updates: Partial<PhaseItem>) => {
-    setPhases((prev) =>
-      prev.map((phase) =>
+    onPhasesChange(
+      phases.map((phase) =>
         phase.id === phaseId
           ? {
               ...phase,
@@ -211,33 +132,62 @@ export function PayApplicationWorkspace({
   }, [phaseSearch, phases]);
 
   const handleAddPhase = () => {
-    setPhases((prev) => {
-      const nextIndex = prev.length + 1;
-      const fallbackItems = enrichedPayLines.slice(0, 2).map((item, idx) => ({
-        id: `p${nextIndex}-item-${item.id}-${idx}`,
+    const nextIndex = phases.length + 1;
+    const phaseId = `local-phase-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const persistedLines = enrichedPayLines.filter((row) => !isTempPayLineId(row.id));
+    const fallbackItems: PhaseItem[] = persistedLines.slice(0, 2).map((item) => {
+      const ppi = Number(item.id);
+      const stablePpi = Number.isInteger(ppi) && ppi > 0 ? ppi : null;
+      return {
+        id: `local-line-${phaseId}-${item.id}-${Math.random().toString(36).slice(2, 9)}`,
+        projectPayItemId: stablePpi,
         payItem: item.payItemNumber,
         description: item.payItemDescription,
+        lineDescription: "",
+        contractedQuantity: item.contractedQuantity,
         quantity: item.contractedQuantity,
         installedQty: item.installedQuantity,
-      }));
-      return [
-        ...prev,
-        {
-          id: `phase-${nextIndex}`,
-          name: `Phase ${nextIndex}`,
-          invoiceSuffix: suffixForIndex(prev.length),
-          locateTicket: "",
-          dateCreated: "",
-          readyToWorkDate: "",
-          onsiteReview: false,
-          surveyed: false,
-          status: "Pending",
-          statusDate: "",
-          notes: "",
-          items: fallbackItems,
-        },
-      ];
+      };
     });
+    onPhasesChange([
+      ...phases,
+      {
+        id: phaseId,
+        name: `Phase ${nextIndex}`,
+        invoiceSuffix: suffixForIndex(phases.length),
+        locateTicket: "",
+        dateCreated: "",
+        readyToWorkDate: "",
+        onsiteReview: false,
+        surveyed: false,
+        status: "Pending",
+        statusDate: "",
+        notes: "",
+        items: fallbackItems,
+      },
+    ]);
+  };
+
+  const handleAddPayItemToPhase = (phaseId: string, projectPayItemId: number) => {
+    const row = payLines.find((l) => Number(l.id) === projectPayItemId);
+    if (!row || isTempPayLineId(row.id)) return;
+    onPhasesChange(
+      phases.map((phase) => {
+        if (phase.id !== phaseId) return phase;
+        if (phase.items.some((it) => it.projectPayItemId === projectPayItemId)) return phase;
+        const item: PhaseItem = {
+          id: `local-line-${phaseId}-${projectPayItemId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          projectPayItemId,
+          payItem: row.payItemNumber,
+          description: row.payItemDescription,
+          lineDescription: "",
+          contractedQuantity: row.contractedQuantity,
+          quantity: 0,
+          installedQty: row.installedQuantity,
+        };
+        return { ...phase, items: [...phase.items, item] };
+      }),
+    );
   };
 
   const handleAddContractItem = (event: React.FormEvent) => {
@@ -257,13 +207,15 @@ export function PayApplicationWorkspace({
     window?.alert?.("Pay application CSV export placeholder (frontend-only).");
   };
 
+  const savePhasesDisabled = Boolean(phasesSaveDisabledReason) || isSavingPhases;
+
   return (
     <section className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
       <header className="mb-2 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-base font-semibold text-white">Pay Application Workspace</h1>
           <p className="truncate text-xs text-white/50">
-            Checklist · quantities · stockpile · COs · invoices · CSV
+            Checklist · quantities · stockpile · COs · phases · CSV
           </p>
         </div>
         <button
@@ -299,17 +251,38 @@ export function PayApplicationWorkspace({
         />
       ) : null}
       {viewMode === "phases" ? (
-        <PayApplicationPhasesView
-          phaseSearch={phaseSearch}
-          onPhaseSearchChange={setPhaseSearch}
-          phases={phases}
-          filteredPhases={filteredPhases}
-          onUpdatePhase={updatePhase}
-          onTogglePhaseBoolean={togglePhaseBoolean}
-          onUpdatePhaseItem={updatePhaseItem}
-          onAddPhase={handleAddPhase}
-          invoiceNumber={invoiceNumber}
-        />
+        <div className="mt-2 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-white/55">
+              {phasesSaveDisabledReason
+                ? phasesSaveDisabledReason
+                : "Save phases stores locate tickets, dates, status, and per-phase quantities. Save Project first if you added new contract lines."}
+            </p>
+            {onSavePhases ? (
+              <button
+                type="button"
+                disabled={savePhasesDisabled}
+                onClick={() => void onSavePhases()}
+                className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[rgba(27,_94,_32,_1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingPhases ? "Saving…" : "Save phases"}
+              </button>
+            ) : null}
+          </div>
+          <PayApplicationPhasesView
+            phaseSearch={phaseSearch}
+            onPhaseSearchChange={setPhaseSearch}
+            phases={phases}
+            filteredPhases={filteredPhases}
+            payLines={payLines}
+            onUpdatePhase={updatePhase}
+            onTogglePhaseBoolean={togglePhaseBoolean}
+            onUpdatePhaseItem={updatePhaseItem}
+            onAddPhase={handleAddPhase}
+            onAddPayItemToPhase={handleAddPayItemToPhase}
+            invoiceNumber={invoiceNumber}
+          />
+        </div>
       ) : null}
     </section>
   );
