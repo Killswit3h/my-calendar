@@ -9,6 +9,20 @@ import type { ChecklistStatus, NewContractItem, Phase, PhaseItem } from "@/compo
 
 export type PayApplicationView = "contract" | "phases";
 
+const SUFFIX_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const suffixForIndex = (index: number) => {
+  if (index < 0) return "";
+  const letters = SUFFIX_LETTERS;
+  let n = index;
+  let out = "";
+  do {
+    out = letters[n % 26] + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+};
+
 type PayApplicationWorkspaceProps = {
   payLines: ProjectPayItemView[];
   onUpdatePayLine: (id: string, updates: Partial<ProjectPayItemView>) => void;
@@ -23,6 +37,7 @@ type PayApplicationWorkspaceProps = {
   notes: string;
   onNotesChange: (value: string) => void;
   viewMode: PayApplicationView;
+  invoiceNumber?: string;
 };
 
 type EnrichedPayLine = ProjectPayItemView & { rate: number };
@@ -41,6 +56,7 @@ function buildInitialPhases(items: EnrichedPayLine[]): Phase[] {
       {
         id: "phase-1",
         name: "Phase 1",
+        invoiceSuffix: "A",
         locateTicket: "",
         dateCreated: "",
         readyToWorkDate: "",
@@ -54,6 +70,7 @@ function buildInitialPhases(items: EnrichedPayLine[]): Phase[] {
       {
         id: "phase-2",
         name: "Phase 2",
+        invoiceSuffix: "B",
         locateTicket: "",
         dateCreated: "",
         readyToWorkDate: "",
@@ -71,10 +88,11 @@ function buildInitialPhases(items: EnrichedPayLine[]): Phase[] {
   const extraItems = items.slice(2, 4)
 
   return [
-    {
-      id: "phase-1",
-      name: "Phase 1",
-      locateTicket: "TCK-48213",
+      {
+        id: "phase-1",
+        name: "Phase 1",
+        invoiceSuffix: "A",
+        locateTicket: "TCK-48213",
       dateCreated: "2025-12-01",
       readyToWorkDate: "2025-12-04",
       onsiteReview: true,
@@ -90,10 +108,11 @@ function buildInitialPhases(items: EnrichedPayLine[]): Phase[] {
         installedQty: item.installedQuantity,
       })),
     },
-    {
-      id: "phase-2",
-      name: "Phase 2",
-      locateTicket: "TCK-48277",
+      {
+        id: "phase-2",
+        name: "Phase 2",
+        invoiceSuffix: "B",
+        locateTicket: "TCK-48277",
       dateCreated: "2025-12-06",
       readyToWorkDate: "2025-12-10",
       onsiteReview: false,
@@ -130,6 +149,7 @@ export function PayApplicationWorkspace({
   notes,
   onNotesChange,
   viewMode,
+  invoiceNumber = "",
 }: PayApplicationWorkspaceProps) {
   const enrichedPayLines = useMemo(() => enrichPayLines(payLines), [payLines])
 
@@ -205,6 +225,7 @@ export function PayApplicationWorkspace({
         {
           id: `phase-${nextIndex}`,
           name: `Phase ${nextIndex}`,
+          invoiceSuffix: suffixForIndex(prev.length),
           locateTicket: "",
           dateCreated: "",
           readyToWorkDate: "",
@@ -237,22 +258,21 @@ export function PayApplicationWorkspace({
   };
 
   return (
-    <section className="w-full rounded-2xl border border-white/10 bg-white/5 p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-      <header className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm text-white/60">Projects / Pay Application Workspace</p>
-          <h1 className="text-2xl font-semibold text-white">Pay Application Workspace</h1>
-          <p className="text-sm text-white/60">Checklist, quantities, stockpile, phases, and CSV export.</p>
+    <section className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+      <header className="mb-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold text-white">Pay Application Workspace</h1>
+          <p className="truncate text-xs text-white/50">
+            Checklist · quantities · stockpile · COs · invoices · CSV
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="rounded-lg bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
-          >
-            Create Pay Application CSV
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          className="flex-shrink-0 rounded-lg bg-[rgba(18,115,24,1)] px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        >
+          Export CSV
+        </button>
       </header>
 
       {viewMode === "contract" ? (
@@ -288,6 +308,7 @@ export function PayApplicationWorkspace({
           onTogglePhaseBoolean={togglePhaseBoolean}
           onUpdatePhaseItem={updatePhaseItem}
           onAddPhase={handleAddPhase}
+          invoiceNumber={invoiceNumber}
         />
       ) : null}
     </section>

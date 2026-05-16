@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { PayApplicationView } from "@/components/project/PayApplicationWorkspace";
@@ -10,6 +10,9 @@ import { cn } from "@/lib/theme";
 export type { ProjectFormState } from "@/app/projects/projects.models";
 
 const STATUS_OPTIONS = ["Not Started", "In Progress", "Completed"] as const;
+
+const PROJECT_MANAGERS: string[] = [];
+const BRANCHES = ["South Florida", "Central Florida"];
 
 type ProjectHeaderProps = {
   companyId: string;
@@ -24,6 +27,7 @@ type ProjectHeaderProps = {
   onChangeView: (view: PayApplicationView) => void;
   onSaveProject?: (payload: ProjectFormState) => Promise<void> | void;
   isSaving?: boolean;
+  onPayApplicationInvoiceChange?: (value: string) => void;
 };
 
 export function ProjectHeader({
@@ -39,6 +43,7 @@ export function ProjectHeader({
   onChangeView,
   onSaveProject,
   isSaving = false,
+  onPayApplicationInvoiceChange,
 }: ProjectHeaderProps) {
   const [info, setInfo] = useState<ProjectFormState>({
     projectName,
@@ -48,9 +53,13 @@ export function ProjectHeader({
     status,
     payApplicationInvoiceNumber,
   });
+  const [nameValue, setNameValue] = useState(projectName);
+  const [committedName, setCommittedName] = useState(projectName);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editedProjectName, setEditedProjectName] = useState(projectName);
   const [isExporting, setIsExporting] = useState(false);
+  const [projectManager, setProjectManager] = useState("");
+  const [branch, setBranch] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setInfo({
@@ -61,7 +70,8 @@ export function ProjectHeader({
       status,
       payApplicationInvoiceNumber,
     });
-    setEditedProjectName(projectName);
+    setNameValue(projectName);
+    setCommittedName(projectName);
     setIsEditingName(false);
   }, [
     projectName,
@@ -74,14 +84,31 @@ export function ProjectHeader({
     companyName,
   ]);
 
+  useEffect(() => {
+    if (isEditingName) {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }
+  }, [isEditingName]);
+
+  const commitName = () => {
+    const trimmed = nameValue.trim();
+    if (!trimmed) {
+      setNameValue(committedName);
+    } else {
+      setCommittedName(trimmed);
+      setNameValue(trimmed);
+      setInfo((prev) => ({ ...prev, projectName: trimmed }));
+    }
+    setIsEditingName(false);
+  };
+
   const handleSaveProject = async () => {
     if (!onSaveProject) {
       window?.alert?.("Save project is not yet wired to the backend.");
       return;
     }
-    const effectiveName = isEditingName
-      ? editedProjectName.trim() || info.projectName.trim()
-      : info.projectName.trim();
+    const effectiveName = committedName.trim() || info.projectName.trim();
     if (!effectiveName) {
       window?.alert?.("Project name is required.");
       return;
@@ -97,7 +124,7 @@ export function ProjectHeader({
   const handleExport = () => {
     setIsExporting(true);
     const exportContent = [
-      `Project: ${info.code || projectCode} — ${info.projectName}`,
+      `Project: ${info.code || projectCode} — ${committedName}`,
       `Company: ${companyName}`,
       `Owner: ${info.owner}`,
       `District: ${info.district}`,
@@ -114,17 +141,6 @@ export function ProjectHeader({
     setTimeout(() => setIsExporting(false), 1000);
   };
 
-  const handleProjectNameSave = () => {
-    const trimmedName = editedProjectName.trim();
-    if (!trimmedName) {
-      setEditedProjectName(info.projectName);
-      setIsEditingName(false);
-      return;
-    }
-    setInfo((prev) => ({ ...prev, projectName: trimmedName }));
-    setIsEditingName(false);
-  };
-
   const detailExtras = [
     info.code?.trim() ? `Code ${info.code.trim()}` : null,
     info.owner?.trim() ? `Owner ${info.owner.trim()}` : null,
@@ -135,42 +151,47 @@ export function ProjectHeader({
     .join(" · ");
 
   const titleContent = isEditingName ? (
-    <div className="flex flex-wrap items-center gap-2">
-      <input
-        value={editedProjectName}
-        onChange={(event) => setEditedProjectName(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            handleProjectNameSave();
-          }
-          if (event.key === "Escape") {
-            setEditedProjectName(info.projectName);
-            setIsEditingName(false);
-          }
-        }}
-        className="w-64 rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-      />
-      <button
-        type="button"
-        onClick={handleProjectNameSave}
-        className="inline-flex items-center rounded-lg bg-[rgba(27,_94,_32,_1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
-      >
-        Save
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setEditedProjectName(info.projectName);
+    <input
+      ref={nameInputRef}
+      type="text"
+      value={nameValue}
+      onChange={(e) => setNameValue(e.target.value)}
+      onBlur={commitName}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          nameInputRef.current?.blur();
+        }
+        if (e.key === "Escape") {
+          setNameValue(committedName);
           setIsEditingName(false);
-        }}
-        className="inline-flex items-center rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
-      >
-        Cancel
-      </button>
-    </div>
+        }
+      }}
+      aria-label="Project name"
+      className={cn(
+        "min-w-[160px] max-w-[480px] w-auto",
+        "bg-transparent border-none outline-none ring-0 p-0 m-0",
+        "text-2xl font-semibold tracking-tight sm:text-[30px] text-white",
+        "appearance-none",
+      )}
+      style={{ boxShadow: "none" }}
+      size={Math.max(nameValue.length, 10)}
+    />
   ) : (
-    info.projectName || "Untitled project"
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => setIsEditingName(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setIsEditingName(true);
+        }
+      }}
+      className="cursor-text select-text text-2xl font-semibold tracking-tight sm:text-[30px] text-white outline-none"
+    >
+      {committedName || "Untitled project"}
+    </span>
   );
 
   return (
@@ -189,17 +210,57 @@ export function ProjectHeader({
           </span>
         }
         auxiliary={
-          <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/20 px-3 py-2">
-            <span className="text-xs font-semibold text-white/70">INV#</span>
-            <input
-              type="text"
-              value={info.payApplicationInvoiceNumber}
-              onChange={(event) =>
-                setInfo((prev) => ({ ...prev, payApplicationInvoiceNumber: event.target.value }))
-              }
-              placeholder="Enter invoice #"
-              className="w-28 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white placeholder:text-white/40 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/20 px-3 py-2">
+              <span className="text-xs font-semibold text-white/70">INV#</span>
+              <input
+                type="text"
+                value={info.payApplicationInvoiceNumber}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setInfo((prev) => ({ ...prev, payApplicationInvoiceNumber: next }));
+                  onPayApplicationInvoiceChange?.(next);
+                }}
+                placeholder="Enter invoice #"
+                className="w-28 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white placeholder:text-white/40 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
+              />
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/20 px-3 py-2">
+              <span className="text-xs font-semibold text-white/70">PM</span>
+              <select
+                value={projectManager}
+                onChange={(event) => setProjectManager(event.target.value)}
+                aria-label="Project manager"
+                className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
+              >
+                <option value="" className="bg-neutral-900 text-white">
+                  Select PM
+                </option>
+                {PROJECT_MANAGERS.map((pm) => (
+                  <option key={pm} value={pm} className="bg-neutral-900 text-white">
+                    {pm}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/20 px-3 py-2">
+              <span className="text-xs font-semibold text-white/70">Branch</span>
+              <select
+                value={branch}
+                onChange={(event) => setBranch(event.target.value)}
+                aria-label="Branch"
+                className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
+              >
+                <option value="" className="bg-neutral-900 text-white">
+                  Select branch
+                </option>
+                {BRANCHES.map((b) => (
+                  <option key={b} value={b} className="bg-neutral-900 text-white">
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         }
         actions={
@@ -229,19 +290,9 @@ export function ProjectHeader({
                     : "text-white/80 hover:bg-white/10",
                 )}
               >
-                Phases
+                Invoices
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditedProjectName(info.projectName);
-                setIsEditingName(true);
-              }}
-              className="inline-flex items-center rounded-lg bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
-            >
-              Edit Project
-            </button>
             <button
               type="button"
               onClick={handleSaveProject}

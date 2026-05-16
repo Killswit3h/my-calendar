@@ -33,7 +33,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
     return (
       <div className="min-h-screen bg-neutral-950 text-white">
         <header className="flex items-center justify-between border-b border-white/10 px-6 py-4 text-sm">
-          <Link href="/projects" className="btn">
+          <Link href="/projects" className="inline-flex items-center gap-2 rounded-full bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30">
             ← Projects
           </Link>
           <div />
@@ -48,12 +48,13 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
   if (pathname?.startsWith('/projects')) {
     const isProjectsRoot = pathname === '/projects';
     const backHref = isProjectsRoot ? '/' : '/projects';
+    const backLabel = isProjectsRoot ? '← Back to Dashboard' : '← Projects';
 
     return (
       <div className="min-h-screen bg-neutral-950 text-white">
         <header className="flex items-center justify-between border-b border-white/10 px-6 py-4 text-sm">
-          <Link href={backHref} className="btn" style={{ backgroundColor: "rgba(27, 94, 32, 1)" }}>
-            ← Back to Dashboard
+          <Link href={backHref} className="inline-flex items-center gap-2 rounded-full bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30">
+            {backLabel}
           </Link>
           <div />
         </header>
@@ -68,7 +69,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
     return (
       <div className="min-h-screen bg-neutral-950 text-white">
         <header className="flex items-center justify-between border-b border-white/10 px-6 py-4 text-sm">
-          <Link href="/" className="btn" style={{ backgroundColor: "rgba(27, 94, 32, 1)" }}>
+          <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-[rgba(18,115,24,1)] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[rgba(16,100,22,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30">
             ← Back to Dashboard
           </Link>
           <div />

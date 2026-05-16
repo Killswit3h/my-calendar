@@ -82,6 +82,7 @@ type Props = {
 
 export function ProjectWorkspaceClient({ company, project, initialPayLines }: Props) {
   const [viewMode, setViewMode] = useState<PayApplicationView>("contract");
+  const [liveInvoiceNumber, setLiveInvoiceNumber] = useState(project.payApplicationInvoiceNumber);
   const [isSaving, setIsSaving] = useState(false);
   const [payLines, setPayLines] = useState<ProjectPayItemView[]>(initialPayLines);
   const [checklist, setChecklist] = useState<Record<string, ChecklistStatus>>(() => {
@@ -94,6 +95,10 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
   });
   const [notes, setNotes] = useState(project.payApplicationNotes);
   const router = useRouter();
+
+  useEffect(() => {
+    setLiveInvoiceNumber(project.payApplicationInvoiceNumber);
+  }, [project.payApplicationInvoiceNumber]);
 
   useEffect(() => {
     try {
@@ -268,6 +273,7 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
         onChangeView={setViewModePersist}
         onSaveProject={handleSaveProject}
         isSaving={isSaving}
+        onPayApplicationInvoiceChange={setLiveInvoiceNumber}
       />
 
       <PayApplicationWorkspace
@@ -280,6 +286,7 @@ export function ProjectWorkspaceClient({ company, project, initialPayLines }: Pr
         notes={notes}
         onNotesChange={setNotes}
         viewMode={viewMode}
+        invoiceNumber={liveInvoiceNumber}
       />
     </>
   );
