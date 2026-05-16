@@ -15,6 +15,7 @@ const BASE_SECTIONS = [
       ["Projects", "/projects"],
       ["Reports", "/reports"],
       ["Employees", "/employees"],
+      ["Payroll", "/payroll"],
     ] as [string, string][],
   },
   {
