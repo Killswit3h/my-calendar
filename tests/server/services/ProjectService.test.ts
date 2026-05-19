@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest"
 import { ProjectService } from "@/server/services/ProjectService"
 import { MockPrisma } from "../../utils/mockPrisma"
 import { extendMockPrismaWithProject } from "../../utils/mockPrismaProject"
+import { extendMockPrismaWithEmployee } from "../../utils/mockPrismaEmployee"
 import { setMockPrisma } from "../../utils/mockPrisma"
 import { createAbstractServiceTests } from "./AbstractService.test"
 import { ValidationError, ConflictError } from "@/server/base/types"
@@ -60,6 +61,7 @@ describe("ProjectService", () => {
     beforeEach(() => {
       mockPrisma = new MockPrisma()
       extendMockPrismaWithProject(mockPrisma)
+      extendMockPrismaWithEmployee(mockPrisma)
       setMockPrisma(mockPrisma)
       service = new ProjectService()
     })
@@ -466,6 +468,110 @@ describe("ProjectService", () => {
         expect(result.status).toBe("In Progress")
       })
     })
+
+    describe("branch and project_manager", () => {
+        it("rejects invalid branch on create", async () => {
+          await expect(
+            service.create({
+              name: `B${Math.random().toString(36).slice(2, 6)}`,
+              location: "L",
+              retainage: 1,
+              vendor: "V",
+              branch: "Moon Base",
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("canonicalizes branch on create", async () => {
+          const result = await service.create({
+            name: `Canon ${Math.random().toString(36).slice(2, 8)}`,
+            location: "L",
+            retainage: new Prisma.Decimal(2),
+            vendor: "V",
+            branch: "south florida",
+          } as any)
+          expect(result.branch).toBe("South Florida")
+        })
+
+        it("assigns eligible project manager on create", async () => {
+          const pm = (mockPrisma as any).addEmployee({
+            name: "PM Role",
+            wage_rate: 22,
+            start_date: new Date("2020-01-01"),
+            role: "Project Manager",
+            active: true,
+          })
+          const result = await service.create({
+            name: `PM Proj ${Math.random().toString(36).slice(2, 8)}`,
+            location: "Loc",
+            retainage: new Prisma.Decimal(0),
+            vendor: "Ven",
+            project_manager_id: pm.id,
+          } as any)
+          expect(result.project_manager_id).toBe(pm.id)
+        })
+
+        it("rejects foreman as project_manager_id on create", async () => {
+          const bad = (mockPrisma as any).addEmployee({
+            name: "Foreman X",
+            wage_rate: 20,
+            start_date: new Date("2020-01-01"),
+            role: "Foreman",
+            active: true,
+          })
+          await expect(
+            service.create({
+              name: `X${Math.random().toString(36).slice(2, 9)}`,
+              location: "L",
+              retainage: new Prisma.Decimal(1),
+              vendor: "V",
+              project_manager_id: bad.id,
+            } as any),
+          ).rejects.toThrow(ValidationError)
+        })
+
+        it("clears PM on PATCH when null sent", async () => {
+          const pm = (mockPrisma as any).addEmployee({
+            name: "PM Clear",
+            wage_rate: 25,
+            start_date: new Date("2020-01-01"),
+            role: "Project Manager",
+            active: true,
+          })
+          const row = (mockPrisma as any).addProject({
+            name: `Clr ${Math.random().toString(36).slice(2, 8)}`,
+            location: "Loc",
+            retainage: new Prisma.Decimal(1),
+            vendor: "V",
+            project_manager_id: pm.id,
+          })
+          const updated = await service.update(row.id, {
+            project_manager_id: null,
+          } as any)
+          expect(updated.project_manager_id).toBeNull()
+        })
+
+        it("does not validate PM when PATCH repeats same stale id", async () => {
+          const inactivePm = (mockPrisma as any).addEmployee({
+            name: "Was PM",
+            wage_rate: 30,
+            start_date: new Date("2020-01-01"),
+            role: "Project Manager",
+            active: false,
+          })
+          const row = (mockPrisma as any).addProject({
+            name: `Stale ${Math.random().toString(36).slice(2, 8)}`,
+            location: "L",
+            retainage: new Prisma.Decimal(0),
+            vendor: "V",
+            project_manager_id: inactivePm.id,
+          })
+          const updated = await service.update(row.id, {
+            project_manager_id: inactivePm.id,
+          } as any)
+          expect(updated.project_manager_id).toBe(inactivePm.id)
+        })
+      })
 
     describe("pay application workspace fields", () => {
       it("should reject procedure_checklist with invalid key", async () => {

@@ -6,6 +6,7 @@ import { ProjectPayItemRepository } from "../repositories/ProjectPayItemReposito
 import { ProjectPhaseRepository } from "../repositories/ProjectPhaseRepository"
 
 const MAX_LINE_DESCRIPTION_LEN = 2000
+const MAX_INVOICE_SUFFIX_LEN = 8
 
 export type ProjectPhaseLineInput = {
   project_pay_item_id: number
@@ -25,6 +26,7 @@ export type ProjectPhaseInput = {
   status: string | null
   status_date: Date | null
   notes: string | null
+  invoice_suffix: string | null
   lines: ProjectPhaseLineInput[]
 }
 
@@ -84,6 +86,30 @@ export class ProjectPhaseService {
       throw new ValidationError(`${fieldName} must be a non-negative finite number`)
     }
     return dec
+  }
+
+  private parseOptionalInvoiceSuffix(
+    value: unknown,
+    fieldName: string,
+  ): string | null {
+    if (value === undefined || value === null) return null
+    if (typeof value !== "string") {
+      throw new ValidationError(`${fieldName} must be a string or null`)
+    }
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const normalized = trimmed.toUpperCase()
+    if (normalized.length > MAX_INVOICE_SUFFIX_LEN) {
+      throw new ValidationError(
+        `${fieldName} must be at most ${MAX_INVOICE_SUFFIX_LEN} characters`,
+      )
+    }
+    if (!/^[A-Z0-9]+$/.test(normalized)) {
+      throw new ValidationError(
+        `${fieldName} must contain only letters and digits`,
+      )
+    }
+    return normalized
   }
 
   private validatePhaseInput(raw: unknown, index: number): ProjectPhaseInput {
@@ -188,6 +214,11 @@ export class ProjectPhaseService {
       notes = o.notes.trim() || null
     }
 
+    const invoice_suffix = this.parseOptionalInvoiceSuffix(
+      o.invoice_suffix,
+      `phases[${index}].invoice_suffix`,
+    )
+
     return {
       sort_order: sortOrder,
       name,
@@ -211,6 +242,7 @@ export class ProjectPhaseService {
           ? null
           : this.parseOptionalDateOnly(o.status_date, `phases[${index}].status_date`),
       notes,
+      invoice_suffix,
       lines,
     }
   }
@@ -291,6 +323,7 @@ export class ProjectPhaseService {
             status: ph.status,
             status_date: ph.status_date,
             notes: ph.notes,
+            invoice_suffix: ph.invoice_suffix,
             lines: {
               create: ph.lines.map((l) => ({
                 project_pay_item_id: l.project_pay_item_id,

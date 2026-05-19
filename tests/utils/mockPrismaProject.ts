@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client"
 type ProjectRow = {
   id: number
   customer_id: number | null
+  project_manager_id: number | null
+  branch: string | null
   name: string
   location: string
   retainage: Prisma.Decimal
@@ -34,8 +36,38 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     return { id }
   }
 
+  async function decorateProjectRow(
+    row: ProjectRow,
+    select?: Record<string, unknown>,
+    include?: Record<string, unknown>,
+  ) {
+    let full: Record<string, unknown> = { ...row }
+    if (
+      include &&
+      typeof include === "object" &&
+      (include as Record<string, boolean>).customer &&
+      row.customer_id !== null &&
+      customers.has(row.customer_id)
+    ) {
+      const cid = row.customer_id as number
+      full.customer = { id: cid, name: `Customer ${cid}` }
+    }
+    if (
+      include &&
+      typeof include === "object" &&
+      (include as Record<string, boolean>).project_manager &&
+      row.project_manager_id !== null &&
+      mockPrisma.employee?.findUnique
+    ) {
+      full.project_manager = await mockPrisma.employee.findUnique({
+        where: { id: row.project_manager_id },
+      })
+    }
+    return project(full, select)
+  }
+
   mockPrisma.project = {
-    findMany: async ({ where, select, orderBy, take, skip }: any = {}) => {
+    findMany: async ({ where, select, orderBy, take, skip, include }: any = {}) => {
       let rows = Array.from(projects.values())
 
       if (where?.id) {
@@ -120,14 +152,16 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
       if (skip) rows = rows.slice(skip)
       if (take) rows = rows.slice(0, take)
 
-      return rows.map((row) => project(row, select))
+      return Promise.all(
+        rows.map((row) => decorateProjectRow(row, select, include)),
+      )
     },
 
-    findUnique: async ({ where, select }: any) => {
+    findUnique: async ({ where, select, include }: any) => {
       const id = where.id
       const row = projects.get(id)
       if (!row) return null
-      return project(row, select)
+      return decorateProjectRow(row, select, include)
     },
 
     findFirst: async ({ where, select }: any) => {
@@ -200,9 +234,29 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         customer_id = data.customer.connect.id
       }
 
+      let project_manager_id: number | null = null
+      if (
+        typeof data.project_manager_id === "number" &&
+        data.project_manager_id > 0
+      ) {
+        project_manager_id = data.project_manager_id
+      } else if (data.project_manager?.connect?.id !== undefined) {
+        project_manager_id = data.project_manager.connect.id as number
+      } else if (data.project_manager?.disconnect === true) {
+        project_manager_id = null
+      }
+
+      let branch: string | null = null
+      if (data.branch !== undefined) {
+        branch =
+          data.branch === null || data.branch === "" ? null : (data.branch as string)
+      }
+
       const row: ProjectRow = {
         id,
         customer_id,
+        project_manager_id,
+        branch,
         name: data.name,
         location: data.location,
         retainage,
@@ -274,9 +328,31 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
         customer_id = null
       }
 
+      let project_manager_id = row.project_manager_id ?? null
+      if (
+        typeof data.project_manager_id === "number" &&
+        data.project_manager_id > 0
+      ) {
+        project_manager_id = data.project_manager_id
+      } else if (data.project_manager?.connect?.id !== undefined) {
+        project_manager_id = data.project_manager.connect.id as number
+      } else if (data.project_manager?.disconnect === true) {
+        project_manager_id = null
+      }
+
+      let branchVal = row.branch ?? null
+      if (data.branch !== undefined) {
+        branchVal =
+          data.branch === null || data.branch === ""
+            ? null
+            : (data.branch as string)
+      }
+
       const updated: ProjectRow = {
         ...row,
         customer_id,
+        project_manager_id,
+        branch: branchVal,
         ...(data.name !== undefined && { name: data.name }),
         ...(data.location !== undefined && { location: data.location }),
         retainage,
@@ -342,6 +418,8 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
   ;(mockPrisma as any).addProject = (data: {
     id?: number
     customer_id?: number | null
+    project_manager_id?: number | null
+    branch?: string | null
     name: string
     location: string
     retainage: number | string | Prisma.Decimal
@@ -353,7 +431,7 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     pay_application_invoice_number?: string | null
   }) => {
     const id = data.id ?? randomId()
-    
+
     let retainage: Prisma.Decimal
     if (data.retainage instanceof Prisma.Decimal) {
       retainage = data.retainage
@@ -362,10 +440,12 @@ export function extendMockPrismaWithProject(mockPrisma: MockPrisma) {
     } else {
       retainage = new Prisma.Decimal(data.retainage)
     }
-    
+
     const row: ProjectRow = {
       id,
       customer_id: data.customer_id ?? null,
+      project_manager_id: data.project_manager_id ?? null,
+      branch: data.branch ?? null,
       name: data.name,
       location: data.location,
       retainage,

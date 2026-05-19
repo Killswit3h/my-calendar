@@ -12,18 +12,20 @@ export function buildProjectPatchBodyForSave(
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {
     name: payload.projectName.trim(),
-    status: payload.status.trim(),
     procedure_checklist: Object.fromEntries(
       CHECKLIST_ITEMS.map(({ key }) => [key, checklist[key] ?? "NOT_STARTED"]),
     ),
     pay_application_notes: notes.trim() ? notes.trim() : null,
+    project_manager_id:
+      typeof payload.projectManagerId === "number" &&
+      Number.isInteger(payload.projectManagerId)
+        ? payload.projectManagerId
+        : null,
+    branch:
+      typeof payload.branch === "string" && payload.branch.trim()
+        ? payload.branch.trim()
+        : null,
   }
-  const code = payload.code.trim()
-  if (code) body.code = code
-  const owner = payload.owner.trim()
-  if (owner) body.owner = owner
-  const district = payload.district.trim()
-  if (district) body.district = district
   const inv = payload.payApplicationInvoiceNumber.trim()
   body.pay_application_invoice_number = inv ? inv : null
   return body
@@ -48,20 +50,32 @@ export function buildProjectPostBodyForSave(
     CHECKLIST_ITEMS.map(({ key }) => [key, checklist[key] ?? "NOT_STARTED"]),
   )
   const customerId = options.customerId
-  return {
+  const body: Record<string, unknown> = {
     customer_id: Number.isInteger(customerId) ? customerId : undefined,
     name: payload.projectName.trim(),
-    code: payload.code.trim() || undefined,
-    owner: payload.owner.trim() || undefined,
-    district: payload.district.trim() || undefined,
-    project_type: options.projectType,
-    status: payload.status,
     location: "TBD",
-    vendor: payload.owner.trim() || "TBD",
+    vendor: "TBD",
     retainage: 0,
+    project_type: options.projectType,
     procedure_checklist: checklistPayload,
     pay_application_notes: notes.trim() ? notes.trim() : undefined,
     pay_application_invoice_number:
       payload.payApplicationInvoiceNumber.trim() || undefined,
   }
+
+  const pmPost = payload.projectManagerId
+  if (
+    typeof pmPost === "number" &&
+    Number.isInteger(pmPost) &&
+    pmPost > 0
+  ) {
+    body.project_manager_id = pmPost
+  }
+
+  const br = typeof payload.branch === "string" ? payload.branch.trim() : ""
+  if (br) {
+    body.branch = br
+  }
+
+  return body
 }

@@ -14,6 +14,7 @@ type ProjectPhaseRow = {
   status: string | null
   status_date: Date | null
   notes: string | null
+  invoice_suffix: string | null
   created_at: Date
   updated_at: Date
 }
@@ -72,6 +73,7 @@ export function extendMockPrismaWithProjectPhase(mockPrisma: MockPrisma) {
         status: (data.status as string | null) ?? null,
         status_date: (data.status_date as Date | null) ?? null,
         notes: (data.notes as string | null) ?? null,
+        invoice_suffix: (data.invoice_suffix as string | null) ?? null,
         created_at: t,
         updated_at: t,
       }

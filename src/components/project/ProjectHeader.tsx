@@ -5,14 +5,16 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { PayApplicationView } from "@/components/project/PayApplicationWorkspace";
 import type { ProjectFormState } from "@/app/projects/projects.models";
+import { PROJECT_BRANCH_VALUES } from "@/app/projects/projectBranchOptions";
+import { PROJECT_MANAGER_ROLE } from "@/domain/projectEmployees";
 import { cn } from "@/lib/theme";
 
 export type { ProjectFormState } from "@/app/projects/projects.models";
 
-const STATUS_OPTIONS = ["Not Started", "In Progress", "Completed"] as const;
-
-const PROJECT_MANAGERS: string[] = [];
-const BRANCHES = ["South Florida", "Central Florida"];
+type PmEmployeeRow = {
+  id: number;
+  name: string;
+};
 
 type ProjectHeaderProps = {
   companyId: string;
@@ -23,6 +25,8 @@ type ProjectHeaderProps = {
   district: string;
   status: string;
   payApplicationInvoiceNumber: string;
+  projectManagerId: number | null;
+  savedBranch: string | null;
   viewMode: PayApplicationView;
   onChangeView: (view: PayApplicationView) => void;
   onSaveProject?: (payload: ProjectFormState) => Promise<void> | void;
@@ -39,6 +43,8 @@ export function ProjectHeader({
   district,
   status,
   payApplicationInvoiceNumber,
+  projectManagerId,
+  savedBranch,
   viewMode,
   onChangeView,
   onSaveProject,
@@ -52,6 +58,11 @@ export function ProjectHeader({
     district,
     status,
     payApplicationInvoiceNumber,
+    projectManagerId:
+      typeof projectManagerId === "number" && Number.isInteger(projectManagerId)
+        ? projectManagerId
+        : null,
+    branch: typeof savedBranch === "string" && savedBranch.trim() ? savedBranch : "",
   });
   const [nameValue, setNameValue] = useState(projectName);
   const [committedName, setCommittedName] = useState(projectName);
@@ -59,9 +70,18 @@ export function ProjectHeader({
   const [isExporting, setIsExporting] = useState(false);
   const [projectManager, setProjectManager] = useState("");
   const [branch, setBranch] = useState("");
+  const [pmOptions, setPmOptions] = useState<PmEmployeeRow[]>([]);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const branchVal =
+      typeof savedBranch === "string" && savedBranch.trim()
+        ? savedBranch
+        : "";
+    const pmVal =
+      typeof projectManagerId === "number" && Number.isInteger(projectManagerId)
+        ? projectManagerId
+        : null;
     setInfo({
       projectName,
       code: projectCode,
@@ -69,7 +89,12 @@ export function ProjectHeader({
       district,
       status,
       payApplicationInvoiceNumber,
+      projectManagerId: pmVal,
+      branch: branchVal,
     });
+    const pmSel = pmVal != null ? String(pmVal) : "";
+    setProjectManager(pmSel);
+    setBranch(branchVal);
     setNameValue(projectName);
     setCommittedName(projectName);
     setIsEditingName(false);
@@ -80,9 +105,47 @@ export function ProjectHeader({
     district,
     status,
     payApplicationInvoiceNumber,
+    projectManagerId,
+    savedBranch,
     companyId,
     companyName,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadManagers = async () => {
+      try {
+        const q = new URLSearchParams({
+          active: "true",
+          role: PROJECT_MANAGER_ROLE,
+        });
+        const res = await fetch(`/api/employees?${q.toString()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const rows = (await res.json()) as unknown;
+        if (!Array.isArray(rows) || cancelled) return;
+        const next: PmEmployeeRow[] = rows
+          .map((row) =>
+            row && typeof row === "object"
+              ? {
+                  id: Number((row as { id?: unknown }).id),
+                  name: String((row as { name?: unknown }).name ?? ""),
+                }
+              : null,
+          )
+          .filter((r): r is PmEmployeeRow => !!r && Number.isFinite(r.id) && r.name.length > 0);
+        next.sort((a, b) => a.name.localeCompare(b.name));
+        if (!cancelled) setPmOptions(next);
+      } catch {
+        /* network */
+      }
+    };
+    void loadManagers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (isEditingName) {
@@ -113,10 +176,16 @@ export function ProjectHeader({
       window?.alert?.("Project name is required.");
       return;
     }
+    const resolvedPm =
+      projectManager.trim() !== "" && /^\d+$/.test(projectManager.trim())
+        ? Number(projectManager.trim())
+        : null;
     const payload: ProjectFormState = {
       ...info,
       projectName: effectiveName,
       payApplicationInvoiceNumber: info.payApplicationInvoiceNumber.trim(),
+      projectManagerId: resolvedPm,
+      branch,
     };
     await onSaveProject(payload);
   };
@@ -131,7 +200,9 @@ export function ProjectHeader({
       `Status: ${info.status}`,
       `Generated: ${new Date().toLocaleString()}`,
     ].join("\n");
-    const blob = new Blob([exportContent], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([exportContent], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -140,15 +211,6 @@ export function ProjectHeader({
     URL.revokeObjectURL(url);
     setTimeout(() => setIsExporting(false), 1000);
   };
-
-  const detailExtras = [
-    info.code?.trim() ? `Code ${info.code.trim()}` : null,
-    info.owner?.trim() ? `Owner ${info.owner.trim()}` : null,
-    info.district?.trim() ? `District ${info.district.trim()}` : null,
-    info.status || null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   const titleContent = isEditingName ? (
     <input
@@ -206,7 +268,6 @@ export function ProjectHeader({
             >
               {companyName || "Company"}
             </Link>
-            {detailExtras ? <span className="text-white/60">· {detailExtras}</span> : null}
           </span>
         }
         auxiliary={
@@ -218,7 +279,10 @@ export function ProjectHeader({
                 value={info.payApplicationInvoiceNumber}
                 onChange={(event) => {
                   const next = event.target.value;
-                  setInfo((prev) => ({ ...prev, payApplicationInvoiceNumber: next }));
+                  setInfo((prev) => ({
+                    ...prev,
+                    payApplicationInvoiceNumber: next,
+                  }));
                   onPayApplicationInvoiceChange?.(next);
                 }}
                 placeholder="Enter invoice #"
@@ -229,33 +293,57 @@ export function ProjectHeader({
               <span className="text-xs font-semibold text-white/70">PM</span>
               <select
                 value={projectManager}
-                onChange={(event) => setProjectManager(event.target.value)}
+                onChange={(event) => {
+                  const v = event.target.value;
+                  setProjectManager(v);
+                  setInfo((prev) => ({
+                    ...prev,
+                    projectManagerId:
+                      v.trim() !== "" && /^\d+$/.test(v.trim())
+                        ? Number(v.trim())
+                        : null,
+                  }));
+                }}
                 aria-label="Project manager"
                 className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
               >
                 <option value="" className="bg-neutral-900 text-white">
                   Select PM
                 </option>
-                {PROJECT_MANAGERS.map((pm) => (
-                  <option key={pm} value={pm} className="bg-neutral-900 text-white">
-                    {pm}
+                {pmOptions.map((pm) => (
+                  <option
+                    key={pm.id}
+                    value={String(pm.id)}
+                    className="bg-neutral-900 text-white"
+                  >
+                    {pm.name}
                   </option>
                 ))}
               </select>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/20 px-3 py-2">
-              <span className="text-xs font-semibold text-white/70">Branch</span>
+              <span className="text-xs font-semibold text-white/70">
+                Branch
+              </span>
               <select
                 value={branch}
-                onChange={(event) => setBranch(event.target.value)}
+                onChange={(event) => {
+                  const v = event.target.value;
+                  setBranch(v);
+                  setInfo((prev) => ({ ...prev, branch: v }));
+                }}
                 aria-label="Branch"
                 className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-sm text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
               >
                 <option value="" className="bg-neutral-900 text-white">
                   Select branch
                 </option>
-                {BRANCHES.map((b) => (
-                  <option key={b} value={b} className="bg-neutral-900 text-white">
+                {PROJECT_BRANCH_VALUES.map((b) => (
+                  <option
+                    key={b}
+                    value={b}
+                    className="bg-neutral-900 text-white"
+                  >
                     {b}
                   </option>
                 ))}
@@ -312,53 +400,6 @@ export function ProjectHeader({
           </div>
         }
       />
-
-      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-white sm:px-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">Project details</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-white/60">Code</span>
-            <input
-              value={info.code}
-              onChange={(e) => setInfo((p) => ({ ...p, code: e.target.value }))}
-              placeholder="Project code"
-              className="rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-white placeholder:text-white/35 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-white/60">Owner</span>
-            <input
-              value={info.owner}
-              onChange={(e) => setInfo((p) => ({ ...p, owner: e.target.value }))}
-              placeholder="Owner"
-              className="rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-white placeholder:text-white/35 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-white/60">District</span>
-            <input
-              value={info.district}
-              onChange={(e) => setInfo((p) => ({ ...p, district: e.target.value }))}
-              placeholder="District"
-              className="rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-white placeholder:text-white/35 focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-white/60">Status</span>
-            <select
-              value={info.status}
-              onChange={(e) => setInfo((p) => ({ ...p, status: e.target.value }))}
-              className="rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-white focus:border-blue-400/60 focus:outline-none focus:ring-1 focus:ring-blue-400/60"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
     </div>
   );
 }

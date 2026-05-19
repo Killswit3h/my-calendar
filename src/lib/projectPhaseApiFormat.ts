@@ -26,6 +26,7 @@ export type ApiProjectPhase = {
   status: string | null
   status_date: string | null
   notes: string | null
+  invoice_suffix: string | null
   lines: ApiProjectPhaseLine[]
 }
 
@@ -46,6 +47,7 @@ export function formatPhasesForApi(rows: ProjectPhaseWithLines[]): ApiProjectPha
     status: ph.status,
     status_date: formatDateOnly(ph.status_date),
     notes: ph.notes,
+    invoice_suffix: ph.invoice_suffix ?? null,
     lines: ph.lines.map((line) => ({
       id: line.id,
       project_pay_item_id: line.project_pay_item_id,

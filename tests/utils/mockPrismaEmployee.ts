@@ -10,6 +10,7 @@ type EmployeeRow = {
   phone_number: string | null
   email: string | null
   active: boolean | null
+  role: string | null
 }
 
 /**
@@ -42,6 +43,19 @@ export function extendMockPrismaWithEmployee(mockPrisma: MockPrisma) {
 
       if (where?.active !== undefined) {
         rows = rows.filter((row) => row.active === where.active)
+      }
+
+      if (where?.role) {
+        if (where.role.equals !== undefined) {
+          const want = String(where.role.equals)
+          const insensitive = where.role.mode === "insensitive"
+          rows = rows.filter((row) => {
+            const r = row.role ?? ""
+            return insensitive
+              ? r.trim().toLowerCase() === want.trim().toLowerCase()
+              : r === want
+          })
+        }
       }
 
       if (orderBy) {
@@ -103,6 +117,7 @@ export function extendMockPrismaWithEmployee(mockPrisma: MockPrisma) {
         phone_number: data.phone_number ?? null,
         email: data.email ?? null,
         active: data.active ?? true,
+        role: data.role ?? null,
       }
       employees.set(id, row)
       return { ...row }
@@ -139,6 +154,7 @@ export function extendMockPrismaWithEmployee(mockPrisma: MockPrisma) {
         }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.active !== undefined && { active: data.active }),
+        ...(data.role !== undefined && { role: data.role }),
         last_updated: new Date(),
       }
       employees.set(id, updated)
@@ -178,6 +194,7 @@ export function extendMockPrismaWithEmployee(mockPrisma: MockPrisma) {
     phone_number?: string | null
     email?: string | null
     active?: boolean | null
+    role?: string | null
   }) => {
     const id = data.id ?? randomId()
     const row: EmployeeRow = {
@@ -195,6 +212,7 @@ export function extendMockPrismaWithEmployee(mockPrisma: MockPrisma) {
       phone_number: data.phone_number ?? null,
       email: data.email ?? null,
       active: data.active ?? true,
+      role: data.role ?? null,
     }
     employees.set(id, row)
     return row

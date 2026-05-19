@@ -329,6 +329,8 @@ export function ProjectWorkspaceClient({
         district={project.district}
         status={PROJECT_STATUS_LABELS[project.status]}
         payApplicationInvoiceNumber={project.payApplicationInvoiceNumber}
+        projectManagerId={project.projectManagerId}
+        savedBranch={project.branch}
         viewMode={viewMode}
         onChangeView={setViewModePersist}
         onSaveProject={handleSaveProject}

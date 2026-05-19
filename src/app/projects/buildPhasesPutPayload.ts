@@ -17,6 +17,10 @@ export function buildPhasesPutPayload(phases: Phase[]): Record<string, unknown> 
       status: phase.status.trim() || null,
       status_date: phase.statusDate.trim() || null,
       notes: phase.notes?.trim() ? phase.notes.trim() : null,
+      invoice_suffix: (() => {
+        const t = phase.invoiceSuffix.trim().toUpperCase()
+        return t.length ? t : null
+      })(),
       lines: phase.items
         .filter(
           (item) =>

@@ -19,11 +19,38 @@ function form(overrides: Partial<ProjectFormState> = {}): ProjectFormState {
     district: "",
     status: "Not Started",
     payApplicationInvoiceNumber: "",
+    projectManagerId: null,
+    branch: "",
     ...overrides,
   }
 }
 
 describe("buildProjectPatchBodyForSave", () => {
+  it("does not send hidden legacy workspace fields", () => {
+    const body = buildProjectPatchBodyForSave(
+      form({ code: "X", owner: "O", district: "D", status: "Completed" }),
+      blankChecklist,
+      "",
+    ) as Record<string, unknown>
+    expect(body.code).toBeUndefined()
+    expect(body.owner).toBeUndefined()
+    expect(body.district).toBeUndefined()
+    expect(body.status).toBeUndefined()
+  })
+
+  it("includes project_manager_id and branch fields", () => {
+    const body = buildProjectPatchBodyForSave(
+      form({
+        projectManagerId: 55,
+        branch: "Central Florida",
+      }),
+      blankChecklist,
+      "",
+    ) as { project_manager_id: number | null; branch: string | null }
+    expect(body.project_manager_id).toBe(55)
+    expect(body.branch).toBe("Central Florida")
+  })
+
   it("sets pay_application_invoice_number to null when empty or whitespace-only", () => {
     expect(
       (buildProjectPatchBodyForSave(form({ payApplicationInvoiceNumber: "" }), blankChecklist, "") as {

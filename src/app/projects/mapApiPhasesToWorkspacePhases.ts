@@ -25,7 +25,10 @@ export function mapApiPhasesToWorkspacePhases(
   return sorted.map((ph) => ({
     id: String(ph.id),
     name: ph.name,
-    invoiceSuffix: "",
+    invoiceSuffix:
+      typeof ph.invoice_suffix === "string" && ph.invoice_suffix.trim().length > 0
+        ? ph.invoice_suffix.trim()
+        : "",
     locateTicket: ph.locate_ticket ?? "",
     dateCreated: ph.date_created ?? "",
     readyToWorkDate: ph.ready_to_work_date ?? "",

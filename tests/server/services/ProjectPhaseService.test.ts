@@ -144,17 +144,36 @@ describe("ProjectPhaseService", () => {
     expect(again).toHaveLength(1)
   })
 
-  it("replaceForProject clears phases when empty array sent", async () => {
-    await service.replaceForProject(1, {
+  it("replaceForProject persists invoice_suffix (normalized uppercase)", async () => {
+    const body = {
       phases: [
         {
           sort_order: 0,
-          name: "P",
+          name: "Invoice phase",
           lines: [{ project_pay_item_id: 10, phase_quantity: 1, sort_order: 0 }],
+          invoice_suffix: "inv1",
         },
       ],
-    })
-    const cleared = await service.replaceForProject(1, { phases: [] })
-    expect(cleared).toHaveLength(0)
+    }
+    const rows = await service.replaceForProject(1, body)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].invoice_suffix).toBe("INV1")
+    const reload = await service.listForProject(1)
+    expect(reload[0].invoice_suffix).toBe("INV1")
+  })
+
+  it("replaceForProject rejects invalid invoice_suffix", async () => {
+    await expect(
+      service.replaceForProject(1, {
+        phases: [
+          {
+            sort_order: 0,
+            name: "Bad suf",
+            lines: [{ project_pay_item_id: 10, phase_quantity: 1, sort_order: 0 }],
+            invoice_suffix: "AB-!",
+          },
+        ],
+      }),
+    ).rejects.toThrow(ValidationError)
   })
 })
