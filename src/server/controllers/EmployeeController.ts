@@ -24,7 +24,7 @@ export class EmployeeController extends AbstractController<
   /**
    * Handle GET request
    * Supports:
-   * - GET /api/employees - list all employees (with optional ?active=true filter)
+   * - GET /api/employees — list (`?active=true|false`, exact case-insensitive `?role=` match on `employee.role`)
    * - GET /api/employees/[id] - get single employee by ID (path parameter)
    */
   async handleGet(
@@ -41,15 +41,22 @@ export class EmployeeController extends AbstractController<
         return this.successResponse(employee, 200)
       }
 
-      // List all employees with optional active filter
+      // List all employees with optional active + role filters
       const queryParams = this.parseQueryParams(req)
       const activeFilter = queryParams.active
+      const roleFilter = queryParams.role
 
       let filters: any = {}
       if (activeFilter === "true") {
         filters.active = true
       } else if (activeFilter === "false") {
         filters.active = false
+      }
+      if (typeof roleFilter === "string" && roleFilter.trim()) {
+        filters.role = {
+          equals: roleFilter.trim(),
+          mode: "insensitive",
+        }
       }
 
       const employees = await this.service.list(filters)

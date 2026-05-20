@@ -33,6 +33,8 @@ export default async function NewProjectPage({ searchParams }: PageProps) {
     owner: "",
     district: "",
     projectType: "OTHER",
+    projectManagerId: null,
+    branch: null,
     procedureChecklist: blankProcedureChecklist,
     payApplicationNotes: "",
     payApplicationInvoiceNumber: "",

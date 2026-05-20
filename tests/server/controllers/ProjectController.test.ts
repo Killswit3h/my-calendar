@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest"
 import { ProjectController } from "@/server/controllers/ProjectController"
 import { MockPrisma } from "../../utils/mockPrisma"
 import { extendMockPrismaWithProject } from "../../utils/mockPrismaProject"
+import { extendMockPrismaWithEmployee } from "../../utils/mockPrismaEmployee"
 import { setMockPrisma } from "../../utils/mockPrisma"
 import { createAbstractControllerTests } from "./AbstractController.test"
 import { NextRequest } from "next/server"
@@ -63,6 +64,7 @@ describe("ProjectController", () => {
     beforeEach(() => {
       mockPrisma = new MockPrisma()
       extendMockPrismaWithProject(mockPrisma)
+      extendMockPrismaWithEmployee(mockPrisma)
       setMockPrisma(mockPrisma)
       controller = new ProjectController()
     })
@@ -506,6 +508,78 @@ describe("ProjectController", () => {
         const context = { params: Promise.resolve({ id: String(row.id) }) }
         const response = await controller.handlePatch(req, context)
         expect(response.status).toBe(400)
+      })
+    })
+
+    describe("branch and project_manager", () => {
+      it("should include project_manager relation when expanded=true", async () => {
+        const pm = (mockPrisma as any).addEmployee({
+          name: "PM Person",
+          wage_rate: 30,
+          start_date: new Date("2023-06-01"),
+          role: "Project Manager",
+          active: true,
+        })
+        ;(mockPrisma as any).addProject({
+          name: `PM Expand ${Math.random().toString(36).slice(2, 9)}`,
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+          project_manager_id: pm.id,
+        })
+        const url = new URL("http://localhost:3000/api/projects?expanded=true")
+        const response = await controller.handleGet(new NextRequest(url))
+        expect(response.status).toBe(200)
+        const data = await response.json()
+        const row = data.find((p: { project_manager_id?: number | null }) => p.project_manager_id === pm.id)
+        expect(row).toBeDefined()
+        expect(row.project_manager?.id).toBe(pm.id)
+        expect(row.project_manager?.name).toBe("PM Person")
+      })
+
+      it("should persist branch on PATCH", async () => {
+        const row = (mockPrisma as any).addProject({
+          name: `Branch Patch ${Math.random().toString(36).slice(2, 9)}`,
+          location: "Loc",
+          retainage: 1,
+          vendor: "Ven",
+        })
+        const url = new URL(`http://localhost:3000/api/projects/${row.id}`)
+        const req = new NextRequest(url, {
+          method: "PATCH",
+          body: JSON.stringify({ branch: "South Florida" }),
+        })
+        const context = { params: Promise.resolve({ id: String(row.id) }) }
+        const response = await controller.handlePatch(req, context)
+        expect(response.status).toBe(200)
+        const updated = await response.json()
+        expect(updated.branch).toBe("South Florida")
+      })
+
+      it("should accept project_manager_id on PATCH when employee is eligible", async () => {
+        const pm = (mockPrisma as any).addEmployee({
+          name: "Valid PM",
+          wage_rate: 40,
+          start_date: new Date("2022-01-01"),
+          role: "project manager",
+          active: true,
+        })
+        const row = (mockPrisma as any).addProject({
+          name: `PM Patch ${Math.random().toString(36).slice(2, 9)}`,
+          location: "L",
+          retainage: 1,
+          vendor: "V",
+        })
+        const url = new URL(`http://localhost:3000/api/projects/${row.id}`)
+        const req = new NextRequest(url, {
+          method: "PATCH",
+          body: JSON.stringify({ project_manager_id: pm.id }),
+        })
+        const context = { params: Promise.resolve({ id: String(row.id) }) }
+        const response = await controller.handlePatch(req, context)
+        expect(response.status).toBe(200)
+        const updated = await response.json()
+        expect(updated.project_manager_id).toBe(pm.id)
       })
     })
 

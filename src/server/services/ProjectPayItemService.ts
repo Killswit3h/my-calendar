@@ -391,7 +391,7 @@ export class ProjectPayItemService extends AbstractService<
     data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
   ):
     | Prisma.projectCreateNestedOneWithoutProject_pay_itemsInput
-    | Prisma.projectUpdateOneRequiredWithoutProject_pay_itemsNestedInput
+    | Prisma.projectUpdateOneWithoutProject_pay_itemsNestedInput
     | undefined {
     const projectId = this.getProjectIdFromData(data)
     if (projectId !== undefined && projectId !== null) {
@@ -404,7 +404,7 @@ export class ProjectPayItemService extends AbstractService<
     data: Prisma.project_pay_itemCreateInput | Prisma.project_pay_itemUpdateInput
   ):
     | Prisma.pay_itemCreateNestedOneWithoutProject_pay_itemsInput
-    | Prisma.pay_itemUpdateOneRequiredWithoutProject_pay_itemsNestedInput
+    | Prisma.pay_itemUpdateOneWithoutProject_pay_itemsNestedInput
     | undefined {
     const payItemId = this.getPayItemIdFromData(data)
     if (payItemId !== undefined && payItemId !== null) {

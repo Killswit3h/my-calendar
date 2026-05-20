@@ -30,6 +30,9 @@ export type Project = {
   owner: string
   district: string
   projectType: ProjectType
+  /** Persisted FK; dropdown uses `/api/employees?active=true&role=Project%20Manager`. */
+  projectManagerId: number | null
+  branch: string | null
   procedureChecklist: ProcedureChecklist
   payApplicationNotes: string
   payApplicationInvoiceNumber: string
@@ -43,6 +46,9 @@ export type ProjectFormState = {
   district: string
   status: string
   payApplicationInvoiceNumber: string
+  projectManagerId: number | null
+  /** Selected branch label; empty string means none (maps to API `branch: null`). */
+  branch: string
 }
 
 export type ProjectPayItemView = {

@@ -21,6 +21,9 @@ export type ApiProject = {
   procedure_checklist?: unknown
   pay_application_notes?: string | null
   pay_application_invoice_number?: string | null
+  project_manager_id?: number | null
+  branch?: string | null
+  project_manager?: { id: number; name: string } | null
 }
 
 const STATUS_MAP: Record<string, ProjectStatus> = {
@@ -71,6 +74,15 @@ function parseProcedureChecklist(raw: unknown): ProcedureChecklist {
 /** Maps a `/api/projects` row into the workspace `Project` view model. */
 export function mapApiProjectToProject(project: ApiProject): Project {
   const companyId = String(project.customer_id ?? project.customer?.id ?? "unassigned")
+  const resolvedPm =
+    typeof project.project_manager_id === "number" &&
+    Number.isInteger(project.project_manager_id)
+      ? project.project_manager_id
+      : typeof project.project_manager?.id === "number" &&
+          Number.isInteger(project.project_manager.id)
+        ? project.project_manager.id
+        : null
+
   return {
     id: String(project.id),
     companyId,
@@ -80,6 +92,8 @@ export function mapApiProjectToProject(project: ApiProject): Project {
     owner: project.owner?.trim() || "",
     district: project.district?.trim() || "",
     projectType: normalizeProjectType(project.project_type),
+    projectManagerId: resolvedPm,
+    branch: typeof project.branch === "string" && project.branch.trim() ? project.branch : null,
     procedureChecklist: parseProcedureChecklist(project.procedure_checklist),
     payApplicationNotes:
       typeof project.pay_application_notes === "string" ? project.pay_application_notes : "",

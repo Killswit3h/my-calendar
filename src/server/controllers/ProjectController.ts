@@ -35,6 +35,7 @@ export class ProjectController extends AbstractController<
       return {
         include: {
           customer: true,
+          project_manager: true,
         },
       }
     }
@@ -157,6 +158,8 @@ export class ProjectController extends AbstractController<
       const body = await this.parseBody<
         Prisma.projectCreateInput & {
           customer_id?: number | null
+          project_manager_id?: number | null
+          branch?: string | null
           code?: string
           owner?: string
           district?: string
@@ -196,6 +199,8 @@ export class ProjectController extends AbstractController<
       const body = await this.parseBody<
         Prisma.projectUpdateInput & {
           customer_id?: number | null
+          project_manager_id?: number | null
+          branch?: string | null
           code?: string | null
           owner?: string | null
           district?: string | null

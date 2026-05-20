@@ -22,6 +22,7 @@ model employee {
   location     String?   @db.VarChar(64)
 
   event_assignments event_assignment[]
+  managed_projects project[] @relation("ProjectProjectManager")
 
   @@map("employee")
 }
@@ -88,12 +89,16 @@ model project {
   procedure_checklist   Json?    @map("procedure_checklist")
   pay_application_notes String?  @map("pay_application_notes") @db.Text
   pay_application_invoice_number String? @map("pay_application_invoice_number") @db.VarChar(255)
+  project_manager_id Int?               @map("project_manager_id")
+  branch               String?          @db.VarChar(255)
 
-  customer          customer?            @relation(fields: [customer_id], references: [id])
-  project_pay_items project_pay_item[]
-  project_phases    project_phase[]
-  events            event[]
+  customer           customer?            @relation(fields: [customer_id], references: [id])
+  project_manager    employee?           @relation("ProjectProjectManager", fields: [project_manager_id], references: [id], onDelete: SetNull)
+  project_pay_items  project_pay_item[]
+  project_phases     project_phase[]
+  events             event[]
 
+  @@index([project_manager_id])
   @@map("project")
 }
 
@@ -140,6 +145,7 @@ model project_phase {
   status             String?   @db.VarChar(255)
   status_date        DateTime? @map("status_date") @db.Date
   notes              String?   @db.Text
+  invoice_suffix      String?  @map("invoice_suffix") @db.VarChar(8)
   created_at         DateTime  @default(now()) @map("created_at")
   updated_at         DateTime  @default(now()) @updatedAt @map("updated_at")
 

@@ -4,6 +4,11 @@ import { ProjectRepository } from "../repositories/ProjectRepository"
 import { ValidationError, ConflictError } from "../base/types"
 import { getPrisma } from "@/lib/db"
 import { toZonedTime } from "date-fns-tz"
+import {
+  PROJECT_BRANCH_VALUES,
+  resolveAllowedProjectBranch,
+} from "@/domain/projectBranches"
+import { PROJECT_MANAGER_ROLE } from "@/domain/projectEmployees"
 
 const TIMEZONE = "America/New_York"
 
@@ -67,6 +72,58 @@ export class ProjectService extends AbstractService<
   constructor() {
     super()
     this.repository = new ProjectRepository()
+  }
+
+  /**
+   * Ensure the employee exists, is active, and has the PM role label (case-insensitive).
+   * Used only when assigning or changing managers.
+   */
+  private async assertEligibleProjectManager(
+    employeeId: number,
+  ): Promise<void> {
+    const prisma = await getPrisma()
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, active: true, role: true },
+    })
+
+    if (!emp) {
+      throw new ValidationError(`Employee with id ${employeeId} not found`)
+    }
+    if (!emp.active) {
+      throw new ValidationError(
+        "project_manager_id must reference an active employee",
+      )
+    }
+    const roleLabel = emp.role?.trim() ?? ""
+    if (roleLabel.toLowerCase() !== PROJECT_MANAGER_ROLE.toLowerCase()) {
+      throw new ValidationError(
+        `project_manager_id must reference an employee with role ${PROJECT_MANAGER_ROLE}`,
+      )
+    }
+  }
+
+  /** Maps API `project_manager_id` onto Prisma `project_manager` connect/disconnect. */
+  private normalizeProjectManagerRelation(
+    data: Prisma.projectCreateInput | Prisma.projectUpdateInput,
+    allowDisconnect: boolean = false,
+  ):
+    | { connect: { id: number } }
+    | { disconnect: true }
+    | undefined {
+    const dataAny = data as Record<string, unknown>
+
+    if (
+      typeof dataAny.project_manager_id === "number" &&
+      Number.isInteger(dataAny.project_manager_id) &&
+      dataAny.project_manager_id > 0
+    ) {
+      return { connect: { id: dataAny.project_manager_id } }
+    }
+    if (allowDisconnect && dataAny.project_manager_id === null) {
+      return { disconnect: true }
+    }
+    return undefined
   }
 
   /**
@@ -314,6 +371,37 @@ export class ProjectService extends AbstractService<
         )
       }
     }
+
+    // Optional branch — allowlisted labels (omit on PATCH to preserve existing)
+    if (dataAny.branch !== undefined && dataAny.branch !== null) {
+      if (typeof dataAny.branch !== "string") {
+        throw new ValidationError("branch must be a string or null")
+      }
+      const trimmed = dataAny.branch.trim()
+      if (!trimmed) {
+        throw new ValidationError(
+          `branch must be one of: ${PROJECT_BRANCH_VALUES.join(", ")}`,
+        )
+      }
+      if (!resolveAllowedProjectBranch(trimmed)) {
+        throw new ValidationError(
+          `branch must be one of: ${PROJECT_BRANCH_VALUES.join(", ")}`,
+        )
+      }
+    }
+
+    const pmIncoming = dataAny.project_manager_id
+    if (pmIncoming !== undefined && pmIncoming !== null) {
+      if (
+        typeof pmIncoming !== "number" ||
+        !Number.isInteger(pmIncoming) ||
+        pmIncoming <= 0
+      ) {
+        throw new ValidationError(
+          "project_manager_id must be a positive integer or null",
+        )
+      }
+    }
   }
 
   /**
@@ -419,6 +507,34 @@ export class ProjectService extends AbstractService<
         const t = (data as any).pay_application_invoice_number.trim()
         ;(processed as any).pay_application_invoice_number = t || null
       }
+    }
+
+    // Branch: canonical casing + clears
+    const branchRaw = (data as any).branch
+    if (branchRaw !== undefined) {
+      if (branchRaw === null || branchRaw === "") {
+        processed.branch = null
+      } else if (typeof branchRaw === "string") {
+        const canonical = resolveAllowedProjectBranch(branchRaw)
+        processed.branch = canonical ?? null
+      }
+    }
+
+    const rawPmCreate = (data as any).project_manager_id as
+      | number
+      | undefined
+      | null
+    if (rawPmCreate !== undefined && rawPmCreate !== null) {
+      await this.assertEligibleProjectManager(rawPmCreate)
+    }
+
+    const normalizedPmCreate =
+      this.normalizeProjectManagerRelation(data, false)
+    if (normalizedPmCreate) {
+      ;(processed as any).project_manager = normalizedPmCreate
+    }
+    if ((data as any).project_manager_id !== undefined) {
+      delete (processed as any).project_manager_id
     }
 
     // Normalize customer_id to Prisma relation format
@@ -573,6 +689,44 @@ export class ProjectService extends AbstractService<
         const t = (data as any).pay_application_invoice_number.trim()
         ;(processed as any).pay_application_invoice_number = t || null
       }
+    }
+
+    // Branch clears + canonical casing
+    const branchRawUpdate = (data as any).branch
+    if (branchRawUpdate !== undefined) {
+      if (branchRawUpdate === null || branchRawUpdate === "") {
+        processed.branch = null
+      } else if (typeof branchRawUpdate === "string") {
+        const canonical = resolveAllowedProjectBranch(branchRawUpdate)
+        processed.branch = canonical ?? null
+      }
+    }
+
+    const rawPmPatch = (data as any).project_manager_id as
+      | number
+      | null
+      | undefined
+    if (rawPmPatch !== undefined && rawPmPatch !== null) {
+      const existingRow = await this.repository.findUnique({
+        id,
+      } as Prisma.projectWhereUniqueInput)
+      const existingAny = existingRow as { project_manager_id?: number | null }
+      const currentPmId =
+        existingAny.project_manager_id === undefined ||
+        existingAny.project_manager_id === null
+          ? null
+          : existingAny.project_manager_id
+      if (rawPmPatch !== currentPmId) {
+        await this.assertEligibleProjectManager(rawPmPatch)
+      }
+    }
+
+    const normalizedPmUpdate = this.normalizeProjectManagerRelation(data, true)
+    if (normalizedPmUpdate) {
+      ;(processed as any).project_manager = normalizedPmUpdate
+    }
+    if ((data as any).project_manager_id !== undefined) {
+      delete (processed as any).project_manager_id
     }
 
     // Normalize customer_id to Prisma relation format

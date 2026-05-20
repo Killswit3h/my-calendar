@@ -11,6 +11,7 @@ describe("buildPhasesPutPayload", () => {
         locateTicket: "  ",
         dateCreated: "",
         readyToWorkDate: "2025-01-02",
+        invoiceSuffix: "  ab  ",
         onsiteReview: true,
         surveyed: false,
         status: " Ready ",
@@ -46,6 +47,7 @@ describe("buildPhasesPutPayload", () => {
     expect(p.name).toBe("P1")
     expect(p.locate_ticket).toBeNull()
     expect(p.ready_to_work_date).toBe("2025-01-02")
+    expect(p.invoice_suffix).toBe("AB")
     expect(p.notes).toBe("hi")
     const lines = p.lines as Array<Record<string, unknown>>
     expect(lines).toHaveLength(1)
@@ -62,6 +64,7 @@ describe("buildPhasesPutPayload", () => {
         locateTicket: "",
         dateCreated: "",
         readyToWorkDate: "",
+        invoiceSuffix: "",
         onsiteReview: false,
         surveyed: false,
         status: "Pending",

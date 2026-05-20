@@ -34,4 +34,24 @@ describe("mapApiProjectToProject", () => {
     )
     expect(p.payApplicationInvoiceNumber).toBe("")
   })
+
+  it("maps project_manager_id and branch when present", () => {
+    const p = mapApiProjectToProject(
+      baseApi({
+        project_manager_id: 9,
+        branch: "south florida",
+      }),
+    )
+    expect(p.projectManagerId).toBe(9)
+    expect(p.branch).toBe("south florida")
+  })
+
+  it("falls back PM id from expanded project_manager relation", () => {
+    const p = mapApiProjectToProject(
+      baseApi({
+        project_manager: { id: 42, name: "Alex Example" },
+      }),
+    )
+    expect(p.projectManagerId).toBe(42)
+  })
 })
